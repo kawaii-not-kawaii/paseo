@@ -295,7 +295,7 @@ function OpenMemberForm({
         onClose={onClose}
         desktopMaxWidth={720}
       >
-        <Text style={styles.submitError}>{dataError ?? t("message.actions.forkUnavailable")}</Text>
+        <Text style={styles.submitError}>{dataError ?? t("team.needsHostUpgrade")}</Text>
       </AdaptiveModalSheet>
     );
   }

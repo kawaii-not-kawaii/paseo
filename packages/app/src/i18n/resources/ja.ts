@@ -228,6 +228,7 @@ export const ja: TranslationResources = {
   team: {
     title: "チーム",
     daemon: "デーモン",
+    needsHostUpgrade: "これを使用するにはホストを更新してください。",
     project: {
       none: "このデーモンで利用できるプロジェクトはありません",
     },

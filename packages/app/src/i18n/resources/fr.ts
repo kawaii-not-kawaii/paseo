@@ -229,6 +229,7 @@ export const fr: TranslationResources = {
   team: {
     title: "Équipe",
     daemon: "Daemon",
+    needsHostUpgrade: "Mettez l'hôte à jour pour utiliser ceci.",
     project: {
       none: "Aucun projet disponible sur ce daemon",
     },

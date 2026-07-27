@@ -225,6 +225,7 @@ export const zhCN: TranslationResources = {
   team: {
     title: "团队",
     daemon: "守护进程",
+    needsHostUpgrade: "请更新主机以使用此功能。",
     project: {
       none: "此守护进程上没有可用项目",
     },

@@ -236,7 +236,7 @@ export function TeamScreen() {
       <View style={styles.screen} testID="team-screen">
         <MenuHeader title={t("team.title")} />
         <View style={styles.centered} testID="team-screen-gate-fallback">
-          <Text style={styles.muted}>{t("message.actions.forkUnavailable")}</Text>
+          <Text style={styles.muted}>{t("team.needsHostUpgrade")}</Text>
         </View>
       </View>
     );
@@ -501,7 +501,7 @@ function TeamSettingsSection({
   if (!settings) {
     return (
       <View style={styles.sectionCard}>
-        <Text style={settingsStyles.rowError}>{error ?? t("message.actions.forkUnavailable")}</Text>
+        <Text style={settingsStyles.rowError}>{error ?? t("team.needsHostUpgrade")}</Text>
         <TeamRecovery
           maintenance={maintenance}
           isRestoring={isRestoring}

@@ -225,6 +225,7 @@ export const ar: TranslationResources = {
   team: {
     title: "الفريق",
     daemon: "الخادم",
+    needsHostUpgrade: "حدّث المضيف لاستخدام هذا.",
     project: {
       none: "لا يوجد مشروع متاح على هذا الخادم",
     },

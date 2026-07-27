@@ -227,6 +227,7 @@ export const ru: TranslationResources = {
   team: {
     title: "Команда",
     daemon: "Демон",
+    needsHostUpgrade: "Обновите хост, чтобы использовать это.",
     project: {
       none: "На этом демоне нет доступного проекта",
     },

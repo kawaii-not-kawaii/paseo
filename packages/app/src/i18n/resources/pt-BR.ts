@@ -228,6 +228,7 @@ export const ptBR: TranslationResources = {
   team: {
     title: "Equipe",
     daemon: "Daemon",
+    needsHostUpgrade: "Atualize o host para usar isto.",
     project: {
       none: "Nenhum projeto disponível neste daemon",
     },

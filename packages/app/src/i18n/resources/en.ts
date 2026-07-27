@@ -224,6 +224,7 @@ export const en = {
   team: {
     title: "Team",
     daemon: "Daemon",
+    needsHostUpgrade: "Update the host to use this.",
     project: {
       none: "No project available on this daemon",
     },

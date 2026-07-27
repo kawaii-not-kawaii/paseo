@@ -253,15 +253,15 @@ acknowledged message or task change is lost (SC-006).
 
 ## Phase 7: Polish & cross-cutting
 
-- [ ] T115 [P] Add glossary entries to `docs/glossary.md` for Member, Channel, Task, Claim, Home workspace, and Member home directory — **disambiguating Task from Agent session**, which the glossary currently lists as a forbidden synonym (Constitution VI)
-- [ ] T116 [P] Add the SQLite boundary section to `docs/data-model.md` per Constitution VII, so the exception is not later read as general license
-- [ ] T117 [P] Add `docs/team.md` covering the Team surface, guard thresholds, and the claim model
-- [ ] T118 Verify the `docs/fork.md` touched-file table lists every upstream file actually modified, and that each entry is still the size it claims. An entry that outgrew "one-line seam" is a signal to move logic back into a fork-owned file
-- [ ] T119 [P] Add i18n strings for all new UI per `docs/i18n.md`; no hardcoded user-facing text
-- [ ] T120 Verify hover behaviour follows `docs/hover.md` — plain `View` with a separate inner `Pressable`, `isHovered || isNative || isCompact` for hover-to-reveal controls, and no `onPointerEnter`/`onPointerLeave`
-- [ ] T121 Verify no `useUnistyles()` anywhere in the new app code (`docs/unistyles.md`)
+- [x] T115 [P] Add glossary entries to `docs/glossary.md` for Member, Channel, Task, Claim, Home workspace, and Member home directory — **disambiguating Task from Agent session**, which the glossary currently lists as a forbidden synonym (Constitution VI)
+- [x] T116 [P] Add the SQLite boundary section to `docs/data-model.md` per Constitution VII, so the exception is not later read as general license
+- [x] T117 [P] Add `docs/team.md` covering the Team surface, guard thresholds, and the claim model
+- [x] T118 Verify the `docs/fork.md` touched-file table lists every upstream file actually modified, and that each entry is still the size it claims. An entry that outgrew "one-line seam" is a signal to move logic back into a fork-owned file
+- [x] T119 [P] Add i18n strings for all new UI per `docs/i18n.md`; no hardcoded user-facing text
+- [x] T120 Verify hover behaviour follows `docs/hover.md` — plain `View` with a separate inner `Pressable`, `isHovered || isNative || isCompact` for hover-to-reveal controls, and no `onPointerEnter`/`onPointerLeave`
+- [x] T121 Verify no `useUnistyles()` anywhere in the new app code (`docs/unistyles.md`)
 - [ ] T122 Execute quickstart steps 7, 11, and 14 (large-history performance, compact parity, backward compatibility both directions)
-- [ ] T123 Run `npm run typecheck`, `npm run lint`, and `npm run format`, then push and verify the full suite on CI rather than locally
+- [x] T123 Run `npm run typecheck`, `npm run lint`, and `npm run format`, then push and verify the full suite on CI rather than locally
 
 ---
 
