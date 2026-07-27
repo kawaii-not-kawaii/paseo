@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/require-post-message-target-origin */
 import { z } from "zod";
 import type { ManagedAgent } from "../agent/agent-manager.js";
 import type {
@@ -32,6 +33,32 @@ const teamReadInputSchema = z
 
 const teamRosterInputSchema = z.object({}).strict();
 const teamProposeMembersInputSchema = z.object({}).strict();
+const teamTasksInputSchema = z
+  .object({
+    status: z.enum(["todo", "in_progress", "in_review", "done"]).optional(),
+    mine: z.boolean().optional(),
+    claimable: z.boolean().optional(),
+  })
+  .strict();
+const teamTaskUpdateInputSchema = z
+  .object({
+    action: z.enum([
+      "create",
+      "claim",
+      "release",
+      "set_status",
+      "note",
+      "satisfy_criterion",
+      "handback",
+    ]),
+    taskId: z.string().optional(),
+    title: z.string().optional(),
+    body: z.string().optional(),
+    status: z.enum(["todo", "in_progress", "in_review", "done"]).optional(),
+    note: z.string().optional(),
+    criterionIndex: z.number().int().nonnegative().optional(),
+  })
+  .strict();
 
 interface RegisterTeamPaseoToolsOptions {
   registerTool: (
@@ -61,8 +88,7 @@ export function registerTeamPaseoTools(options: RegisterTeamPaseoToolsOptions): 
         throw new Error(`Channel ${input.channel} was not found in project ${scope.projectId}.`);
       }
 
-      const postTeamMessage = teamService.postMessage.bind(teamService);
-      const message = postTeamMessage({
+      const message = teamService.postMessage({
         projectId: scope.projectId,
         channelId: channel.id,
         authorMemberId: scope.memberId,
@@ -178,6 +204,132 @@ export function registerTeamPaseoTools(options: RegisterTeamPaseoToolsOptions): 
   );
 
   registerTool(
+    "team_tasks",
+    {
+      title: "Read team tasks",
+      description: "List tasks in the caller member's project.",
+      inputSchema: teamTasksInputSchema,
+    },
+    async (rawInput) => {
+      const input = teamTasksInputSchema.parse(rawInput);
+      const teamService = getConfiguredTeamService();
+      const scope = resolveCallerScope(host, teamService);
+      const tasks = teamService.listTasks({
+        projectId: scope.projectId,
+        status: input.status,
+        claimantMemberId: input.mine ? scope.memberId : undefined,
+        claimable: input.claimable,
+      });
+      return {
+        content: [{ type: "text", text: `Found ${tasks.length} task(s).` }],
+        structuredContent: {
+          tasks,
+        },
+      };
+    },
+  );
+
+  registerTool(
+    "team_task_update",
+    {
+      title: "Update team tasks",
+      description: "Create, claim, release, and update tasks in the caller member's project.",
+      inputSchema: teamTaskUpdateInputSchema,
+    },
+    async (rawInput) => {
+      const input = teamTaskUpdateInputSchema.parse(rawInput);
+      const teamService = getConfiguredTeamService();
+      const scope = resolveCallerScope(host, teamService);
+
+      switch (input.action) {
+        case "create": {
+          if (!input.title) {
+            throw new Error(
+              "Creating a task requires title. Provide the task title and try again.",
+            );
+          }
+          const task = teamService.createTask({
+            projectId: scope.projectId,
+            title: input.title,
+            body: input.body ?? null,
+            creatorMemberId: scope.memberId,
+          });
+          return taskResult(`Created task #${task.seq}.`, task);
+        }
+        case "claim": {
+          const taskId = requireTaskId(input.taskId, "claim");
+          const task = teamService.claimTask(scope.projectId, taskId, scope.memberId);
+          return taskResult(`Claimed task #${task.seq}.`, task);
+        }
+        case "release": {
+          const taskId = requireTaskId(input.taskId, "release");
+          const task = teamService.releaseTask(scope.projectId, taskId, scope.memberId);
+          return taskResult(`Released task #${task.seq}.`, task);
+        }
+        case "set_status": {
+          const taskId = requireTaskId(input.taskId, "set_status");
+          if (!input.status) {
+            throw new Error(
+              "Setting task status requires status. Provide todo, in_progress, in_review, or done.",
+            );
+          }
+          const task =
+            input.status === "done"
+              ? teamService.acceptTask(scope.projectId, taskId, scope.memberId)
+              : teamService.updateTask({
+                  projectId: scope.projectId,
+                  taskId,
+                  status: input.status,
+                  actorMemberId: scope.memberId,
+                });
+          return taskResult(`Updated task #${task.seq} to ${task.status}.`, task);
+        }
+        case "note": {
+          const taskId = requireTaskId(input.taskId, "note");
+          if (!input.note) {
+            throw new Error(
+              "Adding a note requires note. Write the progress you made, then retry.",
+            );
+          }
+          const note = teamService.addTaskNote(scope.projectId, taskId, scope.memberId, input.note);
+          return {
+            content: [{ type: "text", text: "Added a task note." }],
+            structuredContent: { note },
+          };
+        }
+        case "satisfy_criterion": {
+          const taskId = requireTaskId(input.taskId, "satisfy_criterion");
+          if (input.criterionIndex === undefined) {
+            throw new Error(
+              "Satisfying a criterion requires criterionIndex. Pick the zero-based criterion index and try again.",
+            );
+          }
+          const task = teamService.satisfyTaskCriterion(
+            scope.projectId,
+            taskId,
+            input.criterionIndex,
+            scope.memberId,
+          );
+          return taskResult(
+            `Satisfied criterion ${input.criterionIndex} on task #${task.seq}.`,
+            task,
+          );
+        }
+        case "handback": {
+          const taskId = requireTaskId(input.taskId, "handback");
+          const task = teamService.handbackTask(scope.projectId, taskId, scope.memberId);
+          return taskResult(
+            task.escalatedAt
+              ? `Task #${task.seq} escalated. Ask the user to decide the next step, then resume it.`
+              : `Handed back task #${task.seq}.`,
+            task,
+          );
+        }
+      }
+    },
+  );
+
+  registerTool(
     "team_propose_members",
     {
       title: "Propose team members",
@@ -251,4 +403,18 @@ function createMemberLifecycle(
     workspaceRegistry: host.workspaceRegistry,
     logger: host.logger,
   });
+}
+
+function requireTaskId(taskId: string | undefined, action: string): string {
+  if (!taskId) {
+    throw new Error(`${action} requires taskId. Pick a task first, then retry.`);
+  }
+  return taskId;
+}
+
+function taskResult(text: string, task: unknown): PaseoToolResult {
+  return {
+    content: [{ type: "text", text }],
+    structuredContent: { task },
+  };
 }

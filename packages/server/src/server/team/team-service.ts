@@ -6,16 +6,26 @@ import type {
   TeamHomeFileEntry,
   TeamMember,
   TeamMessage,
+  TeamProjectSettings,
   TeamRoleTemplate,
+  TeamTask,
+  TeamTaskAcceptanceCriterion,
+  TeamTaskNote,
 } from "@getpaseo/protocol/team/types";
+import { Claims } from "./claims.js";
 import {
   composeMemberSystemPrompt,
   ensureMemberHome,
   listMemberHomeFiles,
   readMemberHomeFile,
 } from "./member-home.js";
+import { ReviewCycle } from "./review-cycle.js";
 import { listBuiltInRoleTemplates } from "./role-templates.js";
-import { createProjectStore } from "./storage/project-store.js";
+import {
+  createProjectStore,
+  type ProjectSettings,
+  type ProjectTask,
+} from "./storage/project-store.js";
 import { createRosterStore, type RosterMember } from "./storage/roster-store.js";
 import { createTeamDatabaseManager } from "./storage/database.js";
 
@@ -106,18 +116,51 @@ export interface TeamMemberHomeFile {
   content: string;
 }
 
-interface TeamMessagePostedEvent {
-  type: "team.message.posted";
+export interface CreateTeamTaskInput {
   projectId: string;
-  message: TeamMessage;
+  title: string;
+  body?: string | null;
+  creatorMemberId: string;
+  assigneeMemberId?: string | null;
+  dependsOnTaskIds?: string[];
+  acceptanceCriteria?: TeamTaskAcceptanceCriterion[];
 }
+
+export interface UpdateTeamTaskInput {
+  projectId: string;
+  taskId: string;
+  title?: string;
+  body?: string | null;
+  status?: TeamTask["status"];
+  assigneeMemberId?: string | null;
+  dependsOnTaskIds?: string[];
+  acceptanceCriteria?: TeamTaskAcceptanceCriterion[];
+  actorMemberId?: string;
+  bypassClaim?: boolean;
+}
+
+export interface ListTeamTasksInput {
+  projectId: string;
+  status?: TeamTask["status"];
+  assigneeMemberId?: string;
+  creatorMemberId?: string;
+  claimantMemberId?: string;
+  claimable?: boolean;
+}
+
+export type TeamServiceEvent =
+  | { type: "team.message.posted"; projectId: string; message: TeamMessage }
+  | { type: "team.task.changed"; projectId: string; task: TeamTask }
+  | { type: "team.project.stopped"; projectId: string; task: TeamTask | null; reason: string };
 
 export class TeamService {
   private readonly dbManager;
   private readonly now: () => Date;
   private readonly createId: () => string;
-  private readonly listeners = new Set<(event: TeamMessagePostedEvent) => void>();
+  private readonly listeners = new Set<(event: TeamServiceEvent) => void>();
   private readonly paseoHome: string;
+  private readonly claims: Claims;
+  private readonly reviewCycle: ReviewCycle;
 
   constructor(options: TeamServiceOptions) {
     const teamDir = join(options.paseoHome, "team");
@@ -126,6 +169,35 @@ export class TeamService {
     this.paseoHome = options.paseoHome;
     this.now = options.now ?? (() => new Date());
     this.createId = options.createId ?? randomUUID;
+    this.claims = new Claims({
+      now: this.now,
+      openProject: (projectId) => this.dbManager.openProject(projectId),
+      openRoster: () => this.dbManager.openRoster(),
+      onProgress: ({ projectId, taskId, memberId, kind }) => {
+        createProjectStore(this.dbManager.openProject(projectId)).addProgressEvent({
+          taskId,
+          memberId,
+          kind,
+          createdAt: this.now().toISOString(),
+        });
+        this.reviewCycle.recordProgress(projectId);
+      },
+    });
+    this.reviewCycle = new ReviewCycle({
+      now: this.now,
+      openProject: (projectId) => this.dbManager.openProject(projectId),
+      onProjectStopped: ({ projectId, task, reason }) => {
+        this.emit({
+          type: "team.project.stopped",
+          projectId,
+          task: task ? toTeamTask(task) : null,
+          reason,
+        });
+        if (task) {
+          this.emit({ type: "team.task.changed", projectId, task: toTeamTask(task) });
+        }
+      },
+    });
     this.ensureHumanMember();
   }
 
@@ -224,6 +296,7 @@ export class TeamService {
     const rosterStore = createRosterStore(this.dbManager.openRoster());
     rosterStore.archiveMember(memberId, archivedAt);
     createProjectStore(this.dbManager.openProject(projectId)).removeProjectMember(memberId);
+    this.claims.releaseForMember(projectId, memberId);
 
     return rosterStore.getMember(memberId)?.archivedAt ? memberId : null;
   }
@@ -277,6 +350,7 @@ export class TeamService {
       homeWorkspaceId: null,
       joinedAt: existing.joinedAt,
     });
+    this.claims.releaseForMember(input.projectId, input.memberId);
   }
 
   public getChannel(projectId: string, channelId: string): TeamChannel | null {
@@ -403,6 +477,12 @@ export class TeamService {
       projectStore.addMessageMention(messageId, memberId);
     }
 
+    if (input.authorMemberId === this.getHumanMember().id) {
+      this.reviewCycle.recordUserMessage(input.projectId);
+    } else if (input.autoStarted) {
+      this.reviewCycle.recordAutomaticTurn(input.projectId);
+    }
+
     const created = projectStore.getMessage(messageId);
     if (!created) {
       throw new Error(`Created message ${messageId} was not persisted`);
@@ -432,6 +512,293 @@ export class TeamService {
     };
   }
 
+  public getProjectSettings(projectId: string): TeamProjectSettings {
+    return toTeamProjectSettings(
+      createProjectStore(this.dbManager.openProject(projectId)).getProjectSettings(),
+    );
+  }
+
+  public updateProjectSettings(
+    projectId: string,
+    settings: TeamProjectSettings,
+  ): TeamProjectSettings {
+    validateProjectSettings(settings);
+    createProjectStore(this.dbManager.openProject(projectId)).updateProjectSettings(
+      fromTeamProjectSettings(settings),
+    );
+    return this.getProjectSettings(projectId);
+  }
+
+  public listTasks(input: ListTeamTasksInput): TeamTask[] {
+    const now = this.now().toISOString();
+    createProjectStore(this.dbManager.openProject(input.projectId)).expireClaims(now, now);
+    return createProjectStore(this.dbManager.openProject(input.projectId))
+      .listTasks({
+        status: input.status,
+        assigneeMemberId: input.assigneeMemberId,
+        creatorMemberId: input.creatorMemberId,
+        claimantMemberId: input.claimantMemberId,
+        claimableAt: input.claimable ? now : undefined,
+      })
+      .map(toTeamTask);
+  }
+
+  public getTask(projectId: string, taskId: string): TeamTask | null {
+    const now = this.now().toISOString();
+    createProjectStore(this.dbManager.openProject(projectId)).expireClaims(now, now);
+    const task = createProjectStore(this.dbManager.openProject(projectId)).getTask(taskId);
+    return task ? toTeamTask(task) : null;
+  }
+
+  public createTask(input: CreateTeamTaskInput): TeamTask {
+    const created = createProjectStore(this.dbManager.openProject(input.projectId)).createTask({
+      id: this.createId(),
+      title: input.title,
+      body: input.body ?? null,
+      status: "todo",
+      creatorMemberId: input.creatorMemberId,
+      assigneeMemberId: input.assigneeMemberId ?? null,
+      createdAt: this.now().toISOString(),
+      updatedAt: this.now().toISOString(),
+      dependsOnTaskIds: input.dependsOnTaskIds ?? [],
+      acceptanceCriteria: input.acceptanceCriteria ?? [],
+    });
+    this.emit({ type: "team.task.changed", projectId: input.projectId, task: toTeamTask(created) });
+    return toTeamTask(created);
+  }
+
+  public updateTask(input: UpdateTeamTaskInput): TeamTask {
+    const projectStore = createProjectStore(this.dbManager.openProject(input.projectId));
+    if (!input.bypassClaim) {
+      if (!input.actorMemberId) {
+        throw new Error("Member task updates must identify the acting claimant.");
+      }
+      this.reviewCycle.assertProjectRunning(input.projectId);
+      this.claims.assertCanMutate(input.projectId, input.taskId, input.actorMemberId);
+    }
+    const updated = projectStore.updateTask({
+      taskId: input.taskId,
+      title: input.title,
+      body: input.body,
+      status: input.status,
+      assigneeMemberId: input.assigneeMemberId,
+      updatedAt: this.now().toISOString(),
+    });
+    if (!updated) {
+      throw new Error(`Task ${input.taskId} was not found.`);
+    }
+    if (input.dependsOnTaskIds) {
+      projectStore.replaceTaskDependencies(input.taskId, input.dependsOnTaskIds);
+    }
+    if (input.acceptanceCriteria) {
+      projectStore.replaceTaskAcceptanceCriteria(input.taskId, input.acceptanceCriteria);
+    }
+    const finalTask = projectStore.getTask(input.taskId);
+    if (!finalTask) {
+      throw new Error(`Task ${input.taskId} was not found after update.`);
+    }
+    if (input.actorMemberId) {
+      this.recordProgress(input.projectId, input.taskId, input.actorMemberId, "status_changed");
+      this.claims.renew(
+        input.projectId,
+        input.taskId,
+        input.actorMemberId,
+        this.getProjectSettings(input.projectId).attemptTimeoutMs,
+      );
+    }
+    this.emit({
+      type: "team.task.changed",
+      projectId: input.projectId,
+      task: toTeamTask(finalTask),
+    });
+    return toTeamTask(finalTask);
+  }
+
+  public deleteTask(projectId: string, taskId: string): string | null {
+    return createProjectStore(this.dbManager.openProject(projectId)).deleteTask(taskId);
+  }
+
+  public claimTask(projectId: string, taskId: string, memberId: string): TeamTask {
+    this.reviewCycle.assertProjectRunning(projectId);
+    const task = this.claims.acquire(
+      projectId,
+      taskId,
+      memberId,
+      this.getProjectSettings(projectId).attemptTimeoutMs,
+    );
+    this.emit({ type: "team.task.changed", projectId, task: toTeamTask(task) });
+    return toTeamTask(task);
+  }
+
+  public overrideTaskClaim(
+    projectId: string,
+    taskId: string,
+    claimantMemberId: string | null,
+  ): TeamTask {
+    const projectStore = createProjectStore(this.dbManager.openProject(projectId));
+    const updatedAt = this.now().toISOString();
+    let task: ProjectTask | null;
+    if (claimantMemberId === null) {
+      projectStore.releaseTaskClaim({
+        taskId,
+        updatedAt,
+        attemptStartedAt: null,
+        escalatedAt: null,
+      });
+      task = projectStore.getTask(taskId);
+    } else {
+      task = projectStore.updateTask({
+        taskId,
+        claimantMemberId,
+        claimExpiresAt: new Date(
+          Date.parse(updatedAt) + this.getProjectSettings(projectId).attemptTimeoutMs,
+        ).toISOString(),
+        attemptStartedAt: updatedAt,
+        escalatedAt: null,
+        updatedAt,
+      });
+      this.recordProgress(projectId, taskId, claimantMemberId, "claimed");
+    }
+    if (!task) {
+      throw new Error(`Task ${taskId} was not found.`);
+    }
+    this.emit({ type: "team.task.changed", projectId, task: toTeamTask(task) });
+    return toTeamTask(task);
+  }
+
+  public releaseTask(projectId: string, taskId: string, memberId: string): TeamTask {
+    const task = this.claims.release(projectId, taskId, memberId);
+    this.emit({ type: "team.task.changed", projectId, task: toTeamTask(task) });
+    return toTeamTask(task);
+  }
+
+  public addTaskNote(
+    projectId: string,
+    taskId: string,
+    authorMemberId: string,
+    body: string,
+  ): TeamTaskNote {
+    this.reviewCycle.assertProjectRunning(projectId);
+    this.claims.assertCanMutate(projectId, taskId, authorMemberId);
+    const note = createProjectStore(this.dbManager.openProject(projectId)).createTaskNote({
+      id: this.createId(),
+      taskId,
+      authorMemberId,
+      body,
+      createdAt: this.now().toISOString(),
+    });
+    this.recordProgress(projectId, taskId, authorMemberId, "noted");
+    this.claims.renew(
+      projectId,
+      taskId,
+      authorMemberId,
+      this.getProjectSettings(projectId).attemptTimeoutMs,
+    );
+    const task = this.getTask(projectId, taskId);
+    if (task) {
+      this.emit({ type: "team.task.changed", projectId, task });
+    }
+    return toTeamTaskNote(note);
+  }
+
+  public satisfyTaskCriterion(
+    projectId: string,
+    taskId: string,
+    position: number,
+    memberId: string,
+  ): TeamTask {
+    this.reviewCycle.assertProjectRunning(projectId);
+    this.claims.assertCanMutate(projectId, taskId, memberId);
+    createProjectStore(this.dbManager.openProject(projectId)).satisfyTaskCriterion(
+      taskId,
+      position,
+      this.now().toISOString(),
+    );
+    this.recordProgress(projectId, taskId, memberId, "criterion_satisfied");
+    this.claims.renew(
+      projectId,
+      taskId,
+      memberId,
+      this.getProjectSettings(projectId).attemptTimeoutMs,
+    );
+    const task = this.getTask(projectId, taskId);
+    if (!task) {
+      throw new Error(`Task ${taskId} was not found.`);
+    }
+    this.emit({ type: "team.task.changed", projectId, task });
+    return task;
+  }
+
+  public handbackTask(projectId: string, taskId: string, memberId: string): TeamTask {
+    this.reviewCycle.assertProjectRunning(projectId);
+    this.claims.assertCanMutate(projectId, taskId, memberId);
+    this.recordProgress(projectId, taskId, memberId, "status_changed");
+    const task = this.reviewCycle.handleHandback(projectId, taskId);
+    this.emit({ type: "team.task.changed", projectId, task: toTeamTask(task) });
+    return toTeamTask(task);
+  }
+
+  public acceptTask(projectId: string, taskId: string, memberId: string): TeamTask {
+    this.reviewCycle.assertProjectRunning(projectId);
+    this.claims.assertCanMutate(projectId, taskId, memberId);
+    this.recordProgress(projectId, taskId, memberId, "status_changed");
+    const task = this.reviewCycle.handleAcceptance(projectId, taskId);
+    this.emit({ type: "team.task.changed", projectId, task: toTeamTask(task) });
+    return toTeamTask(task);
+  }
+
+  public checkTaskAttemptTimeouts(projectId: string): TeamTask[] {
+    return this.reviewCycle.checkAttemptTimeouts(projectId).map((task) => toTeamTask(task));
+  }
+
+  public stopProject(projectId: string): string {
+    return this.reviewCycle.stopProject(projectId);
+  }
+
+  public resumeProject(projectId: string, taskId?: string): { taskId: string | null } {
+    this.reviewCycle.resumeProject(projectId);
+    if (taskId) {
+      const task = createProjectStore(this.dbManager.openProject(projectId)).updateTask({
+        taskId,
+        escalatedAt: null,
+        updatedAt: this.now().toISOString(),
+      });
+      if (!task) {
+        throw new Error(`Task ${taskId} was not found.`);
+      }
+      this.emit({ type: "team.task.changed", projectId, task: toTeamTask(task) });
+    }
+    return { taskId: taskId ?? null };
+  }
+
+  public subscribe(listener: (event: TeamServiceEvent) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private emit(event: TeamServiceEvent): void {
+    for (const listener of this.listeners) {
+      listener(event);
+    }
+  }
+
+  private recordProgress(
+    projectId: string,
+    taskId: string,
+    memberId: string,
+    kind: "claimed" | "released" | "status_changed" | "noted" | "criterion_satisfied",
+  ): void {
+    createProjectStore(this.dbManager.openProject(projectId)).addProgressEvent({
+      taskId,
+      memberId,
+      kind,
+      createdAt: this.now().toISOString(),
+    });
+    this.reviewCycle.recordProgress(projectId);
+  }
+
   private ensureHumanMember(): void {
     const rosterStore = createRosterStore(this.dbManager.openRoster());
     const hasHuman = rosterStore
@@ -454,19 +821,6 @@ export class TeamService {
       createdAt: this.now().toISOString(),
       archivedAt: null,
     });
-  }
-
-  public subscribe(listener: (event: TeamMessagePostedEvent) => void): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  private emit(event: TeamMessagePostedEvent): void {
-    for (const listener of this.listeners) {
-      listener(event);
-    }
   }
 
   private resolveMentionMemberIds(projectId: string, body: string): string[] {
@@ -571,6 +925,79 @@ function toTeamMessage(
     createdAt: message.createdAt,
     autoStarted: message.autoStarted,
   };
+}
+
+function toTeamTask(task: ProjectTask): TeamTask {
+  return {
+    id: task.id,
+    seq: task.seq,
+    title: task.title,
+    body: task.body,
+    status: task.status,
+    creatorMemberId: task.creatorMemberId,
+    assigneeMemberId: task.assigneeMemberId,
+    claimantMemberId: task.claimantMemberId,
+    claimExpiresAt: task.claimExpiresAt,
+    handbackCount: task.handbackCount,
+    attemptStartedAt: task.attemptStartedAt,
+    escalatedAt: task.escalatedAt,
+    dependsOnTaskIds: task.dependsOnTaskIds,
+    acceptanceCriteria: task.acceptanceCriteria,
+    notes: task.notes.map(toTeamTaskNote),
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+  };
+}
+
+function toTeamTaskNote(note: {
+  id: string;
+  taskId: string;
+  authorMemberId: string;
+  body: string;
+  createdAt: string;
+}): TeamTaskNote {
+  return {
+    id: note.id,
+    taskId: note.taskId,
+    authorMemberId: note.authorMemberId,
+    body: note.body,
+    createdAt: note.createdAt,
+  };
+}
+
+function toTeamProjectSettings(settings: ProjectSettings): TeamProjectSettings {
+  return {
+    messageRetentionCap: settings.messageRetentionCap,
+    handbackLimit: settings.handbackLimit,
+    attemptTimeoutMs: settings.attemptTimeoutMs,
+    noProgressLimit: settings.noProgressLimit,
+    autoStartEnabled: settings.autoStartEnabled,
+  };
+}
+
+function fromTeamProjectSettings(settings: TeamProjectSettings): ProjectSettings {
+  return {
+    messageRetentionCap: settings.messageRetentionCap,
+    handbackLimit: settings.handbackLimit,
+    attemptTimeoutMs: settings.attemptTimeoutMs,
+    noProgressLimit: settings.noProgressLimit,
+    autoStartEnabled: settings.autoStartEnabled,
+  };
+}
+
+function validateProjectSettings(settings: TeamProjectSettings): void {
+  if (settings.messageRetentionCap <= 0) {
+    throw new Error("messageRetentionCap must be at least 1.");
+  }
+  if (settings.handbackLimit < 0) {
+    throw new Error("handbackLimit must be 0 or greater.");
+  }
+  if (settings.attemptTimeoutMs <= 0) {
+    throw new Error("attemptTimeoutMs must be at least 1 millisecond.");
+  }
+  if (settings.noProgressLimit < 0) {
+    throw new Error("noProgressLimit must be 0 or greater.");
+  }
 }
 
 function parseMentionNames(body: string): string[] {

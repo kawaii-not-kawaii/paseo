@@ -259,6 +259,94 @@ describe("team MCP tools", () => {
     service.close();
   });
 
+  test("team_tasks lists claimable tasks and team_task_update explains refusals", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human", "member-reviewer", "member-qa", "task-1", "task-2"),
+    });
+    setConfiguredTeamServiceForTests(service);
+
+    const reviewer = service.createMember({
+      projectId: "project-1",
+      name: "Reviewer",
+      description: "Checks diffs",
+      provider: "codex",
+      model: "gpt-5",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    const qa = service.createMember({
+      projectId: "project-1",
+      name: "QA",
+      description: "Breaks things",
+      provider: "codex",
+      model: "gpt-5",
+      homeWorkspaceId: "workspace-qa",
+    });
+    const blocker = service.createTask({
+      projectId: "project-1",
+      title: "Blocker",
+      creatorMemberId: reviewer.id,
+    });
+    const blocked = service.createTask({
+      projectId: "project-1",
+      title: "Blocked",
+      creatorMemberId: reviewer.id,
+      dependsOnTaskIds: [blocker.id],
+    });
+    const catalog = createCatalog(
+      createCallerAgent({
+        agentId: "agent-reviewer",
+        projectId: "project-1",
+        memberId: reviewer.id,
+      }),
+    );
+
+    const list = await catalog.executeTool("team_tasks", { claimable: true });
+    expect(list.structuredContent).toEqual({
+      tasks: [expect.objectContaining({ id: blocker.id })],
+    });
+
+    await expect(
+      catalog.executeTool("team_task_update", {
+        action: "claim",
+        taskId: blocked.id,
+      }),
+    ).rejects.toThrowError(`Task #${blocked.seq} is blocked by #${blocker.seq}.`);
+
+    await catalog.executeTool("team_task_update", {
+      action: "claim",
+      taskId: blocker.id,
+    });
+
+    const qaCatalog = createCatalog(
+      createCallerAgent({
+        agentId: "agent-qa",
+        projectId: "project-1",
+        memberId: qa.id,
+      }),
+    );
+
+    await expect(
+      qaCatalog.executeTool("team_task_update", {
+        action: "set_status",
+        taskId: blocker.id,
+        status: "in_review",
+      }),
+    ).rejects.toThrowError(`Task #${blocker.seq} is claimed by Reviewer.`);
+
+    await expect(
+      qaCatalog.executeTool("team_task_update", {
+        action: "note",
+        taskId: blocker.id,
+        note: "trying anyway",
+      }),
+    ).rejects.toThrowError(`Task #${blocker.seq} is claimed by Reviewer.`);
+
+    service.close();
+  });
+
   async function createPaseoHome(): Promise<string> {
     const path = await mkdtemp(join(tmpdir(), "team-mcp-tools-test-"));
     cleanupPaths.push(path);

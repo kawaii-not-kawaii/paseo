@@ -185,29 +185,29 @@ change in both directions and that contention resolves to exactly one holder (SC
 
 ### Claims — the correctness core
 
-- [ ] T075 [US3] Write a failing test in `packages/server/src/server/team/claims.test.ts` asserting the conditional-UPDATE claim from data-model.md: two concurrent claims on one task, exactly one succeeds, the loser is told who holds it (FR-024a)
-- [ ] T076 [US3] Implement `packages/server/src/server/team/claims.ts` — acquire, renew on progress, release, expire — with exclusivity from the SQL predicate, not application-level care
-- [ ] T077 [US3] **INVARIANT TEST** Write a test in `packages/server/src/server/team/claims.test.ts` asserting a claim **survives the idle runtime reaper**: a member claims a task, its runtime is collected past `IDLE_AGENT_RUNTIME_TTL_MS`, and the claim is still held and unexpired (research R1, quickstart step 3). This is the regression test that prevents members stealing in-progress work
-- [ ] T078 [US3] Write a failing test in `packages/server/src/server/team/claims.test.ts` asserting a task with unmet dependencies cannot be claimed and the refusal names the blockers (FR-024f)
-- [ ] T079 [US3] Write a failing test in `packages/server/src/server/team/claims.test.ts` asserting only the claimant may change status, edit, or annotate, and that the user can always override (FR-024b)
-- [ ] T080 [US3] Write a failing test in `packages/server/src/server/team/claims.test.ts` asserting a claim is released when its holder is removed or loses its home workspace, so no task is stranded (FR-024e)
+- [x] T075 [US3] Write a failing test in `packages/server/src/server/team/claims.test.ts` asserting the conditional-UPDATE claim from data-model.md: two concurrent claims on one task, exactly one succeeds, the loser is told who holds it (FR-024a)
+- [x] T076 [US3] Implement `packages/server/src/server/team/claims.ts` — acquire, renew on progress, release, expire — with exclusivity from the SQL predicate, not application-level care
+- [x] T077 [US3] **INVARIANT TEST** Write a test in `packages/server/src/server/team/claims.test.ts` asserting a claim **survives the idle runtime reaper**: a member claims a task, its runtime is collected past `IDLE_AGENT_RUNTIME_TTL_MS`, and the claim is still held and unexpired (research R1, quickstart step 3). This is the regression test that prevents members stealing in-progress work
+- [x] T078 [US3] Write a failing test in `packages/server/src/server/team/claims.test.ts` asserting a task with unmet dependencies cannot be claimed and the refusal names the blockers (FR-024f)
+- [x] T079 [US3] Write a failing test in `packages/server/src/server/team/claims.test.ts` asserting only the claimant may change status, edit, or annotate, and that the user can always override (FR-024b)
+- [x] T080 [US3] Write a failing test in `packages/server/src/server/team/claims.test.ts` asserting a claim is released when its holder is removed or loses its home workspace, so no task is stranded (FR-024e)
 
 ### Tasks and guards
 
-- [ ] T081 [US3] Implement task CRUD, dependencies, notes, and acceptance criteria in `packages/server/src/server/team/team-service.ts` with the per-project `seq` counter for `#18`-style references
-- [ ] T082 [US3] Implement `progress_events` writes for every claim, release, status change, note, and satisfied criterion
-- [ ] T083 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting handback increments the count, releases the claim, and resets on acceptance (FR-035c)
-- [ ] T084 [US3] Implement `packages/server/src/server/team/review-cycle.ts` — handback counting, escalation at the limit, guards. Reuse the _semantics_ of `loop-service.ts`; do not import from or modify it
-- [ ] T085 [US3] **INVARIANT TEST** Write a test in `packages/server/src/server/team/review-cycle.test.ts` asserting a **converging** review loop is never interrupted regardless of round count, as long as progress is recorded (SC-015) — a guard that stops productive work is the worst failure mode in this feature
-- [ ] T086 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting a non-converging task escalates after the handback limit, stops **only that task**, and leaves other members working (FR-035d, FR-035e)
-- [ ] T087 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting the per-attempt wall-clock limit stops a member wedged inside one attempt, where the handback count never increments (FR-035d1)
-- [ ] T088 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting the no-progress backstop stops members exchanging messages without touching work, and that any progress event or user message resets it (FR-035f)
-- [ ] T089 [US3] Implement escalation delivery in `packages/server/src/server/team/review-cycle.ts` through the existing notification path, verified with the app backgrounded rather than open on the Team view (FR-035e1, SC-017a)
-- [ ] T090 [US3] Implement `team.project.stop_all` and `team.project.resume` with counter resets (FR-035g, FR-035h)
-- [ ] T091 [US3] Implement `project_settings` defaults from research: handbacks 3, attempt timeout 30 min (also the claim lease TTL), no-progress backstop 12, message retention cap 50,000 (user-chosen placeholder, not derived from research — revisit at T108/T109)
-- [ ] T091a [US3] Write a failing test then implement the `team.project.get_settings` and `team.project.update_settings` handlers in `packages/server/src/server/team/team-service.ts`, validating each value at the trust boundary — a retention cap of `0` or a negative attempt timeout must be refused with a message naming the valid range, never persisted
+- [x] T081 [US3] Implement task CRUD, dependencies, notes, and acceptance criteria in `packages/server/src/server/team/team-service.ts` with the per-project `seq` counter for `#18`-style references
+- [x] T082 [US3] Implement `progress_events` writes for every claim, release, status change, note, and satisfied criterion
+- [x] T083 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting handback increments the count, releases the claim, and resets on acceptance (FR-035c)
+- [x] T084 [US3] Implement `packages/server/src/server/team/review-cycle.ts` — handback counting, escalation at the limit, guards. Reuse the _semantics_ of `loop-service.ts`; do not import from or modify it
+- [x] T085 [US3] **INVARIANT TEST** Write a test in `packages/server/src/server/team/review-cycle.test.ts` asserting a **converging** review loop is never interrupted regardless of round count, as long as progress is recorded (SC-015) — a guard that stops productive work is the worst failure mode in this feature
+- [x] T086 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting a non-converging task escalates after the handback limit, stops **only that task**, and leaves other members working (FR-035d, FR-035e)
+- [x] T087 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting the per-attempt wall-clock limit stops a member wedged inside one attempt, where the handback count never increments (FR-035d1)
+- [x] T088 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting the no-progress backstop stops members exchanging messages without touching work, and that any progress event or user message resets it (FR-035f)
+- [x] T089 [US3] Implement escalation delivery in `packages/server/src/server/team/review-cycle.ts` through the existing notification path, verified with the app backgrounded rather than open on the Team view (FR-035e1, SC-017a)
+- [x] T090 [US3] Implement `team.project.stop_all` and `team.project.resume` with counter resets (FR-035g, FR-035h)
+- [x] T091 [US3] Implement `project_settings` defaults from research: handbacks 3, attempt timeout 30 min (also the claim lease TTL), no-progress backstop 12, message retention cap 50,000 (user-chosen placeholder, not derived from research — revisit at T108/T109)
+- [x] T091a [US3] Write a failing test then implement the `team.project.get_settings` and `team.project.update_settings` handlers in `packages/server/src/server/team/team-service.ts`, validating each value at the trust boundary — a retention cap of `0` or a negative attempt timeout must be refused with a message naming the valid range, never persisted
 - [ ] T091b [US3] Implement the project settings view in `packages/app/src/screens/team/settings/project-settings-form.tsx` following `docs/forms.md` (non-React form model, load-state gating), exposing all four values — message retention cap, handback limit, attempt timeout, no-progress backstop — as editable fields with their defaults shown, reachable from the Team section switcher. Lowering the retention cap MUST say what it will prune before it is saved (FR-040 discoverability)
-- [ ] T092 [US3] Write a failing test then implement `team_tasks` and `team_task_update` in `packages/server/src/server/team/mcp-tools.ts`, asserting every refusal explains what to do next — a bare "denied" makes members retry in a loop
+- [x] T092 [US3] Write a failing test then implement `team_tasks` and `team_task_update` in `packages/server/src/server/team/mcp-tools.ts`, asserting every refusal explains what to do next — a bare "denied" makes members retry in a loop
 
 ### App — board
 
