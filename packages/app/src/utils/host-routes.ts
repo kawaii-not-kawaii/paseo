@@ -573,3 +573,15 @@ export function buildProjectSettingsRoute(projectKey: string) {
   }
   return `/settings/projects/${encodeSegment(normalized)}` as const;
 }
+
+export function buildHostTeamRoute(serverId: string, section: string) {
+  const normalizedServerId = trimNonEmpty(serverId);
+  const normalizedSection = trimNonEmpty(section);
+  if (!normalizedServerId) {
+    throw new Error("buildHostTeamRoute requires a non-empty serverId");
+  }
+  if (!normalizedSection) {
+    throw new Error("buildHostTeamRoute requires a non-empty section");
+  }
+  return `/h/${encodeSegment(normalizedServerId)}/team/${encodeSegment(normalizedSection)}` as const;
+}

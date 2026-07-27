@@ -222,6 +222,40 @@ export const ptBR: TranslationResources = {
       loadMore: "Carregar mais",
     },
   },
+  team: {
+    title: "Equipe",
+    daemon: "Daemon",
+    project: {
+      none: "Nenhum projeto disponível neste daemon",
+    },
+    sections: {
+      chat: "Chat",
+      members: "Membros",
+      tasks: "Tarefas",
+      settings: "Configurações",
+      pending: "Esta seção chega em uma tarefa posterior de Team Parity.",
+    },
+    chat: {
+      channels: "Canais",
+      activity: "Atividade dos membros",
+      messages: "Mensagens",
+      compose: "Escrever",
+      emptyChannels: "Ainda não há canais",
+      emptyMessages: "Ainda não há mensagens",
+      loadOlder: "Carregar mensagens antigas",
+      placeholder: "Publique neste canal e mencione @membros",
+      send: "Enviar",
+      sent: "Enviado",
+      sending: "Enviando...",
+      noMentions: "Nenhum membro corresponde a esta menção",
+    },
+    members: {
+      idle: "Ocioso",
+      working: "Trabalhando",
+      stopped: "Parado",
+      unavailable: "Indisponível",
+    },
+  },
   agentList: {
     fallbackTitle: "Nova sessão",
     dateSections: {

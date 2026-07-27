@@ -221,6 +221,40 @@ export const ru: TranslationResources = {
       loadMore: "Загрузить больше",
     },
   },
+  team: {
+    title: "Команда",
+    daemon: "Демон",
+    project: {
+      none: "На этом демоне нет доступного проекта",
+    },
+    sections: {
+      chat: "Чат",
+      members: "Участники",
+      tasks: "Задачи",
+      settings: "Настройки",
+      pending: "Этот раздел появится в следующей задаче Team Parity.",
+    },
+    chat: {
+      channels: "Каналы",
+      activity: "Активность участников",
+      messages: "Сообщения",
+      compose: "Написать",
+      emptyChannels: "Каналов пока нет",
+      emptyMessages: "Сообщений пока нет",
+      loadOlder: "Загрузить более старые сообщения",
+      placeholder: "Пишите в этот канал и упоминайте @участников",
+      send: "Отправить",
+      sent: "Отправлено",
+      sending: "Отправка...",
+      noMentions: "Нет участников для этого упоминания",
+    },
+    members: {
+      idle: "Ожидает",
+      working: "Работает",
+      stopped: "Остановлен",
+      unavailable: "Недоступен",
+    },
+  },
   agentList: {
     fallbackTitle: "Новая сессия",
     dateSections: {

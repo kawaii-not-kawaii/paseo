@@ -16,6 +16,9 @@ import type { WorkspaceGitRuntimeSnapshot } from "../workspace-git-service.js";
 import { createWorktree, type WorktreeConfig } from "../../utils/worktree.js";
 import type { ForgeService } from "../../../services/forge-service.js";
 import type { StoredAgentRecord } from "../agent/agent-storage.js";
+import { MemberLifecycle } from "../team/member-lifecycle.js";
+import { TeamService } from "../team/team-service.js";
+import { createTestLogger } from "../../test-utils/test-logger.js";
 
 const CWD = "/tmp/paseo/worktrees/repo/branch";
 const PASEO_HOME = "/tmp/paseo";
@@ -335,6 +338,11 @@ function createRealOutcomeHarness(input: {
   };
 }
 
+function sequenceIds(...ids: string[]): () => string {
+  let index = 0;
+  return () => ids[index++] ?? `generated-${index}`;
+}
+
 afterEach(() => {
   for (const target of cleanupPaths.splice(0)) {
     rmSync(target, { recursive: true, force: true });
@@ -364,6 +372,90 @@ describe("archiveIfSafe", () => {
     expect(harness.getConfig).toHaveBeenCalledTimes(1);
     expect(harness.getSnapshot).not.toHaveBeenCalled();
     expect(harness.deps.archiveByScope).not.toHaveBeenCalled();
+  });
+
+  test("with autoArchiveAfterMerge enabled, merging a member branch leaves its home workspace intact and the member runnable", async () => {
+    const paseoHome = mkdtempSync(path.join(tmpdir(), "archive-if-safe-team-home-"));
+    cleanupPaths.push(paseoHome);
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human", "member-reviewer"),
+    });
+    const member = service.createMember({
+      projectId: "project-1",
+      name: "Reviewer",
+      description: "Checks diffs",
+      provider: "codex",
+      model: "gpt-5",
+      homeWorkspaceId: "ws-auto-archive",
+      rolePrompt: "Review carefully before approving.",
+    });
+
+    const harness = createHarness();
+    harness.options.paseoHome = paseoHome;
+
+    await runArchiveIfSafe(harness);
+
+    expect(harness.deps.archiveByScope).not.toHaveBeenCalled();
+
+    const lifecycle = new MemberLifecycle({
+      teamService: service,
+      agentManager: {
+        listAgents: () => [],
+        getAgent: () => undefined,
+        createAgent: async () =>
+          ({
+            id: "agent-reviewer",
+            labels: {},
+            lifecycle: "idle",
+          }) as never,
+        tryRunOutOfBand: () => false,
+        hasInFlightRun: () => false,
+        replaceAgentRun: async () => (async function* noop() {})(),
+        streamAgent: () => (async function* noop() {})(),
+      } as never,
+      workspaceRegistry: {
+        initialize: async () => undefined,
+        existsOnDisk: async () => true,
+        list: async () => [],
+        get: async (workspaceId: string) =>
+          workspaceId === "ws-auto-archive"
+            ? {
+                workspaceId,
+                projectId: "project-1",
+                cwd: "/repo",
+                kind: "directory",
+                displayName: "Repo",
+                title: null,
+                branch: null,
+                worktreeRoot: null,
+                baseBranch: null,
+                isPaseoOwnedWorktree: false,
+                mainRepoRoot: null,
+                createdAt: "2026-07-27T12:00:00.000Z",
+                updatedAt: "2026-07-27T12:00:00.000Z",
+                archivedAt: null,
+                pinnedAt: null,
+              }
+            : null,
+        update: async () => null,
+        upsert: async () => undefined,
+        archive: async () => undefined,
+        remove: async () => undefined,
+      },
+      logger: createTestLogger(),
+    });
+
+    await expect(
+      lifecycle.deliverMention({
+        projectId: "project-1",
+        memberId: member.id,
+        prompt: "Still runnable",
+      }),
+    ).resolves.not.toBeNull();
+
+    service.close();
   });
 
   test("does nothing when the cwd already has an archive in flight", async () => {

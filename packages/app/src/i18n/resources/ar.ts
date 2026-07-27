@@ -219,6 +219,40 @@ export const ar: TranslationResources = {
       loadMore: "تحميل المزيد",
     },
   },
+  team: {
+    title: "الفريق",
+    daemon: "الخادم",
+    project: {
+      none: "لا يوجد مشروع متاح على هذا الخادم",
+    },
+    sections: {
+      chat: "الدردشة",
+      members: "الأعضاء",
+      tasks: "المهام",
+      settings: "الإعدادات",
+      pending: "سيصل هذا القسم في مهمة لاحقة من Team Parity.",
+    },
+    chat: {
+      channels: "القنوات",
+      activity: "نشاط الأعضاء",
+      messages: "الرسائل",
+      compose: "إنشاء رسالة",
+      emptyChannels: "لا توجد قنوات بعد",
+      emptyMessages: "لا توجد رسائل بعد",
+      loadOlder: "تحميل الرسائل الأقدم",
+      placeholder: "انشر في هذه القناة واذكر @الأعضاء",
+      send: "إرسال",
+      sent: "تم الإرسال",
+      sending: "جارٍ الإرسال...",
+      noMentions: "لا يوجد أعضاء يطابقون هذه الإشارة",
+    },
+    members: {
+      idle: "خامل",
+      working: "يعمل",
+      stopped: "متوقف",
+      unavailable: "غير متاح",
+    },
+  },
   agentList: {
     fallbackTitle: "جلسة جديدة",
     dateSections: {

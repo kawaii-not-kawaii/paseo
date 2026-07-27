@@ -46,6 +46,58 @@ describe("TeamService", () => {
     ]);
   });
 
+  test("lists built-in role templates as data", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({ paseoHome });
+
+    expect(service.listRoleTemplates()).toEqual([
+      expect.objectContaining({ id: "lead", name: "Lead Engineer" }),
+      expect.objectContaining({ id: "ui", name: "UI Engineer" }),
+      expect.objectContaining({ id: "qa", name: "QA Engineer" }),
+      expect.objectContaining({ id: "release", name: "Release Engineer" }),
+      expect.objectContaining({ id: "docs", name: "Docs Engineer" }),
+    ]);
+
+    service.close();
+  });
+
+  test("surfaces the home workspace uniqueness conflict as a usable error", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human", "member-reviewer", "member-qa"),
+    });
+    const reviewer = service.createMember({
+      projectId: "project-1",
+      name: "Reviewer",
+      description: "Checks diffs",
+      provider: "codex",
+      model: "gpt-5",
+      homeWorkspaceId: "workspace-shared",
+      rolePrompt: "Review carefully before approving.",
+    });
+    const qa = service.createMember({
+      projectId: "project-1",
+      name: "QA",
+      description: "Breaks things",
+      provider: "codex",
+      model: "gpt-5",
+      homeWorkspaceId: "workspace-qa",
+      rolePrompt: "Test behavior thoroughly.",
+    });
+
+    await expect(() =>
+      service.assignMember({
+        projectId: "project-1",
+        memberId: qa.id,
+        homeWorkspaceId: reviewer.homeWorkspaceId ?? "workspace-shared",
+      }),
+    ).toThrowError("Home workspace workspace-shared is already assigned to Reviewer.");
+
+    service.close();
+  });
+
   async function createPaseoHome(): Promise<string> {
     const path = await mkdtemp(join(tmpdir(), "team-service-test-"));
     cleanupPaths.push(path);

@@ -83,6 +83,7 @@ import {
 } from "../../worktree/commands.js";
 import { registerBrowserTools } from "../../browser-tools/tools.js";
 import type { BrowserToolsBroker } from "../../browser-tools/broker.js";
+import { registerTeamPaseoTools } from "../../team/mcp-tools.js";
 import type {
   PaseoToolCatalog,
   PaseoToolConfig,
@@ -3118,6 +3119,8 @@ export function createPaseoToolCatalog(options: PaseoToolHostDependencies): Pase
       };
     },
   );
+
+  registerTeamPaseoTools({ registerTool, host: options });
 
   return toCatalog();
 }

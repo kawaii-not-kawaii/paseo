@@ -45,6 +45,17 @@ export interface CreateRosterMemberInput {
   archivedAt: string | null;
 }
 
+export interface UpdateRosterMemberInput {
+  id: string;
+  name?: string;
+  description?: string | null;
+  provider?: string;
+  model?: string | null;
+  modeId?: string | null;
+  rolePrompt?: string | null;
+  templateId?: string | null;
+}
+
 export function createRosterStore(db: TeamDatabaseHandle) {
   function createMember(input: CreateRosterMemberInput): void {
     db.prepare(
@@ -100,6 +111,17 @@ export function createRosterStore(db: TeamDatabaseHandle) {
     return rows.map(mapMemberRow);
   }
 
+  function getMemberByName(name: string): RosterMember | null {
+    const row = db
+      .prepare(
+        `SELECT id, name, description, provider, model, mode_id, role_prompt, template_id, kind, created_at, archived_at
+         FROM members
+         WHERE name = ?`,
+      )
+      .get(name) as unknown;
+    return row ? mapMemberRow(memberRowSchema.parse(row)) : null;
+  }
+
   function archiveMember(id: string, archivedAt: string): void {
     db.prepare("UPDATE members SET archived_at = ? WHERE id = ? AND archived_at IS NULL").run(
       archivedAt,
@@ -107,11 +129,40 @@ export function createRosterStore(db: TeamDatabaseHandle) {
     );
   }
 
+  function updateMember(input: UpdateRosterMemberInput): void {
+    const existing = getMember(input.id);
+    if (!existing) {
+      return;
+    }
+    db.prepare(
+      `UPDATE members
+          SET name = ?,
+              description = ?,
+              provider = ?,
+              model = ?,
+              mode_id = ?,
+              role_prompt = ?,
+              template_id = ?
+        WHERE id = ?`,
+    ).run(
+      input.name ?? existing.name,
+      input.description === undefined ? existing.description : input.description,
+      input.provider ?? existing.provider,
+      input.model === undefined ? existing.model : input.model,
+      input.modeId === undefined ? existing.modeId : input.modeId,
+      input.rolePrompt === undefined ? existing.rolePrompt : input.rolePrompt,
+      input.templateId === undefined ? existing.templateId : input.templateId,
+      input.id,
+    );
+  }
+
   return {
     createMember,
     getMember,
+    getMemberByName,
     listMembers,
     archiveMember,
+    updateMember,
   };
 }
 

@@ -38,6 +38,7 @@ import { useOpenAddProject } from "@/hooks/use-open-add-project";
 import { useShortcutKeys } from "@/hooks/use-shortcut-keys";
 import { canCreateWorktreeForProjectKind } from "@/projects/host-projects";
 import { useHostFeature } from "@/runtime/host-features";
+import { TeamSidebarRow } from "@/screens/team/team-sidebar-row";
 import {
   type SidebarProjectEntry,
   type SidebarWorkspaceEntry,
@@ -104,6 +105,7 @@ interface SidebarLabels {
   searchHosts: string;
   sessions: string;
   schedules: string;
+  team: string;
   closeSidebar: string;
 }
 
@@ -227,6 +229,7 @@ export const LeftSidebar = memo(function LeftSidebar({ active }: { active: boole
       searchHosts: t("sidebar.host.searchPlaceholder"),
       sessions: t("sidebar.sections.sessions"),
       schedules: t("sidebar.sections.schedules"),
+      team: t("team.title"),
       closeSidebar: t("sidebar.actions.closeSidebar"),
     }),
     [t],
@@ -675,6 +678,7 @@ function MobileSidebar({
             testID="sidebar-schedules"
             variant="compact"
           />
+          <TeamSidebarRow label={labels.team} onNavigate={closeSidebar} />
         </View>
         <WindowChromeSafeArea placement="inline" style={styles.mobileCloseButtonRow}>
           <Pressable
@@ -860,6 +864,7 @@ function DesktopSidebar({
               testID="sidebar-schedules"
               variant="compact"
             />
+            <TeamSidebarRow label={labels.team} />
           </View>
         </View>
 

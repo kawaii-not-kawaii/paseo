@@ -222,6 +222,40 @@ export const ja: TranslationResources = {
       loadMore: "さらに読み込む",
     },
   },
+  team: {
+    title: "チーム",
+    daemon: "デーモン",
+    project: {
+      none: "このデーモンで利用できるプロジェクトはありません",
+    },
+    sections: {
+      chat: "チャット",
+      members: "メンバー",
+      tasks: "タスク",
+      settings: "設定",
+      pending: "このセクションは後続の Team Parity タスクで追加されます。",
+    },
+    chat: {
+      channels: "チャンネル",
+      activity: "メンバーの稼働状況",
+      messages: "メッセージ",
+      compose: "投稿",
+      emptyChannels: "まだチャンネルがありません",
+      emptyMessages: "まだメッセージがありません",
+      loadOlder: "古いメッセージを読み込む",
+      placeholder: "このチャンネルに投稿し、@メンバー をメンションします",
+      send: "送信",
+      sent: "送信済み",
+      sending: "送信中...",
+      noMentions: "一致するメンバーがいません",
+    },
+    members: {
+      idle: "待機中",
+      working: "作業中",
+      stopped: "停止",
+      unavailable: "利用不可",
+    },
+  },
   agentList: {
     fallbackTitle: "新しいセッション",
     dateSections: {

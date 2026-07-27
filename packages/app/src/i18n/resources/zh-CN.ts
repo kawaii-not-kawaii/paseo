@@ -219,6 +219,40 @@ export const zhCN: TranslationResources = {
       loadMore: "加载更多",
     },
   },
+  team: {
+    title: "团队",
+    daemon: "守护进程",
+    project: {
+      none: "此守护进程上没有可用项目",
+    },
+    sections: {
+      chat: "聊天",
+      members: "成员",
+      tasks: "任务",
+      settings: "设置",
+      pending: "此部分会在后续的 Team Parity 任务中完成。",
+    },
+    chat: {
+      channels: "频道",
+      activity: "成员活动",
+      messages: "消息",
+      compose: "发送消息",
+      emptyChannels: "还没有频道",
+      emptyMessages: "还没有消息",
+      loadOlder: "加载更早的消息",
+      placeholder: "在此频道发言并提及 @成员",
+      send: "发送",
+      sent: "已发送",
+      sending: "发送中...",
+      noMentions: "没有匹配此提及的成员",
+    },
+    members: {
+      idle: "空闲",
+      working: "工作中",
+      stopped: "已停止",
+      unavailable: "不可用",
+    },
+  },
   agentList: {
     fallbackTitle: "新会话",
     dateSections: {

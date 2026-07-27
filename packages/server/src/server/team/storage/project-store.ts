@@ -2,6 +2,15 @@ import { z } from "zod";
 import { SortablePager } from "../../pagination/sortable-pager.js";
 import type { TeamDatabaseHandle } from "./database.js";
 
+const channelRowSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  purpose: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  archived_at: z.string().nullable(),
+});
+
 const messageRowSchema = z.object({
   id: z.string(),
   channel_id: z.string(),
@@ -10,6 +19,11 @@ const messageRowSchema = z.object({
   reply_to_message_id: z.string().nullable(),
   created_at: z.string(),
   auto_started: z.union([z.literal(0), z.literal(1)]),
+});
+
+const messageMentionRowSchema = z.object({
+  message_id: z.string(),
+  member_id: z.string(),
 });
 
 const projectMemberRowSchema = z.object({
@@ -28,6 +42,8 @@ const projectSettingsRowSchema = z.object({
 });
 
 type MessageRow = z.infer<typeof messageRowSchema>;
+type ChannelRow = z.infer<typeof channelRowSchema>;
+type MessageMentionRow = z.infer<typeof messageMentionRowSchema>;
 type ProjectMemberRow = z.infer<typeof projectMemberRowSchema>;
 type ProjectSettingsRow = z.infer<typeof projectSettingsRowSchema>;
 
@@ -52,6 +68,15 @@ export interface ProjectMessage {
   replyToMessageId: string | null;
   createdAt: string;
   autoStarted: boolean;
+}
+
+export interface ProjectChannel {
+  id: string;
+  name: string;
+  purpose: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
 }
 
 export interface ProjectMemberAssignment {
@@ -79,9 +104,95 @@ export interface ProjectMessagePage {
   nextCursor: string | null;
 }
 
+export interface CreateProjectChannelInput {
+  id: string;
+  name: string;
+  purpose: string | null;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string | null;
+}
+
+export interface UpdateProjectChannelInput {
+  channelId: string;
+  name?: string;
+  purpose?: string | null;
+  updatedAt: string;
+}
+
+export interface CreateProjectMessageInput {
+  id: string;
+  channelId: string;
+  authorMemberId: string;
+  body: string;
+  replyToMessageId: string | null;
+  createdAt: string;
+  autoStarted: boolean;
+}
+
 const defaultMessageSort = messagePager.normalizeSort(undefined);
 
 export function createProjectStore(db: TeamDatabaseHandle) {
+  function listChannels(): ProjectChannel[] {
+    const rows = channelRowSchema.array().parse(
+      db
+        .prepare(
+          `SELECT id, name, purpose, created_at, updated_at, archived_at
+           FROM channels
+           WHERE archived_at IS NULL
+           ORDER BY created_at ASC, id ASC`,
+        )
+        .all() as unknown[],
+    );
+    return rows.map(mapChannelRow);
+  }
+
+  function getChannel(channelId: string): ProjectChannel | null {
+    const row = db
+      .prepare(
+        `SELECT id, name, purpose, created_at, updated_at, archived_at
+         FROM channels
+         WHERE id = ?`,
+      )
+      .get(channelId) as unknown;
+    return row ? mapChannelRow(channelRowSchema.parse(row)) : null;
+  }
+
+  function getChannelByName(name: string): ProjectChannel | null {
+    const row = db
+      .prepare(
+        `SELECT id, name, purpose, created_at, updated_at, archived_at
+         FROM channels
+         WHERE name = ?`,
+      )
+      .get(name) as unknown;
+    return row ? mapChannelRow(channelRowSchema.parse(row)) : null;
+  }
+
+  function createChannel(input: CreateProjectChannelInput): void {
+    db.prepare(
+      `INSERT INTO channels (id, name, purpose, created_at, updated_at, archived_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(input.id, input.name, input.purpose, input.createdAt, input.updatedAt, input.archivedAt);
+  }
+
+  function updateChannel(input: UpdateProjectChannelInput): void {
+    const existing = getChannel(input.channelId);
+    if (!existing) {
+      return;
+    }
+    db.prepare("UPDATE channels SET name = ?, purpose = ?, updated_at = ? WHERE id = ?").run(
+      input.name ?? existing.name,
+      input.purpose === undefined ? existing.purpose : input.purpose,
+      input.updatedAt,
+      input.channelId,
+    );
+  }
+
+  function deleteChannel(channelId: string): void {
+    db.prepare("DELETE FROM channels WHERE id = ?").run(channelId);
+  }
+
   function listMessages(input: ListProjectMessagesInput): ProjectMessagePage {
     const limit = Math.max(1, Math.floor(input.limit));
     const cursor = input.cursor ? messagePager.decode(input.cursor, defaultMessageSort) : null;
@@ -158,16 +269,132 @@ export function createProjectStore(db: TeamDatabaseHandle) {
     ).run(input.memberId, input.homeWorkspaceId, input.joinedAt);
   }
 
+  function upsertProjectMember(input: ProjectMemberAssignment): void {
+    const existing = getProjectMember(input.memberId);
+    if (!existing) {
+      addProjectMember(input);
+      return;
+    }
+    db.prepare(
+      `UPDATE project_members
+          SET home_workspace_id = ?,
+              joined_at = ?
+        WHERE member_id = ?`,
+    ).run(input.homeWorkspaceId, existing.joinedAt, input.memberId);
+  }
+
   function removeProjectMember(memberId: string): void {
     db.prepare("DELETE FROM project_members WHERE member_id = ?").run(memberId);
   }
 
+  function getProjectMember(memberId: string): ProjectMemberAssignment | null {
+    const row = db
+      .prepare(
+        `SELECT member_id, home_workspace_id, joined_at
+         FROM project_members
+         WHERE member_id = ?`,
+      )
+      .get(memberId) as unknown;
+    return row ? mapProjectMemberRow(projectMemberRowSchema.parse(row)) : null;
+  }
+
+  function getProjectMemberByHomeWorkspaceId(
+    homeWorkspaceId: string,
+  ): ProjectMemberAssignment | null {
+    const row = db
+      .prepare(
+        `SELECT member_id, home_workspace_id, joined_at
+         FROM project_members
+         WHERE home_workspace_id = ?`,
+      )
+      .get(homeWorkspaceId) as unknown;
+    return row ? mapProjectMemberRow(projectMemberRowSchema.parse(row)) : null;
+  }
+
+  function createMessage(input: CreateProjectMessageInput): void {
+    db.prepare(
+      `INSERT INTO messages (
+        id,
+        channel_id,
+        author_member_id,
+        body,
+        reply_to_message_id,
+        created_at,
+        auto_started
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      input.id,
+      input.channelId,
+      input.authorMemberId,
+      input.body,
+      input.replyToMessageId,
+      input.createdAt,
+      input.autoStarted ? 1 : 0,
+    );
+  }
+
+  function getMessage(messageId: string): ProjectMessage | null {
+    const row = db
+      .prepare(
+        `SELECT id, channel_id, author_member_id, body, reply_to_message_id, created_at, auto_started
+         FROM messages
+         WHERE id = ?`,
+      )
+      .get(messageId) as unknown;
+    return row ? mapMessageRow(messageRowSchema.parse(row)) : null;
+  }
+
+  function addMessageMention(messageId: string, memberId: string): void {
+    db.prepare("INSERT INTO message_mentions (message_id, member_id) VALUES (?, ?)").run(
+      messageId,
+      memberId,
+    );
+  }
+
+  function listMessageMentionMemberIds(messageId: string): string[] {
+    const rows = messageMentionRowSchema.array().parse(
+      db
+        .prepare(
+          `SELECT message_id, member_id
+           FROM message_mentions
+           WHERE message_id = ?
+           ORDER BY member_id ASC`,
+        )
+        .all(messageId) as unknown[],
+    );
+    return rows.map((row) => mapMessageMentionRow(row).memberId);
+  }
+
   return {
+    listChannels,
+    getChannel,
+    getChannelByName,
+    createChannel,
+    updateChannel,
+    deleteChannel,
     getProjectSettings,
     listMessages,
     listProjectMembers,
     addProjectMember,
+    upsertProjectMember,
     removeProjectMember,
+    getProjectMember,
+    getProjectMemberByHomeWorkspaceId,
+    createMessage,
+    getMessage,
+    addMessageMention,
+    listMessageMentionMemberIds,
+  };
+}
+
+function mapChannelRow(row: ChannelRow): ProjectChannel {
+  return {
+    id: row.id,
+    name: row.name,
+    purpose: row.purpose,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    archivedAt: row.archived_at,
   };
 }
 
@@ -180,6 +407,13 @@ function mapMessageRow(row: MessageRow): ProjectMessage {
     replyToMessageId: row.reply_to_message_id,
     createdAt: row.created_at,
     autoStarted: row.auto_started === 1,
+  };
+}
+
+function mapMessageMentionRow(row: MessageMentionRow): { messageId: string; memberId: string } {
+  return {
+    messageId: row.message_id,
+    memberId: row.member_id,
   };
 }
 

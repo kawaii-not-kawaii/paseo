@@ -218,6 +218,40 @@ export const en = {
       loadMore: "Load more",
     },
   },
+  team: {
+    title: "Team",
+    daemon: "Daemon",
+    project: {
+      none: "No project available on this daemon",
+    },
+    sections: {
+      chat: "Chat",
+      members: "Members",
+      tasks: "Tasks",
+      settings: "Settings",
+      pending: "This section lands in a later Team Parity task.",
+    },
+    chat: {
+      channels: "Channels",
+      activity: "Member activity",
+      messages: "Messages",
+      compose: "Compose",
+      emptyChannels: "No channels yet",
+      emptyMessages: "No messages yet",
+      loadOlder: "Load older messages",
+      placeholder: "Post to this channel and mention @members",
+      send: "Send",
+      sent: "Sent",
+      sending: "Sending...",
+      noMentions: "No members match this mention",
+    },
+    members: {
+      idle: "Idle",
+      working: "Working",
+      stopped: "Stopped",
+      unavailable: "Unavailable",
+    },
+  },
   agentList: {
     fallbackTitle: "New session",
     dateSections: {

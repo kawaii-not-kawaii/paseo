@@ -96,48 +96,48 @@ a multi-turn agent-to-agent exchange completes with the human sending exactly on
 
 ### Channels and messages
 
-- [ ] T026 [US1] Write a failing test in `packages/server/src/server/team/team-service.channels.test.ts` for channel create/list/update/delete, including that deleting a channel cascades its messages
-- [ ] T027 [US1] Implement channel operations in `packages/server/src/server/team/team-service.ts`
-- [ ] T028 [US1] Write a failing test in `packages/server/src/server/team/team-service.messages.test.ts`: posting parses `@name` mentions into `message_mentions` rows in an explicit **post-validation** pass, never in the wire schema
-- [ ] T029 [US1] Implement message posting and mention extraction in `packages/server/src/server/team/team-service.ts`
-- [ ] T030 [US1] Write a failing test in `packages/server/src/server/team/team-service.messages.test.ts` asserting a mention of a member not assigned to the project fails with a message naming the problem, rather than silently not delivering
-- [ ] T031 [US1] Implement paginated message reads over `project-store.ts` keyset pagination
+- [x] T026 [US1] Write a failing test in `packages/server/src/server/team/team-service.channels.test.ts` for channel create/list/update/delete, including that deleting a channel cascades its messages
+- [x] T027 [US1] Implement channel operations in `packages/server/src/server/team/team-service.ts`
+- [x] T028 [US1] Write a failing test in `packages/server/src/server/team/team-service.messages.test.ts`: posting parses `@name` mentions into `message_mentions` rows in an explicit **post-validation** pass, never in the wire schema
+- [x] T029 [US1] Implement message posting and mention extraction in `packages/server/src/server/team/team-service.ts`
+- [x] T030 [US1] Write a failing test in `packages/server/src/server/team/team-service.messages.test.ts` asserting a mention of a member not assigned to the project fails with a message naming the problem, rather than silently not delivering
+- [x] T031 [US1] Implement paginated message reads over `project-store.ts` keyset pagination
 
 ### Member lifecycle — the reaper interaction
 
-- [ ] T032 [US1] Write a failing test in `packages/server/src/server/team/member-lifecycle.test.ts`: mentioning a member with **no running session** starts one and delivers the mention as its prompt (FR-035a)
-- [ ] T033 [US1] Implement `packages/server/src/server/team/member-lifecycle.ts` — start-on-mention using the existing agent manager, with the member's role prompt as `AgentConfig.systemPrompt`
-- [ ] T034 [US1] **INVARIANT TEST** Write a test in `packages/server/src/server/team/member-lifecycle.test.ts` asserting **no blocking wait tool exists** and no member is held resident to stay reachable — a member idle past `IDLE_AGENT_RUNTIME_TTL_MS` is still reachable by mention (research R5)
-- [ ] T035 [US1] Write a failing test asserting `auto_started` is recorded on messages written by automatically started sessions (FR-035i)
+- [x] T032 [US1] Write a failing test in `packages/server/src/server/team/member-lifecycle.test.ts`: mentioning a member with **no running session** starts one and delivers the mention as its prompt (FR-035a)
+- [x] T033 [US1] Implement `packages/server/src/server/team/member-lifecycle.ts` — start-on-mention using the existing agent manager, with the member's role prompt as `AgentConfig.systemPrompt`
+- [x] T034 [US1] **INVARIANT TEST** Write a test in `packages/server/src/server/team/member-lifecycle.test.ts` asserting **no blocking wait tool exists** and no member is held resident to stay reachable — a member idle past `IDLE_AGENT_RUNTIME_TTL_MS` is still reachable by mention (research R5)
+- [x] T035 [US1] Write a failing test asserting `auto_started` is recorded on messages written by automatically started sessions (FR-035i)
 
 ### MCP tools
 
-- [ ] T036 [US1] Write a failing test in `packages/server/src/server/team/mcp-tools.test.ts` for `team_post`, including that project scope is derived from the calling member and never accepted as a parameter (FR-034 — a trust boundary, so validated not assumed)
-- [ ] T037 [US1] Implement `team_post` in `packages/server/src/server/team/mcp-tools.ts`
-- [ ] T038 [US1] [P] Write a failing test then implement `team_read` with keyset paging and author names resolved
-- [ ] T039 [US1] [P] Write a failing test then implement `team_roster`, including the human identity so members know what to mention when escalating
-- [ ] T040 [US1] Write a failing test in `packages/server/src/server/team/mcp-tools.test.ts` asserting a member cannot read or post to a project it is not assigned to (FR-034)
-- [ ] T041 [US1] **SEAM** Register `team_*` tools in `packages/server/src/server/agent/tools/paseo-tools.ts`; update `docs/fork.md`
+- [x] T036 [US1] Write a failing test in `packages/server/src/server/team/mcp-tools.test.ts` for `team_post`, including that project scope is derived from the calling member and never accepted as a parameter (FR-034 — a trust boundary, so validated not assumed)
+- [x] T037 [US1] Implement `team_post` in `packages/server/src/server/team/mcp-tools.ts`
+- [x] T038 [US1] [P] Write a failing test then implement `team_read` with keyset paging and author names resolved
+- [x] T039 [US1] [P] Write a failing test then implement `team_roster`, including the human identity so members know what to mention when escalating
+- [x] T040 [US1] Write a failing test in `packages/server/src/server/team/mcp-tools.test.ts` asserting a member cannot read or post to a project it is not assigned to (FR-034)
+- [x] T041 [US1] **SEAM** Register `team_*` tools in `packages/server/src/server/agent/tools/paseo-tools.ts`; update `docs/fork.md`
 
 ### Live updates
 
-- [ ] T042 [US1] Implement server-pushed `team.message.posted` events in `packages/server/src/server/team/team-service.ts`, carrying `projectId` so other-project clients discard cheaply
-- [ ] T043 [US1] Write a test in `packages/server/src/server/team/team-service.events.test.ts` asserting two connected sessions viewing the same channel both receive a posted message (edge case: same project open in two clients)
+- [x] T042 [US1] Implement server-pushed `team.message.posted` events in `packages/server/src/server/team/team-service.ts`, carrying `projectId` so other-project clients discard cheaply
+- [x] T043 [US1] Write a test in `packages/server/src/server/team/team-service.events.test.ts` asserting two connected sessions viewing the same channel both receive a posted message (edge case: same project open in two clients)
 
 ### App — routing and Chat section
 
-- [ ] T044 [US1] **SEAM** Add `buildHostTeamRoute(serverId, section)` to `packages/app/src/utils/host-routes.ts` **by appending**, plus a test in `packages/app/src/utils/host-routes.test.ts`; update `docs/fork.md`
-- [ ] T045 [US1] **SEAM** Create the route file `packages/app/src/app/h/[serverId]/team/[section].tsx` and register it with a single `<Stack.Screen>` in `packages/app/src/app/h/[serverId]/_layout.tsx` — the **host** layout, never the root (`docs/expo-router.md`); update `docs/fork.md`
+- [x] T044 [US1] **SEAM** Add `buildHostTeamRoute(serverId, section)` to `packages/app/src/utils/host-routes.ts` **by appending**, plus a test in `packages/app/src/utils/host-routes.test.ts`; update `docs/fork.md`
+- [x] T045 [US1] **SEAM** Create the route file `packages/app/src/app/h/[serverId]/team/[section].tsx` and register it with a single `<Stack.Screen>` in `packages/app/src/app/h/[serverId]/_layout.tsx` — the **host** layout, never the root (`docs/expo-router.md`); update `docs/fork.md`
 - [ ] T046 [US1] Verify on a native build that the Team route mounts and renders — a misplaced route fails **silently** with a blank screen and no JavaScript error
-- [ ] T047 [US1] Implement `packages/app/src/screens/team/team-screen.tsx`: section switcher, project scoping, and the daemon indicator required by FR-001a
-- [ ] T048 [US1] Implement the capability gate in exactly one place — absent `features.team` hides the entry and renders "Update the host to use this" on deep link. No degraded view, no fallback to legacy `chat/*` RPCs (Constitution II)
-- [ ] T049 [US1] [P] Implement the channel list in `packages/app/src/screens/team/chat/channel-list.tsx` using existing primitives from `packages/app/src/components/ui/` (`docs/design.md`)
-- [ ] T050 [US1] Implement the message list in `packages/app/src/screens/team/chat/message-list.tsx` with incremental loading and stable ordering
-- [ ] T051 [US1] Implement the composer in `packages/app/src/screens/team/chat/message-composer.tsx` with `@` mention autocomplete over the project roster
-- [ ] T052 [US1] Render member activity in `packages/app/src/screens/team/chat/member-activity-strip.tsx` so working and idle members are distinguishable at a glance (FR-012, SC-011)
-- [ ] T053 [US1] Implement pending/success/failure states for posting, keeping an actionable error visible in context until retried or dismissed (FR-004, `docs/testing.md`)
-- [ ] T054 [US1] **SEAM** Add the Team nav row to `packages/app/src/components/left-sidebar.tsx` — labels type, labels map, handler, active-path check, and **both** the compact and wide render paths; update `docs/fork.md` noting this is the ~6-line seam
-- [ ] T055 [US1] Write a Playwright test in `packages/app/` covering post-message success and post-message failure, asserting what the user can see and do after the failure — not a response field or log line
+- [x] T047 [US1] Implement `packages/app/src/screens/team/team-screen.tsx`: section switcher, project scoping, and the daemon indicator required by FR-001a
+- [x] T048 [US1] Implement the capability gate in exactly one place — absent `features.team` hides the entry and renders "Update the host to use this" on deep link. No degraded view, no fallback to legacy `chat/*` RPCs (Constitution II)
+- [x] T049 [US1] [P] Implement the channel list in `packages/app/src/screens/team/chat/channel-list.tsx` using existing primitives from `packages/app/src/components/ui/` (`docs/design.md`)
+- [x] T050 [US1] Implement the message list in `packages/app/src/screens/team/chat/message-list.tsx` with incremental loading and stable ordering
+- [x] T051 [US1] Implement the composer in `packages/app/src/screens/team/chat/message-composer.tsx` with `@` mention autocomplete over the project roster
+- [x] T052 [US1] Render member activity in `packages/app/src/screens/team/chat/member-activity-strip.tsx` so working and idle members are distinguishable at a glance (FR-012, SC-011)
+- [x] T053 [US1] Implement pending/success/failure states for posting, keeping an actionable error visible in context until retried or dismissed (FR-004, `docs/testing.md`)
+- [x] T054 [US1] **SEAM** Add the Team nav row to `packages/app/src/components/left-sidebar.tsx` — labels type, labels map, handler, active-path check, and **both** the compact and wide render paths; update `docs/fork.md` noting this is the ~6-line seam
+- [x] T055 [US1] Write a Playwright test in `packages/app/` covering post-message success and post-message failure, asserting what the user can see and do after the failure — not a response field or log line
 - [ ] T056 [US1] **STORY VALIDATION** Execute quickstart step 1 end to end: two members, one human message, multi-turn agent-to-agent exchange (SC-002)
 
 **Checkpoint**: US1 is independently shippable. Agent-to-agent coordination works.
@@ -152,19 +152,19 @@ merges, and worktree removal.
 **Independent test**: Create three members, restart the daemon, verify all three retain name,
 description, role prompt, project assignments, and home workspaces (SC-005).
 
-- [ ] T057 [US2] Write a failing test in `packages/server/src/server/team/team-service.members.test.ts` asserting a member's `role_prompt` is applied as `AgentConfig.systemPrompt` on every session it runs (FR-014a)
-- [ ] T058 [US2] Implement role prompt storage and application in `packages/server/src/server/team/team-service.ts`
-- [ ] T059 [US2] [P] Implement built-in role templates as data in `packages/server/src/server/team/role-templates.ts` (lead, UI, QA, release, docs) with `team.member.list_templates` — no store, no distribution format (research R10)
-- [ ] T060 [US2] Write a failing test in `packages/server/src/server/team/member-home.test.ts`: creating a member creates `~/.paseo/team/members/<id>/` with a seeded `MEMORY.md`, `notes/`, `artifacts/`
-- [ ] T061 [US2] Implement `packages/server/src/server/team/member-home.ts`, injecting the directory path and the FR-014e prompt-vs-memory distinction into the member's session context
-- [ ] T062 [US2] **INVARIANT TEST** Write a test asserting a member's home directory and `MEMORY.md` are byte-identical after its home workspace is archived, its worktree removed, and it is re-pointed at a new workspace (FR-019b, SC-011b)
-- [ ] T063 [US2] Write a failing test then implement `team.member.list_home_files` and `team.member.read_home_file`, validating the requested path resolves inside the member's home directory — a trust boundary, not a convenience check
-- [ ] T064 [US2] Write a failing test then implement `team_propose_members` in `packages/server/src/server/team/mcp-tools.ts`, asserting it **creates nothing** and only returns proposals (FR-014c, research R10)
-- [ ] T065 [US2] Implement project assignment and home workspace selection in `packages/server/src/server/team/team-service.ts`, surfacing the FR-018 uniqueness constraint as a usable error rather than a raw constraint violation
-- [ ] T066 [US2] Write a failing test in `packages/server/src/server/team/team-service.members.test.ts` asserting a member whose home workspace disappears survives, is flagged unable to run, and cannot run until re-pointed (FR-019)
-- [ ] T067 [US2] **SEAM** Add a guard clause to `packages/server/src/server/auto-archive-on-merge/archive-if-safe.ts` so a member's home workspace is never auto-archived; update `docs/fork.md`
-- [ ] T068 [US2] **INVARIANT TEST** Write a test asserting that with `autoArchiveAfterMerge` enabled, merging a member's branch leaves its home workspace intact and the member runnable (SC-011c) — a feature that punishes success is a bug
-- [ ] T069 [US2] Write a test in `packages/server/src/server/team/team-service.members.test.ts` asserting removing a member leaves its messages readable and correctly attributed (FR-022)
+- [x] T057 [US2] Write a failing test in `packages/server/src/server/team/team-service.members.test.ts` asserting a member's `role_prompt` is applied as `AgentConfig.systemPrompt` on every session it runs (FR-014a)
+- [x] T058 [US2] Implement role prompt storage and application in `packages/server/src/server/team/team-service.ts`
+- [x] T059 [US2] [P] Implement built-in role templates as data in `packages/server/src/server/team/role-templates.ts` (lead, UI, QA, release, docs) with `team.member.list_templates` — no store, no distribution format (research R10)
+- [x] T060 [US2] Write a failing test in `packages/server/src/server/team/member-home.test.ts`: creating a member creates `~/.paseo/team/members/<id>/` with a seeded `MEMORY.md`, `notes/`, `artifacts/`
+- [x] T061 [US2] Implement `packages/server/src/server/team/member-home.ts`, injecting the directory path and the FR-014e prompt-vs-memory distinction into the member's session context
+- [x] T062 [US2] **INVARIANT TEST** Write a test asserting a member's home directory and `MEMORY.md` are byte-identical after its home workspace is archived, its worktree removed, and it is re-pointed at a new workspace (FR-019b, SC-011b)
+- [x] T063 [US2] Write a failing test then implement `team.member.list_home_files` and `team.member.read_home_file`, validating the requested path resolves inside the member's home directory — a trust boundary, not a convenience check
+- [x] T064 [US2] Write a failing test then implement `team_propose_members` in `packages/server/src/server/team/mcp-tools.ts`, asserting it **creates nothing** and only returns proposals (FR-014c, research R10)
+- [x] T065 [US2] Implement project assignment and home workspace selection in `packages/server/src/server/team/team-service.ts`, surfacing the FR-018 uniqueness constraint as a usable error rather than a raw constraint violation
+- [x] T066 [US2] Write a failing test in `packages/server/src/server/team/team-service.members.test.ts` asserting a member whose home workspace disappears survives, is flagged unable to run, and cannot run until re-pointed (FR-019)
+- [x] T067 [US2] **SEAM** Add a guard clause to `packages/server/src/server/auto-archive-on-merge/archive-if-safe.ts` so a member's home workspace is never auto-archived; update `docs/fork.md`
+- [x] T068 [US2] **INVARIANT TEST** Write a test asserting that with `autoArchiveAfterMerge` enabled, merging a member's branch leaves its home workspace intact and the member runnable (SC-011c) — a feature that punishes success is a bug
+- [x] T069 [US2] Write a test in `packages/server/src/server/team/team-service.members.test.ts` asserting removing a member leaves its messages readable and correctly attributed (FR-022)
 - [ ] T070 [US2] [P] Implement the roster view in `packages/app/src/screens/team/members/member-list.tsx` — status, description, home workspace, channels
 - [ ] T071 [US2] Implement the member detail view in `packages/app/src/screens/team/members/member-detail.tsx` including an editable role prompt and a `MEMORY.md` reader (FR-014f)
 - [ ] T072 [US2] Implement the create/edit member form in `packages/app/src/screens/team/members/member-form.tsx` following `docs/forms.md` — non-React form model, load-state gating — covering every field a member owns: name, description, runtime and model (FR-014, reusing the existing provider/model pickers — this feature adds no new provider surface), role prompt, template picker, project assignments (FR-016), and home workspace per project (FR-017). The FR-018 uniqueness conflict MUST surface as a usable error naming the member already holding that workspace, never a raw constraint violation

@@ -223,6 +223,40 @@ export const fr: TranslationResources = {
       loadMore: "Charger plus",
     },
   },
+  team: {
+    title: "Équipe",
+    daemon: "Daemon",
+    project: {
+      none: "Aucun projet disponible sur ce daemon",
+    },
+    sections: {
+      chat: "Chat",
+      members: "Membres",
+      tasks: "Tâches",
+      settings: "Réglages",
+      pending: "Cette section arrivera dans une tâche Team Parity ultérieure.",
+    },
+    chat: {
+      channels: "Canaux",
+      activity: "Activité des membres",
+      messages: "Messages",
+      compose: "Rédiger",
+      emptyChannels: "Aucun canal pour le moment",
+      emptyMessages: "Aucun message pour le moment",
+      loadOlder: "Charger les messages plus anciens",
+      placeholder: "Publiez dans ce canal et mentionnez des @membres",
+      send: "Envoyer",
+      sent: "Envoyé",
+      sending: "Envoi...",
+      noMentions: "Aucun membre ne correspond à cette mention",
+    },
+    members: {
+      idle: "Inactif",
+      working: "En cours",
+      stopped: "Arrêté",
+      unavailable: "Indisponible",
+    },
+  },
   agentList: {
     fallbackTitle: "Nouvelle séance",
     dateSections: {
