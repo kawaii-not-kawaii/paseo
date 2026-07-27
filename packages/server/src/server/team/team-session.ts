@@ -103,8 +103,10 @@ export class TeamSession {
         this.handleMemberRemove(
           msg as Extract<TeamRequest, { type: "team.member.remove.request" }>,
         ),
-      "team.member.start.request": (msg) => this.emitNotImplemented(msg),
-      "team.member.stop.request": (msg) => this.emitNotImplemented(msg),
+      "team.member.start.request": (msg) =>
+        this.handleMemberStart(msg as Extract<TeamRequest, { type: "team.member.start.request" }>),
+      "team.member.stop.request": (msg) =>
+        this.handleMemberStop(msg as Extract<TeamRequest, { type: "team.member.stop.request" }>),
       "team.member.list_templates.request": (msg) =>
         this.handleMemberListTemplates(
           msg as Extract<TeamRequest, { type: "team.member.list_templates.request" }>,
@@ -364,6 +366,40 @@ export class TeamSession {
       msg.requestId,
       () => ({ memberId: this.service.removeMember(msg.projectId, msg.memberId) }),
       { memberId: null },
+    );
+  }
+
+  private handleMemberStart(
+    msg: Extract<TeamRequest, { type: "team.member.start.request" }>,
+  ): Promise<void> {
+    return this.emitResult(
+      "team.member.start.response",
+      msg.requestId,
+      async () => {
+        if (!this.lifecycle) {
+          throw new Error("Members cannot be started without an agent runtime.");
+        }
+        await this.lifecycle.start({ projectId: msg.projectId, memberId: msg.memberId });
+        return { member: this.service.getMember(msg.memberId) };
+      },
+      { member: null },
+    );
+  }
+
+  private handleMemberStop(
+    msg: Extract<TeamRequest, { type: "team.member.stop.request" }>,
+  ): Promise<void> {
+    return this.emitResult(
+      "team.member.stop.response",
+      msg.requestId,
+      async () => {
+        if (!this.lifecycle) {
+          throw new Error("Members cannot be stopped without an agent runtime.");
+        }
+        await this.lifecycle.stop({ projectId: msg.projectId, memberId: msg.memberId });
+        return { member: this.service.getMember(msg.memberId) };
+      },
+      { member: null },
     );
   }
 

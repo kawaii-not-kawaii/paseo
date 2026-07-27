@@ -16,6 +16,7 @@ export class FakeAgentManager {
     options: { workspaceId: string | undefined; labels?: Record<string, string> };
   }> = [];
   public readonly promptCalls: Array<{ agentId: string; prompt: unknown }> = [];
+  public readonly cancelledAgentIds: string[] = [];
   private readonly liveAgents = new Map<string, ManagedAgent>();
   private nextAgentId = 1;
 
@@ -60,6 +61,15 @@ export class FakeAgentManager {
     return undefined;
   }
 
+  public async cancelAgentRun(agentId: string): Promise<{ status: string }> {
+    this.cancelledAgentIds.push(agentId);
+    return { status: "cancelled" };
+  }
+
+  public async closeAgent(agentId: string): Promise<void> {
+    this.liveAgents.delete(agentId);
+  }
+
   public clearLiveAgents(): void {
     this.liveAgents.clear();
   }
@@ -100,6 +110,9 @@ export function seedAssignedMember(input: {
     homeWorkspaceId: input.homeWorkspaceId,
     joinedAt: "2026-07-27T12:00:00.000Z",
   });
+  // Windows cannot unlink an open file, so a leaked handle fails the temp-dir cleanup rather
+  // than the assertion. Close what we opened.
+  dbManager.closeAll();
 }
 
 export function createWorkspaceRegistryStub(input: {

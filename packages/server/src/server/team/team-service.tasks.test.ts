@@ -124,9 +124,8 @@ describe("team tasks and settings", () => {
     service.satisfyTaskCriterion("project-1", task.id, 0, impl.id);
     service.releaseTask("project-1", task.id, impl.id);
 
-    const store = createProjectStore(
-      createTeamDatabaseManager({ teamDir: join(paseoHome, "team") }).openProject("project-1"),
-    );
+    const dbManager = createTeamDatabaseManager({ teamDir: join(paseoHome, "team") });
+    const store = createProjectStore(dbManager.openProject("project-1"));
     expect(store.listProgressEvents(task.id).map((event) => event.kind)).toEqual([
       "claimed",
       "status_changed",
@@ -135,6 +134,7 @@ describe("team tasks and settings", () => {
       "released",
     ]);
 
+    dbManager.closeAll();
     service.close();
   });
 

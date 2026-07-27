@@ -21,6 +21,9 @@ interface MemberLifecycleOptions {
     | "hasInFlightRun"
     | "replaceAgentRun"
     | "streamAgent"
+    // FR-021: the user can stop a member by hand, which ends its runtime and nothing else.
+    | "cancelAgentRun"
+    | "closeAgent"
   >;
   workspaceRegistry: Pick<WorkspaceRegistry, "get">;
   logger: Logger;
@@ -116,6 +119,79 @@ export class MemberLifecycle {
       replaceRunning: true,
     });
     return this.agentManager.getAgent(created.id) ?? created;
+  }
+
+  /**
+   * Brings up a member's runtime on the user's instruction (FR-021), without giving it a prompt.
+   *
+   * This is not how members normally start — a mention starts them, and the mention is the prompt.
+   * Starting one by hand is for the user who wants it warm and waiting. Idempotent: if a runtime
+   * is already live, that one is returned rather than a second being created.
+   */
+  public async start(input: { projectId: string; memberId: string }): Promise<ManagedAgent | null> {
+    const member = this.teamService.getMember(input.memberId);
+    if (!member) {
+      throw new Error(`Member ${input.memberId} not found`);
+    }
+    if (member.kind === "human") {
+      return null;
+    }
+
+    const existing = findLiveTeamMemberAgent(this.agentManager.listAgents(), input);
+    if (existing) {
+      return existing;
+    }
+
+    const workspace = await this.resolveRunnableWorkspace(input);
+    const created = await this.agentManager.createAgent(
+      buildMemberAgentConfig(this.teamService, member, workspace.cwd),
+      undefined,
+      {
+        workspaceId: workspace.workspaceId,
+        labels: buildTeamAgentLabels({ ...input, autoStarted: false }),
+        initialTitle: member.name,
+      },
+    );
+    return this.agentManager.getAgent(created.id) ?? created;
+  }
+
+  /**
+   * Stops a member's runtime on the user's instruction (FR-021).
+   *
+   * Stopping is about the runtime only. It must never touch the member's claims — a stopped
+   * member keeps what it holds until the lease expires or it is released, or another member would
+   * steal work that is merely paused (research R1). Returns false when nothing was running.
+   */
+  public async stop(input: { projectId: string; memberId: string }): Promise<boolean> {
+    const live = findLiveTeamMemberAgent(this.agentManager.listAgents(), input);
+    if (!live) {
+      return false;
+    }
+    await this.agentManager.cancelAgentRun(live.id);
+    await this.agentManager.closeAgent(live.id);
+    return true;
+  }
+
+  private async resolveRunnableWorkspace(input: { projectId: string; memberId: string }) {
+    const member = this.teamService.getMember(input.memberId);
+    const name = member?.name ?? input.memberId;
+    const assignment = this.teamService.getProjectMemberAssignment(input.projectId, input.memberId);
+    if (!assignment) {
+      throw new Error(`Member ${name} is not assigned to project ${input.projectId}.`);
+    }
+    if (!assignment.homeWorkspaceId) {
+      throw new Error(`Member ${name} is unable to run until it is re-pointed to a workspace.`);
+    }
+    const workspace = await this.workspaceRegistry.get(assignment.homeWorkspaceId);
+    if (!workspace || workspace.archivedAt) {
+      this.teamService.markMemberHomeWorkspaceUnavailable({
+        projectId: input.projectId,
+        memberId: input.memberId,
+        homeWorkspaceId: assignment.homeWorkspaceId,
+      });
+      throw new Error(`Home workspace ${assignment.homeWorkspaceId} is unavailable for ${name}.`);
+    }
+    return workspace;
   }
 }
 

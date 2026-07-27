@@ -51,9 +51,8 @@ describe("TeamService message operations", () => {
 
     expect(created.mentionMemberIds).toEqual([reviewer.id]);
 
-    const db = createTeamDatabaseManager({ teamDir: join(paseoHome, "team") }).openProject(
-      "project-1",
-    );
+    const dbManager = createTeamDatabaseManager({ teamDir: join(paseoHome, "team") });
+    const db = dbManager.openProject("project-1");
     const mentions = db
       .prepare(
         "SELECT message_id, member_id FROM message_mentions WHERE message_id = ? ORDER BY member_id ASC",
@@ -61,6 +60,7 @@ describe("TeamService message operations", () => {
       .all(created.id) as Array<{ message_id: string; member_id: string }>;
     expect(mentions).toEqual([{ message_id: "message-1", member_id: reviewer.id }]);
 
+    dbManager.closeAll();
     service.close();
   });
 

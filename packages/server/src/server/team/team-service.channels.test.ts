@@ -66,14 +66,14 @@ describe("TeamService channel operations", () => {
     expect(service.deleteChannel("project-1", created.id)).toBe("channel-all");
     expect(service.listChannels("project-1")).toEqual([]);
 
-    const db = createTeamDatabaseManager({ teamDir: join(paseoHome, "team") }).openProject(
-      "project-1",
-    );
+    const dbManager = createTeamDatabaseManager({ teamDir: join(paseoHome, "team") });
+    const db = dbManager.openProject("project-1");
     const messageCount = db.prepare("SELECT COUNT(*) AS count FROM messages").get() as {
       count: number;
     };
     expect(messageCount.count).toBe(0);
 
+    dbManager.closeAll();
     service.close();
   });
 

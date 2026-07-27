@@ -168,6 +168,100 @@ describe("MemberLifecycle", () => {
     service.close();
   });
 
+  test("starting a member by hand is idempotent and does not prompt it", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human"),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully before approving.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+
+    const agentManager = new FakeAgentManager();
+    const lifecycle = createLifecycle(service, agentManager);
+
+    await lifecycle.start({ projectId: "project-1", memberId: "member-reviewer" });
+    await lifecycle.start({ projectId: "project-1", memberId: "member-reviewer" });
+
+    expect(agentManager.createCalls).toHaveLength(1);
+    expect(agentManager.promptCalls).toEqual([]);
+    // The composed prompt carries the role prompt plus the FR-014e prompt-vs-memory distinction.
+    expect(agentManager.createCalls[0]?.config.systemPrompt).toContain(
+      "Review carefully before approving.",
+    );
+
+    service.close();
+  });
+
+  // Research R1: stopping is about the runtime and nothing else. If stopping released claims, a
+  // member paused by the user would have its in-progress work taken by someone else.
+  test("stopping a member ends its runtime but leaves its claim held", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human", "member-qa", "task-1"),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully before approving.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    const qa = service.createMember({
+      projectId: "project-1",
+      name: "QA",
+      provider: "codex",
+      homeWorkspaceId: "workspace-qa",
+    });
+    const task = service.createTask({
+      projectId: "project-1",
+      title: "Held across a stop",
+      creatorMemberId: qa.id,
+    });
+    service.claimTask("project-1", task.id, "member-reviewer");
+
+    const agentManager = new FakeAgentManager();
+    const lifecycle = createLifecycle(service, agentManager);
+    await lifecycle.start({ projectId: "project-1", memberId: "member-reviewer" });
+
+    const stopped = await lifecycle.stop({ projectId: "project-1", memberId: "member-reviewer" });
+
+    expect(stopped).toBe(true);
+    expect(agentManager.listAgents()).toHaveLength(0);
+    expect(service.getTask("project-1", task.id)?.claimantMemberId).toBe("member-reviewer");
+    expect(() => service.claimTask("project-1", task.id, qa.id)).toThrow(/Reviewer/);
+
+    // Nothing was running the second time, and that is not an error.
+    expect(await lifecycle.stop({ projectId: "project-1", memberId: "member-reviewer" })).toBe(
+      false,
+    );
+
+    service.close();
+  });
+
+  function createLifecycle(service: TeamService, agentManager: FakeAgentManager): MemberLifecycle {
+    return new MemberLifecycle({
+      teamService: service,
+      agentManager,
+      workspaceRegistry: createWorkspaceRegistryStub({
+        workspaceId: "workspace-reviewer",
+        projectId: "project-1",
+        cwd: "/repo",
+      }),
+      logger: createTestLogger(),
+    });
+  }
+
   async function createPaseoHome(): Promise<string> {
     const path = await mkdtemp(join(tmpdir(), "member-lifecycle-test-"));
     cleanupPaths.push(path);
