@@ -74,8 +74,8 @@ a target removal date. `rg "COMPAT\("` MUST produce the complete cleanup list. B
 hidden in untagged `??` fallbacks or optional-chain tunnels is a violation, because it stops
 being deletable.
 
-*Rationale: users upgrade the daemon and the app independently, and often months apart. The
-protocol is the only contract that cannot be renegotiated at runtime.*
+_Rationale: users upgrade the daemon and the app independently, and often months apart. The
+protocol is the only contract that cannot be renegotiated at runtime._
 
 ### II. Capability Gates, Not Fallback Paths
 
@@ -91,9 +91,9 @@ degradation story.
   `// COMPAT(featureName): added in v0.1.X, drop the gate when floor >= v0.1.X` comment
   marking the cleanup site.
 
-*Rationale: fallback paths double the surface under test and never get deleted. Existing
+_Rationale: fallback paths double the surface under test and never get deleted. Existing
 functionality keeps working across versions because of Principle I — new-feature degradation
-is not a goal.*
+is not a goal._
 
 ### III. Cross-Platform By Default
 
@@ -110,8 +110,8 @@ there is a specific reason otherwise. Gates are imported from `@/constants/platf
   are always visible where hover cannot fire.
 - Layout decisions use breakpoints, never `Platform.OS` as a proxy for screen size.
 
-*Rationale: the team surface is the first feature in this fork with heavy new UI. Platform
-divergence introduced there is paid for on every screen thereafter.*
+_Rationale: the team surface is the first feature in this fork with heavy new UI. Platform
+divergence introduced there is paid for on every screen thereafter._
 
 ### IV. Behavior-Proving Tests, Real Dependencies
 
@@ -124,13 +124,13 @@ behavior does this verify?
   network, and daemon whenever feasible.
 - Determinism is mandatory: no conditional assertions, no branching assertion paths.
 - Every fallible user action exposes pending, success, and failure states in the UI, and every
-  one needs behavioral coverage for success *and* failure. The failure test asserts what the
+  one needs behavioral coverage for success _and_ failure. The failure test asserts what the
   user can see and do next — not a response field, state value, or log line.
 - Tests are run per-file (`npx vitest run <file> --bail=1`). Full suites go to CI, never to a
   developer machine.
 
-*Rationale: agents posting to channels concurrently is exactly the kind of behavior that mocks
-report as working and real dependencies report as broken.*
+_Rationale: agents posting to channels concurrently is exactly the kind of behavior that mocks
+report as working and real dependencies report as broken._
 
 ### V. Commit To A Shape
 
@@ -143,12 +143,12 @@ After the parse, a value is what its type says it is.
 - Zero complexity budget: every abstraction justifies itself with a specific, current benefit.
   A function called once is indirection, not abstraction.
 - No `index.ts` barrel files that only re-export.
-- Comments explain *why*. Delete any comment whose removal loses zero information. No
+- Comments explain _why_. Delete any comment whose removal loses zero information. No
   commented-out code, no `TODO: implement` stubs, no hedging.
 - No "while I'm at it" cleanups — drive-by edits hide in the diff.
 
-*Rationale: this fork adds a large amount of new surface at once. Hedged code compounds
-fastest exactly when volume is high.*
+_Rationale: this fork adds a large amount of new surface at once. Hedged code compounds
+fastest exactly when volume is high._
 
 ### VI. Glossary-Authoritative Terminology
 
@@ -161,9 +161,9 @@ Member, Channel, Task, Home workspace — MUST NOT collide with existing entries
 `docs/glossary.md` already forbids "Task" as a synonym for **Agent session**; the taskboard's
 Task is a distinct, newly-defined concept and the glossary MUST disambiguate both.
 
-*Rationale: Raft's vocabulary and Paseo's vocabulary overlap without matching. Silent conflation
+_Rationale: Raft's vocabulary and Paseo's vocabulary overlap without matching. Silent conflation
 of Raft's "server" with Paseo's Project, or Raft's flat agent with Paseo's Agent session, would
-corrupt the model.*
+corrupt the model._
 
 ### VII. Persistence: JSON By Default, SQLite By Exception
 
@@ -186,8 +186,8 @@ The exception carries obligations:
   later read as general license, and so nobody "corrects" it back to JSON.
 - Extending SQLite to any store outside the team surface requires amending this constitution.
 
-*Rationale: the exception is justified by data shape, not by preference. Naming its boundary
-explicitly is what keeps it an exception.*
+_Rationale: the exception is justified by data shape, not by preference. Naming its boundary
+explicitly is what keeps it an exception._
 
 ### VIII. Fork Mergeability
 
@@ -210,12 +210,12 @@ metric is not diff size but **diff surface in upstream-owned files**.
 - Fork-specific configuration (endpoints, branding, defaults) MUST be centralized so upstream
   changes around it do not scatter conflicts.
 
-*Rationale: the fork's value depends on upstream's continued work. A fork that cannot merge
-upstream is a hard fork, and pays for every upstream fix by reimplementing it.*
+_Rationale: the fork's value depends on upstream's continued work. A fork that cannot merge
+upstream is a hard fork, and pays for every upstream fix by reimplementing it._
 
 ## Single-User Scope
 
-Paseo is single-user and stays single-user. This fork adds the *shape* of a team — members,
+Paseo is single-user and stays single-user. This fork adds the _shape_ of a team — members,
 channels, assignment — without the machinery of multi-tenancy.
 
 - No authentication or authorization system beyond the existing daemon auth.
@@ -224,8 +224,8 @@ channels, assignment — without the machinery of multi-tenancy.
 - "Member" means an agent identity in the roster, plus the single human. It does not imply a
   user account.
 
-*Rationale: roles and permissions are the single largest source of accidental complexity in
-team products, and none of it buys anything for a user who is the only user.*
+_Rationale: roles and permissions are the single largest source of accidental complexity in
+team products, and none of it buys anything for a user who is the only user._
 
 ## Team Surface Data Boundary
 
@@ -248,10 +248,10 @@ thereafter, retaining the last 3 per database. `VACUUM INTO` is required over fi
 it is consistent under concurrent writes. Message history is subject to a configurable
 per-project retention cap, pruned on daemon start.
 
-*Rationale: workspaces are disposable — a worktree is created for a branch and removed on
+_Rationale: workspaces are disposable — a worktree is created for a branch and removed on
 archive. Channels and tasks pinned to one would die with it, and agents on different branches
 could not see each other. Projects are stable and are the natural unit of "a codebase and the
-people working on it."*
+people working on it."_
 
 ## Development Workflow
 

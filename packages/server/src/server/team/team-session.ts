@@ -21,9 +21,19 @@ export function isTeamRequest(msg: SessionInboundMessage): msg is TeamRequest {
   return teamRequestTypes.has(msg.type as TeamRequest["type"]);
 }
 
+/**
+ * Attaches the team surface to a session, when a team runtime exists.
+ *
+ * A session constructed without `configureTeamRuntime` — every test that builds a Session
+ * directly, and any embedder that does not bootstrap the team service — simply does not get the
+ * feature. It must not fail to construct: absent capability means absent feature, never a broken
+ * daemon (Constitution II). `isTeamRequest` is the only path that reaches `teamSession`, and it
+ * cannot match unless a team RPC arrives, which a client only sends when `features.team` is
+ * published.
+ */
 export function attachTeamSession(session: Session): void {
   if (!teamService) {
-    throw new Error("Team runtime is not configured");
+    return;
   }
 
   Object.defineProperty(session, "teamSession", {
@@ -298,6 +308,7 @@ function createMemberLifecycle(session: Session, service: TeamService): MemberLi
 
 declare module "../session.js" {
   interface Session {
-    readonly teamSession: TeamSession;
+    /** Undefined when the daemon was built without a team runtime. See `attachTeamSession`. */
+    readonly teamSession?: TeamSession;
   }
 }

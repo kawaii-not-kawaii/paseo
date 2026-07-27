@@ -1777,7 +1777,7 @@ export class Session {
   }
 
   private async dispatchInboundMessage(msg: SessionInboundMessage, source?: object): Promise<void> {
-    if (isTeamRequest(msg)) return this.teamSession.handle(msg);
+    if (isTeamRequest(msg)) return this.teamSession?.handle(msg);
     const promise =
       this.dispatchVoiceAndControlMessage(msg) ??
       this.dispatchAgentRewindMessage(msg) ??
