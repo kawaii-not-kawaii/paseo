@@ -94,10 +94,18 @@ export function createTeamDatabaseManager(options: TeamDatabaseManagerOptions) {
 
 function openDatabase(location: string, kind: "project" | "roster"): TeamDatabaseHandle {
   const db = new DatabaseSync(location);
-  db.exec("PRAGMA journal_mode=WAL");
-  db.exec("PRAGMA synchronous=NORMAL");
-  db.exec("PRAGMA foreign_keys=ON");
-  db.exec(`PRAGMA busy_timeout=${TEAM_DATABASE_BUSY_TIMEOUT_MS}`);
-  migrateDatabase(db, kind);
-  return db;
+  try {
+    db.exec("PRAGMA journal_mode=WAL");
+    db.exec("PRAGMA synchronous=NORMAL");
+    db.exec("PRAGMA foreign_keys=ON");
+    db.exec(`PRAGMA busy_timeout=${TEAM_DATABASE_BUSY_TIMEOUT_MS}`);
+    migrateDatabase(db, kind);
+    return db;
+  } catch (error) {
+    // A corrupt or unreadable file throws here, after the handle already exists. Leaving it open
+    // holds the file — invisible on POSIX, but on Windows it blocks the restore-from-snapshot
+    // that FR-042 offers for exactly this database. Close before rethrowing.
+    db.close();
+    throw error;
+  }
 }

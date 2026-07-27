@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -143,6 +144,27 @@ setInterval(() => {}, 1000);
     expect(messages).toEqual([expect.objectContaining({ id: "message-1", body: "acknowledged" })]);
 
     manager.closeAll();
+  });
+
+  // Regression: openDatabase constructs the handle before running pragmas and migrations, so a
+  // corrupt file throws with the handle already open. Leaking it is invisible on POSIX but holds
+  // the file on Windows, which blocks the very restore FR-042 offers. Asserted by deleting the
+  // file, which is what the leak prevents.
+  test("a failed open leaves no handle holding the database file", async () => {
+    const teamDir = await createTeamDir();
+    const manager = createTeamDatabaseManager({ teamDir });
+    const projectPath = manager.getProjectPath("project-1");
+    manager.openProject("project-1");
+    manager.closeAll();
+
+    await writeFile(projectPath, "not sqlite", "utf8");
+
+    const reopened = createTeamDatabaseManager({ teamDir });
+    expect(() => reopened.openProject("project-1")).toThrow();
+    reopened.closeAll();
+
+    await rm(projectPath, { force: true });
+    expect(existsSync(projectPath)).toBe(false);
   });
 
   test("corrupt project data does not block startup and exposes recovery from the latest snapshot", async () => {
