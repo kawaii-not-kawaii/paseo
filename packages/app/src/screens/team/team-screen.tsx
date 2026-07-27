@@ -27,17 +27,20 @@ import { TeamMembersSection } from "@/screens/team/members/member-section";
 import { TeamTasksSection } from "@/screens/team/tasks/task-section";
 import { useTeamCapability } from "@/screens/team/team-capability";
 import { ProjectSettingsForm } from "@/screens/team/settings/project-settings-form";
+import { TeamRecovery } from "@/screens/team/team-recovery";
 import {
   adoptLegacyTeamChat,
   getTeamProjectSettingsState,
   listTeamChannels,
   listTeamMembers,
+  restoreTeamProjectSnapshot,
   type TeamLegacyChatAdoptionState,
 } from "@/screens/team/team-client";
 import { buildHostTeamRoute } from "@/utils/host-routes";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
 import { settingsStyles } from "@/styles/settings";
+import type { TeamProjectMaintenance } from "@getpaseo/protocol/team/types";
 
 const TEAM_SECTION_VALUES = ["chat", "members", "tasks", "settings"] as const;
 type TeamSection = (typeof TEAM_SECTION_VALUES)[number];
@@ -430,7 +433,10 @@ function TeamSettingsSection({
   const { t } = useTranslation();
   const [settings, setSettings] = useState<TeamProjectSettings | null>(null);
   const [adoption, setAdoption] = useState<TeamLegacyChatAdoptionState | null>(null);
+  const [maintenance, setMaintenance] = useState<TeamProjectMaintenance | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!client) {
@@ -442,6 +448,7 @@ function TeamSettingsSection({
       const nextState = await getTeamProjectSettingsState(client, projectId);
       setSettings(nextState.settings);
       setAdoption(nextState.legacyChatAdoption);
+      setMaintenance(nextState.maintenance);
       setError(null);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError));
@@ -466,7 +473,24 @@ function TeamSettingsSection({
     }
   }, [client, projectId, refresh]);
 
-  if (!settings && !error) {
+  const handleRestoreSnapshot = useCallback(async () => {
+    if (!client) {
+      return;
+    }
+    setIsRestoring(true);
+    setRestoreError(null);
+    try {
+      const nextMaintenance = await restoreTeamProjectSnapshot({ client, projectId });
+      setMaintenance(nextMaintenance);
+      await refresh();
+    } catch (nextError) {
+      setRestoreError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      setIsRestoring(false);
+    }
+  }, [client, projectId, refresh]);
+
+  if (!settings && !error && !maintenance?.recovery?.isCorrupt) {
     return (
       <View style={styles.sectionCard}>
         <Text style={styles.muted}>{t("common.states.loading")}</Text>
@@ -478,6 +502,12 @@ function TeamSettingsSection({
     return (
       <View style={styles.sectionCard}>
         <Text style={settingsStyles.rowError}>{error ?? t("message.actions.forkUnavailable")}</Text>
+        <TeamRecovery
+          maintenance={maintenance}
+          isRestoring={isRestoring}
+          restoreError={restoreError}
+          onRestore={handleRestoreSnapshot}
+        />
       </View>
     );
   }
@@ -485,6 +515,12 @@ function TeamSettingsSection({
   return (
     <View style={styles.sectionCard}>
       <Text style={styles.sectionLabel}>{t("team.sections.settings")}</Text>
+      <TeamRecovery
+        maintenance={maintenance}
+        isRestoring={isRestoring}
+        restoreError={restoreError}
+        onRestore={handleRestoreSnapshot}
+      />
       {adoption?.status === "pending" ? (
         <View style={styles.adoptionCard}>
           <Text style={styles.adoptionTitle}>{t("team.settings.adoption.title")}</Text>

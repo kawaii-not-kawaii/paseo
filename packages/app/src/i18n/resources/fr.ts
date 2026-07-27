@@ -374,10 +374,20 @@ export const fr: TranslationResources = {
       noProgressLimit: "Seuil d'absence de progression",
       retentionWarning:
         "Au prochain démarrage, les messages les plus anciens au-dessus de la nouvelle limite seront supprimés avant le chargement du projet.",
+      retentionPrunedTitle: "L'historique a été élagué au démarrage",
+      retentionPrunedBody:
+        "Le daemon a supprimé les {{count}} messages les plus anciens pour appliquer cette limite.",
       adoption: {
         title: "Adopter l'historique de chat existant",
         body: "{{roomCount}} salons hérités et {{messageCount}} messages sont encore dans l'ancien stockage de chat. Importez-les dans ce projet sans modifier `paseo chat`.",
         action: "Adopter l'historique du chat",
+      },
+      recovery: {
+        title: "Les données d'équipe nécessitent une récupération",
+        body: "La base de données Team de ce projet n'a pas pu être lue. Restaurez le dernier instantané automatique pour récupérer les salons, messages et tâches.",
+        restoreAction: "Restaurer l'instantané",
+        restoringAction: "Restauration...",
+        failedTitle: "La restauration a échoué",
       },
     },
   },

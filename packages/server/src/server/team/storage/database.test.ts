@@ -1,9 +1,15 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { spawn } from "node:child_process";
 import { afterEach, describe, expect, test } from "vitest";
+import { once } from "node:events";
+import { pathToFileURL } from "node:url";
 import { TEAM_DATABASE_BUSY_TIMEOUT_MS, createTeamDatabaseManager } from "./database.js";
 import { LATEST_TEAM_DATABASE_VERSION } from "./migrations.js";
+import { createProjectStore } from "./project-store.js";
+import { TeamService } from "../team-service.js";
+import { createTeamBackupManager } from "./backup.js";
 
 describe("team database manager", () => {
   const tempDirs: string[] = [];
@@ -63,6 +69,141 @@ describe("team database manager", () => {
         )
         .run("mem_2", "ws_1", "2026-07-27T00:00:01.000Z"),
     ).toThrow(/project_members\.home_workspace_id|UNIQUE constraint failed/i);
+
+    manager.closeAll();
+  });
+
+  test("preserves an acknowledged message after a real SIGKILL mid-process", async () => {
+    const teamDir = await createTeamDir();
+    const scriptPath = join(teamDir, "durability-child.ts");
+    await writeFile(
+      scriptPath,
+      `
+import { createTeamDatabaseManager } from ${JSON.stringify(pathToFileURL(new URL("./database.ts", import.meta.url).pathname).href)};
+import { createProjectStore } from ${JSON.stringify(pathToFileURL(new URL("./project-store.ts", import.meta.url).pathname).href)};
+
+const teamDir = process.argv[2];
+if (!teamDir) {
+  throw new Error("Missing team dir");
+}
+const manager = createTeamDatabaseManager({ teamDir });
+const store = createProjectStore(manager.openProject("project-1"));
+store.createChannel({
+  id: "channel-1",
+  name: "general",
+  purpose: null,
+  createdAt: "2026-07-27T12:00:00.000Z",
+  updatedAt: "2026-07-27T12:00:00.000Z",
+  archivedAt: null,
+});
+store.createMessage({
+  id: "message-1",
+  channelId: "channel-1",
+  authorMemberId: "human",
+  body: "acknowledged",
+  replyToMessageId: null,
+  createdAt: "2026-07-27T12:00:01.000Z",
+  autoStarted: false,
+});
+process.stdout.write("ACK\\n");
+setInterval(() => {}, 1000);
+`,
+      "utf8",
+    );
+
+    const child = spawn(process.execPath, ["--import", "tsx", scriptPath, teamDir], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    await once(child.stdout!, "data");
+    child.kill("SIGKILL");
+    await once(child, "exit");
+
+    const manager = createTeamDatabaseManager({ teamDir });
+    const messages = createProjectStore(manager.openProject("project-1")).listMessages({
+      channelId: "channel-1",
+      cursor: null,
+      limit: 10,
+    }).messages;
+
+    expect(messages).toEqual([expect.objectContaining({ id: "message-1", body: "acknowledged" })]);
+
+    manager.closeAll();
+  });
+
+  test("corrupt project data does not block startup and exposes recovery from the latest snapshot", async () => {
+    const paseoHome = await mkdtemp(join(tmpdir(), "team-corrupt-project-test-"));
+    tempDirs.push(paseoHome);
+    const teamDir = join(paseoHome, "team");
+    const manager = createTeamDatabaseManager({ teamDir });
+    const store = createProjectStore(manager.openProject("project-1"));
+    store.createChannel({
+      id: "channel-1",
+      name: "general",
+      purpose: null,
+      createdAt: "2026-07-27T12:00:00.000Z",
+      updatedAt: "2026-07-27T12:00:00.000Z",
+      archivedAt: null,
+    });
+    await createTeamBackupManager({
+      teamDir,
+      now: () => new Date("2026-07-27T12:05:00.000Z"),
+    }).snapshotDatabase({
+      databaseName: "project-1",
+      databasePath: manager.getProjectPath("project-1"),
+    });
+    manager.closeAll();
+
+    await writeFile(manager.getProjectPath("project-1"), "not sqlite", "utf8");
+
+    const service = new TeamService({ paseoHome });
+    const state = await service.getProjectSettingsState("project-1");
+
+    expect(state.settings).toBeNull();
+    expect(state.maintenance.recovery).toMatchObject({
+      canRestore: true,
+      isCorrupt: true,
+      latestSnapshotAt: "2026-07-27T12:05:00.000Z",
+    });
+
+    const maintenance = await service.restoreProjectFromLatestSnapshot("project-1");
+    expect(maintenance.recovery).toMatchObject({
+      canRestore: false,
+      isCorrupt: false,
+      error: null,
+    });
+    expect(service.getProjectSettings("project-1")).toMatchObject({
+      messageRetentionCap: 50_000,
+    });
+
+    service.close();
+  });
+
+  test("deleting one project removes only that project's team data", async () => {
+    const manager = createTeamDatabaseManager({ teamDir: await createTeamDir() });
+    createProjectStore(manager.openProject("project-1")).createChannel({
+      id: "channel-1",
+      name: "general",
+      purpose: null,
+      createdAt: "2026-07-27T12:00:00.000Z",
+      updatedAt: "2026-07-27T12:00:00.000Z",
+      archivedAt: null,
+    });
+    createProjectStore(manager.openProject("project-2")).createChannel({
+      id: "channel-2",
+      name: "general-2",
+      purpose: null,
+      createdAt: "2026-07-27T12:00:00.000Z",
+      updatedAt: "2026-07-27T12:00:00.000Z",
+      archivedAt: null,
+    });
+
+    manager.deleteProjectData("project-1");
+
+    expect(manager.listProjectIds()).toEqual(["project-2"]);
+    expect(createProjectStore(manager.openProject("project-2")).listChannels()).toEqual([
+      expect.objectContaining({ id: "channel-2" }),
+    ]);
 
     manager.closeAll();
   });

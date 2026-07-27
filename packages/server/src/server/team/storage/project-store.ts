@@ -86,6 +86,11 @@ const projectSettingsRowSchema = z.object({
   auto_start_enabled: z.union([z.literal(0), z.literal(1)]),
 });
 
+const retentionStatusRowSchema = z.object({
+  last_retention_pruned_message_count: z.number().int().nonnegative(),
+  last_retention_pruned_at: z.string().nullable(),
+});
+
 type MessageRow = z.infer<typeof messageRowSchema>;
 type ChannelRow = z.infer<typeof channelRowSchema>;
 type MessageMentionRow = z.infer<typeof messageMentionRowSchema>;
@@ -182,6 +187,11 @@ export interface ProjectSettings {
   attemptTimeoutMs: number;
   noProgressLimit: number;
   autoStartEnabled: boolean;
+}
+
+export interface ProjectRetentionStatus {
+  lastPrunedMessageCount: number;
+  lastPrunedAt: string | null;
 }
 
 export interface ListProjectMessagesInput {
@@ -549,6 +559,55 @@ export function createProjectStore(db: TeamDatabaseHandle) {
       settings.noProgressLimit,
       settings.autoStartEnabled ? 1 : 0,
     );
+  }
+
+  function pruneMessagesBeyondRetentionCap(messageRetentionCap: number): number {
+    if (messageRetentionCap < 1) {
+      return 0;
+    }
+    const rows = messageRowSchema.array().parse(
+      db
+        .prepare(
+          `SELECT id, channel_id, author_member_id, body, reply_to_message_id, created_at, auto_started
+             FROM messages
+            ORDER BY created_at DESC, id DESC
+            LIMIT -1 OFFSET ?`,
+        )
+        .all(messageRetentionCap) as unknown[],
+    );
+    if (rows.length === 0) {
+      return 0;
+    }
+    const deleteMessage = db.prepare("DELETE FROM messages WHERE id = ?");
+    for (const row of rows.toReversed()) {
+      deleteMessage.run(row.id);
+    }
+    return rows.length;
+  }
+
+  function recordRetentionPrune(lastPrunedMessageCount: number, lastPrunedAt: string): void {
+    db.prepare(
+      `UPDATE project_settings
+          SET last_retention_pruned_message_count = ?,
+              last_retention_pruned_at = ?
+        WHERE id = 1`,
+    ).run(lastPrunedMessageCount, lastPrunedAt);
+  }
+
+  function getRetentionStatus(): ProjectRetentionStatus {
+    const row = retentionStatusRowSchema.parse(
+      db
+        .prepare(
+          `SELECT last_retention_pruned_message_count, last_retention_pruned_at
+             FROM project_settings
+            WHERE id = 1`,
+        )
+        .get() as unknown,
+    );
+    return {
+      lastPrunedMessageCount: row.last_retention_pruned_message_count,
+      lastPrunedAt: row.last_retention_pruned_at,
+    };
   }
 
   function listTasks(input: ListProjectTasksInput = {}): ProjectTask[] {
@@ -1005,6 +1064,9 @@ export function createProjectStore(db: TeamDatabaseHandle) {
     getProjectMemberByHomeWorkspaceId,
     getProjectSettings,
     updateProjectSettings,
+    pruneMessagesBeyondRetentionCap,
+    recordRetentionPrune,
+    getRetentionStatus,
     listTasks,
     getTask,
     createTask,

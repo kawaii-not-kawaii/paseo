@@ -219,6 +219,7 @@ import {
   type CreatePaseoWorktreeResult,
 } from "./paseo-worktree-service.js";
 import { WorkspaceAutoName } from "./workspace-auto-name.js";
+import { getConfiguredTeamServiceOrNull } from "./team/bootstrap.js";
 import { attachTeamSession, isTeamRequest } from "./team/team-session.js";
 import {
   buildAgentSessionConfig as buildWorktreeAgentSessionConfig,
@@ -2693,6 +2694,7 @@ export class Session {
         }
 
         await this.projectRegistry.remove(projectId);
+        getConfiguredTeamServiceOrNull()?.deleteProjectData(projectId);
       } finally {
         if (activeWorkspaceIds.length > 0) {
           this.clearWorkspaceArchiving(activeWorkspaceIds);

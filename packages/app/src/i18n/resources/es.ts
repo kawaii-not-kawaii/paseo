@@ -373,10 +373,20 @@ export const es: TranslationResources = {
       noProgressLimit: "Límite de falta de progreso",
       retentionWarning:
         "En el próximo inicio, los mensajes más antiguos por encima del nuevo límite se podarán antes de que cargue el proyecto.",
+      retentionPrunedTitle: "Se depuró el historial al iniciar",
+      retentionPrunedBody:
+        "El daemon eliminó los {{count}} mensajes más antiguos para aplicar este límite.",
       adoption: {
         title: "Adoptar el historial de chat existente",
         body: "Todavía hay {{roomCount}} salas heredadas y {{messageCount}} mensajes en el almacén de chat antiguo. Impórtalos a este proyecto sin cambiar `paseo chat`.",
         action: "Adoptar historial de chat",
+      },
+      recovery: {
+        title: "Los datos del equipo necesitan recuperación",
+        body: "No se pudo leer la base de datos Team de este proyecto. Restaura la instantánea automática más reciente para recuperar canales, mensajes y tareas.",
+        restoreAction: "Restaurar instantánea",
+        restoringAction: "Restaurando...",
+        failedTitle: "La restauración falló",
       },
     },
   },

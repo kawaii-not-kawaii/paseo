@@ -237,14 +237,14 @@ acknowledged message or task change is lost (SC-006).
 - [x] T103 [US4] Implement `packages/server/src/server/team/adoption.ts` — copy, never move; leave the original file untouched
 - [x] T104 [US4] **INVARIANT TEST** Write a test asserting `paseo chat ls` and `paseo chat read` still work unchanged after adoption (SC-008, Constitution VIII) — upstream's service must be untouched
 - [x] T105 [US4] Implement the one-time adoption prompt, since existing rooms carry no `projectId` and the target cannot be safely inferred (research R7)
-- [ ] T106 [US4] Write a failing test in `packages/server/src/server/team/storage/backup.test.ts` asserting `VACUUM INTO` produces a readable snapshot **while a concurrent write is in flight**, and that only the last 3 are retained
-- [ ] T107 [US4] Implement `packages/server/src/server/team/storage/backup.ts` — snapshot on daemon start and every 24h, per database, pruning to 3 (FR-039)
-- [ ] T108 [US4] Write a failing test in `packages/server/src/server/team/retention.test.ts` asserting messages beyond the per-project cap are pruned oldest-first on start, and the pruned count is recorded and readable by the user (FR-040)
-- [ ] T109 [US4] Implement `packages/server/src/server/team/retention.ts`, pruning at start only — never on the write path, and never while the user is reading
-- [ ] T110 [US4] Write a failing test asserting an acknowledged message survives `kill -9` mid-write (FR-038, SC-006), proving the WAL and `synchronous` settings are correct
-- [ ] T111 [US4] Write a failing test in `packages/server/src/server/team/storage/database.test.ts` asserting a corrupt or unreadable team database lets the daemon start, surfaces the failure, and offers recovery from the most recent snapshot without hand tooling (FR-042)
-- [ ] T112 [US4] Implement restore-from-snapshot in `packages/server/src/server/team/storage/backup.ts` and surface it in `packages/app/src/screens/team/team-recovery.tsx` as a user-facing action requiring no terminal (SC-009)
-- [ ] T113 [US4] Write a failing test in `packages/server/src/server/team/storage/database.test.ts` asserting deleting a project removes only that project's team data (FR-041)
+- [x] T106 [US4] Write a failing test in `packages/server/src/server/team/storage/backup.test.ts` asserting `VACUUM INTO` produces a readable snapshot **while a concurrent write is in flight**, and that only the last 3 are retained
+- [x] T107 [US4] Implement `packages/server/src/server/team/storage/backup.ts` — snapshot on daemon start and every 24h, per database, pruning to 3 (FR-039)
+- [x] T108 [US4] Write a failing test in `packages/server/src/server/team/retention.test.ts` asserting messages beyond the per-project cap are pruned oldest-first on start, and the pruned count is recorded and readable by the user (FR-040)
+- [x] T109 [US4] Implement `packages/server/src/server/team/retention.ts`, pruning at start only — never on the write path, and never while the user is reading
+- [x] T110 [US4] Write a failing test asserting an acknowledged message survives `kill -9` mid-write (FR-038, SC-006), proving the WAL and `synchronous` settings are correct
+- [x] T111 [US4] Write a failing test in `packages/server/src/server/team/storage/database.test.ts` asserting a corrupt or unreadable team database lets the daemon start, surfaces the failure, and offers recovery from the most recent snapshot without hand tooling (FR-042)
+- [x] T112 [US4] Implement restore-from-snapshot in `packages/server/src/server/team/storage/backup.ts` and surface it in `packages/app/src/screens/team/team-recovery.tsx` as a user-facing action requiring no terminal (SC-009)
+- [x] T113 [US4] Write a failing test in `packages/server/src/server/team/storage/database.test.ts` asserting deleting a project removes only that project's team data (FR-041)
 - [ ] T114 [US4] **STORY VALIDATION** Execute quickstart steps 6, 9, and 10 (unclean shutdown, adoption with CLI intact, cross-daemon independence)
 
 **Checkpoint**: the data is durable and bounded.

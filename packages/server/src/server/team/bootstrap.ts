@@ -19,6 +19,10 @@ export function getConfiguredTeamService(): TeamService {
   return configuredTeamService;
 }
 
+export function getConfiguredTeamServiceOrNull(): TeamService | null {
+  return configuredTeamService;
+}
+
 export function setConfiguredTeamServiceForTests(service: TeamService | null): void {
   configuredTeamService = service;
   if (service) {

@@ -373,10 +373,20 @@ export const ptBR: TranslationResources = {
       noProgressLimit: "Limite de falta de progresso",
       retentionWarning:
         "Na próxima inicialização, as mensagens mais antigas acima do novo limite serão podadas antes de o projeto carregar.",
+      retentionPrunedTitle: "O histórico foi podado na inicialização",
+      retentionPrunedBody:
+        "O daemon removeu as {{count}} mensagens mais antigas para aplicar este limite.",
       adoption: {
         title: "Adotar o histórico de chat existente",
         body: "Ainda há {{roomCount}} salas legadas e {{messageCount}} mensagens no armazenamento antigo de chat. Importe tudo para este projeto sem alterar `paseo chat`.",
         action: "Adotar histórico de chat",
+      },
+      recovery: {
+        title: "Os dados da equipe precisam de recuperação",
+        body: "Não foi possível ler o banco de dados Team deste projeto. Restaure o snapshot automático mais recente para recuperar canais, mensagens e tarefas.",
+        restoreAction: "Restaurar snapshot",
+        restoringAction: "Restaurando...",
+        failedTitle: "A restauração falhou",
       },
     },
   },

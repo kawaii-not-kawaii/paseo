@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import type {
   TeamChannel,
   TeamHomeFileEntry,
   TeamMember,
   TeamMessage,
+  TeamProjectMaintenance,
   TeamProjectSettings,
   TeamRoleTemplate,
   TeamTask,
@@ -24,11 +25,14 @@ import {
   getLegacyChatAdoptionState,
   type LegacyChatAdoptionState,
 } from "./adoption.js";
+import { applyTeamMessageRetention } from "./retention.js";
 import { ReviewCycle } from "./review-cycle.js";
 import { listBuiltInRoleTemplates } from "./role-templates.js";
+import { createTeamBackupManager, TEAM_BACKUP_INTERVAL_MS } from "./storage/backup.js";
 import {
   createProjectStore,
   type ProjectSettings,
+  type ProjectRetentionStatus,
   type ProjectTask,
 } from "./storage/project-store.js";
 import { createRosterStore, type RosterMember } from "./storage/roster-store.js";
@@ -166,6 +170,9 @@ export class TeamService {
   private readonly paseoHome: string;
   private readonly claims: Claims;
   private readonly reviewCycle: ReviewCycle;
+  private readonly backupManager;
+  private readonly projectOpenFailures = new Map<string, string>();
+  private backupTimer: NodeJS.Timeout | null = null;
 
   constructor(options: TeamServiceOptions) {
     const teamDir = join(options.paseoHome, "team");
@@ -174,6 +181,7 @@ export class TeamService {
     this.paseoHome = options.paseoHome;
     this.now = options.now ?? (() => new Date());
     this.createId = options.createId ?? randomUUID;
+    this.backupManager = createTeamBackupManager({ teamDir, now: this.now });
     this.claims = new Claims({
       now: this.now,
       openProject: (projectId) => this.dbManager.openProject(projectId),
@@ -203,10 +211,15 @@ export class TeamService {
         }
       },
     });
-    this.ensureHumanMember();
+    this.ensureHumanMemberSafe();
+    this.runStartupMaintenance();
   }
 
   public close(): void {
+    if (this.backupTimer) {
+      clearInterval(this.backupTimer);
+      this.backupTimer = null;
+    }
     this.dbManager.closeAll();
   }
 
@@ -523,6 +536,44 @@ export class TeamService {
     );
   }
 
+  public async getProjectSettingsState(projectId: string): Promise<{
+    settings: TeamProjectSettings | null;
+    maintenance: TeamProjectMaintenance;
+  }> {
+    let settings: TeamProjectSettings | null = null;
+    let retention: ProjectRetentionStatus = {
+      lastPrunedMessageCount: 0,
+      lastPrunedAt: null,
+    };
+
+    try {
+      const store = createProjectStore(this.dbManager.openProject(projectId));
+      settings = toTeamProjectSettings(store.getProjectSettings());
+      retention = store.getRetentionStatus();
+      this.projectOpenFailures.delete(projectId);
+    } catch (error) {
+      this.projectOpenFailures.set(
+        projectId,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+
+    const latestSnapshot = await this.backupManager.getLatestSnapshot(projectId);
+    const failure = this.projectOpenFailures.get(projectId) ?? null;
+    return {
+      settings,
+      maintenance: {
+        retention,
+        recovery: {
+          error: failure,
+          latestSnapshotAt: latestSnapshot?.createdAt ?? null,
+          canRestore: latestSnapshot !== null,
+          isCorrupt: failure !== null,
+        },
+      },
+    };
+  }
+
   public updateProjectSettings(
     projectId: string,
     settings: TeamProjectSettings,
@@ -542,6 +593,28 @@ export class TeamService {
     return adoptLegacyChatIntoProject({ paseoHome: this.paseoHome, projectId }).then(() =>
       this.getLegacyChatAdoptionState(),
     );
+  }
+
+  public deleteProjectData(projectId: string): void {
+    this.projectOpenFailures.delete(projectId);
+    this.dbManager.deleteProjectData(projectId);
+  }
+
+  public async restoreProjectFromLatestSnapshot(
+    projectId: string,
+  ): Promise<TeamProjectMaintenance> {
+    const latestSnapshot = await this.backupManager.getLatestSnapshot(projectId);
+    if (!latestSnapshot) {
+      throw new Error(`No team snapshot is available for project ${projectId}.`);
+    }
+    this.dbManager.deleteProjectData(projectId);
+    await this.backupManager.restoreDatabase({
+      databaseName: projectId,
+      destinationPath: this.dbManager.getProjectPath(projectId),
+      snapshotPath: latestSnapshot.path,
+    });
+    this.projectOpenFailures.delete(projectId);
+    return (await this.getProjectSettingsState(projectId)).maintenance;
   }
 
   public listTasks(input: ListTeamTasksInput): TeamTask[] {
@@ -814,6 +887,12 @@ export class TeamService {
     this.reviewCycle.recordProgress(projectId);
   }
 
+  private ensureHumanMemberSafe(): void {
+    try {
+      this.ensureHumanMember();
+    } catch {}
+  }
+
   private ensureHumanMember(): void {
     const rosterStore = createRosterStore(this.dbManager.openRoster());
     const hasHuman = rosterStore
@@ -879,6 +958,44 @@ export class TeamService {
     throw new Error(
       `Home workspace ${homeWorkspaceId} is already assigned to ${conflictingMember?.name ?? conflictingAssignment.memberId}.`,
     );
+  }
+
+  private runStartupMaintenance(): void {
+    void this.snapshotAllDatabases();
+    applyTeamMessageRetention({
+      listProjectIds: () => this.dbManager.listProjectIds(),
+      openProject: (projectId) => this.dbManager.openProject(projectId),
+      now: this.now,
+      onProjectError: ({ projectId, error }) => {
+        this.projectOpenFailures.set(
+          projectId,
+          error instanceof Error ? error.message : String(error),
+        );
+      },
+    });
+    this.backupTimer = setInterval(() => {
+      void this.snapshotAllDatabases();
+    }, TEAM_BACKUP_INTERVAL_MS);
+  }
+
+  private async snapshotAllDatabases(): Promise<void> {
+    const snapshotJobs = [
+      ...(existsSync(this.dbManager.getRosterPath())
+        ? [
+            this.backupManager.snapshotDatabase({
+              databaseName: "roster",
+              databasePath: this.dbManager.getRosterPath(),
+            }),
+          ]
+        : []),
+      ...this.dbManager.listProjectIds().map((projectId) =>
+        this.backupManager.snapshotDatabase({
+          databaseName: projectId,
+          databasePath: this.dbManager.getProjectPath(projectId),
+        }),
+      ),
+    ];
+    await Promise.allSettled(snapshotJobs);
   }
 }
 

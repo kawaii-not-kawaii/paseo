@@ -4,6 +4,7 @@ import type {
   TeamHomeFileEntry,
   TeamMember,
   TeamMessage,
+  TeamProjectMaintenance,
   TeamProjectSettings,
   TeamRoleTemplate,
 } from "@getpaseo/protocol/team/types";
@@ -23,6 +24,7 @@ import type {
   TeamMessagePostResponse,
   TeamProjectAdoptLegacyChatResponse,
   TeamProjectGetSettingsResponse,
+  TeamProjectRestoreSnapshotResponse,
   TeamProjectUpdateSettingsResponse,
 } from "@getpaseo/protocol/team/rpc-schemas";
 import type { AgentProvider } from "@getpaseo/protocol/agent-types";
@@ -132,6 +134,11 @@ type TeamClientRequest =
       type: "team.project.adopt_legacy_chat.request";
       requestId: string;
       projectId: string;
+    }
+  | {
+      type: "team.project.restore_snapshot.request";
+      requestId: string;
+      projectId: string;
     };
 
 type TeamClientResponse =
@@ -149,6 +156,7 @@ type TeamClientResponse =
   | TeamMessageListResponse["payload"]
   | TeamMessagePostResponse["payload"]
   | TeamProjectAdoptLegacyChatResponse["payload"]
+  | TeamProjectRestoreSnapshotResponse["payload"]
   | TeamProjectGetSettingsResponse["payload"]
   | TeamProjectUpdateSettingsResponse["payload"];
 
@@ -166,6 +174,7 @@ export interface TeamLegacyChatAdoptionState {
 export interface TeamProjectSettingsState {
   settings: TeamProjectSettings | null;
   legacyChatAdoption: TeamLegacyChatAdoptionState | null;
+  maintenance: TeamProjectMaintenance | null;
 }
 
 interface PrivateDaemonClient {
@@ -543,6 +552,12 @@ export async function getTeamProjectSettingsState(
           legacyChatAdoption?: TeamLegacyChatAdoptionState;
         }
       ).legacyChatAdoption ?? null,
+    maintenance:
+      (
+        payload as TeamProjectGetSettingsResponse["payload"] & {
+          maintenance?: TeamProjectMaintenance;
+        }
+      ).maintenance ?? null,
   };
 }
 
@@ -589,5 +604,30 @@ export async function adoptLegacyTeamChat(input: {
         legacyChatAdoption?: TeamLegacyChatAdoptionState;
       }
     ).legacyChatAdoption ?? null
+  );
+}
+
+export async function restoreTeamProjectSnapshot(input: {
+  client: DaemonClient;
+  projectId: string;
+}): Promise<TeamProjectMaintenance | null> {
+  const requestId = createRequestId("team-project-restore-snapshot");
+  const payload = await sendTeamRequest<TeamProjectRestoreSnapshotResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.project.restore_snapshot.request",
+      requestId,
+      projectId: input.projectId,
+    },
+    responseType: "team.project.restore_snapshot.response",
+  });
+  throwTeamError(payload);
+  return (
+    (
+      payload as TeamProjectRestoreSnapshotResponse["payload"] & {
+        maintenance?: TeamProjectMaintenance;
+      }
+    ).maintenance ?? null
   );
 }

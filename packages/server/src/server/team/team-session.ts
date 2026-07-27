@@ -153,6 +153,10 @@ export class TeamSession {
         this.handleProjectAdoptLegacyChat(
           msg as Extract<TeamRequest, { type: "team.project.adopt_legacy_chat.request" }>,
         ),
+      "team.project.restore_snapshot.request": (msg) =>
+        this.handleProjectRestoreSnapshot(
+          msg as Extract<TeamRequest, { type: "team.project.restore_snapshot.request" }>,
+        ),
     };
     this.service.subscribe((event) => {
       if (event.type === "team.message.posted") {
@@ -536,11 +540,15 @@ export class TeamSession {
     return this.emitResult(
       "team.project.get_settings.response",
       msg.requestId,
-      async () => ({
-        settings: this.service.getProjectSettings(msg.projectId),
-        legacyChatAdoption: await this.service.getLegacyChatAdoptionState(),
-      }),
-      { settings: null },
+      async () => {
+        const state = await this.service.getProjectSettingsState(msg.projectId);
+        return {
+          settings: state.settings,
+          legacyChatAdoption: await this.service.getLegacyChatAdoptionState(),
+          maintenance: state.maintenance,
+        };
+      },
+      { settings: null, maintenance: undefined },
     );
   }
 
@@ -588,6 +596,20 @@ export class TeamSession {
       async () => ({
         projectId: msg.projectId,
         legacyChatAdoption: await this.service.adoptLegacyChat(msg.projectId),
+      }),
+      { projectId: null },
+    );
+  }
+
+  private handleProjectRestoreSnapshot(
+    msg: Extract<TeamRequest, { type: "team.project.restore_snapshot.request" }>,
+  ): Promise<void> {
+    return this.emitResult(
+      "team.project.restore_snapshot.response",
+      msg.requestId,
+      async () => ({
+        projectId: msg.projectId,
+        maintenance: await this.service.restoreProjectFromLatestSnapshot(msg.projectId),
       }),
       { projectId: null },
     );

@@ -23,6 +23,21 @@ const migrations: Migration[] = [
       createRosterSchema(db);
     },
   },
+  {
+    version: 2,
+    up: (db, kind) => {
+      if (kind !== "project") {
+        return;
+      }
+      db.exec(`
+        ALTER TABLE project_settings
+          ADD COLUMN last_retention_pruned_message_count INTEGER NOT NULL DEFAULT 0;
+
+        ALTER TABLE project_settings
+          ADD COLUMN last_retention_pruned_at TEXT;
+      `);
+    },
+  },
 ];
 
 export const LATEST_TEAM_DATABASE_VERSION = migrations.at(-1)?.version ?? 0;

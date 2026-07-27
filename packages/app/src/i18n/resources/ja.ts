@@ -373,10 +373,20 @@ export const ja: TranslationResources = {
       noProgressLimit: "進捗なしの上限",
       retentionWarning:
         "次回起動時に、新しい上限を超える最も古いメッセージがプロジェクト読み込み前に削除されます。",
+      retentionPrunedTitle: "起動時に履歴を整理しました",
+      retentionPrunedBody:
+        "この上限を適用するため、デーモンが最も古い {{count}} 件のメッセージを削除しました。",
       adoption: {
         title: "既存のチャット履歴を取り込む",
         body: "古いチャットストアに {{roomCount}} 件の旧ルームと {{messageCount}} 件のメッセージが残っています。`paseo chat` を変えずにこのプロジェクトへ取り込みます。",
         action: "チャット履歴を取り込む",
+      },
+      recovery: {
+        title: "Team データの復旧が必要です",
+        body: "このプロジェクトの Team データベースを読み取れませんでした。最新の自動スナップショットを復元して、チャンネル、メッセージ、タスクを回復してください。",
+        restoreAction: "スナップショットを復元",
+        restoringAction: "復元中...",
+        failedTitle: "復元に失敗しました",
       },
     },
   },

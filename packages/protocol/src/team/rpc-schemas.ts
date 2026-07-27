@@ -6,6 +6,7 @@ import {
   TeamHomeFileEntrySchema,
   TeamMemberSchema,
   TeamMessageSchema,
+  TeamProjectMaintenanceSchema,
   TeamProjectSettingsSchema,
   TeamRoleTemplateSchema,
   TeamTaskAcceptanceCriterionSchema,
@@ -244,6 +245,12 @@ export const TeamProjectAdoptLegacyChatRequestSchema = z.object({
   projectId: z.string(),
 });
 
+export const TeamProjectRestoreSnapshotRequestSchema = z.object({
+  type: z.literal("team.project.restore_snapshot.request"),
+  requestId: z.string(),
+  projectId: z.string(),
+});
+
 export const TeamChannelListResponseSchema = z.object({
   type: z.literal("team.channel.list.response"),
   payload: TeamResponseEnvelopeSchema.extend({
@@ -408,6 +415,7 @@ export const TeamProjectGetSettingsResponseSchema = z.object({
   payload: TeamResponseEnvelopeSchema.extend({
     settings: TeamProjectSettingsSchema.nullable(),
     legacyChatAdoption: TeamLegacyChatAdoptionStateSchema.optional(),
+    maintenance: TeamProjectMaintenanceSchema.optional(),
   }),
 });
 
@@ -438,6 +446,14 @@ export const TeamProjectAdoptLegacyChatResponseSchema = z.object({
   payload: TeamResponseEnvelopeSchema.extend({
     projectId: z.string().nullable(),
     legacyChatAdoption: TeamLegacyChatAdoptionStateSchema.optional(),
+  }),
+});
+
+export const TeamProjectRestoreSnapshotResponseSchema = z.object({
+  type: z.literal("team.project.restore_snapshot.response"),
+  payload: TeamResponseEnvelopeSchema.extend({
+    projectId: z.string().nullable(),
+    maintenance: TeamProjectMaintenanceSchema.optional(),
   }),
 });
 
@@ -502,6 +518,7 @@ export const TeamRequestSchemas = [
   TeamProjectStopAllRequestSchema,
   TeamProjectResumeRequestSchema,
   TeamProjectAdoptLegacyChatRequestSchema,
+  TeamProjectRestoreSnapshotRequestSchema,
 ] as const;
 
 export const TeamResponseSchemas = [
@@ -532,6 +549,7 @@ export const TeamResponseSchemas = [
   TeamProjectStopAllResponseSchema,
   TeamProjectResumeResponseSchema,
   TeamProjectAdoptLegacyChatResponseSchema,
+  TeamProjectRestoreSnapshotResponseSchema,
 ] as const;
 
 export const TeamEventSchemas = [
@@ -580,6 +598,9 @@ export type TeamProjectResumeRequest = z.infer<typeof TeamProjectResumeRequestSc
 export type TeamProjectAdoptLegacyChatRequest = z.infer<
   typeof TeamProjectAdoptLegacyChatRequestSchema
 >;
+export type TeamProjectRestoreSnapshotRequest = z.infer<
+  typeof TeamProjectRestoreSnapshotRequestSchema
+>;
 export type TeamChannelListResponse = z.infer<typeof TeamChannelListResponseSchema>;
 export type TeamChannelCreateResponse = z.infer<typeof TeamChannelCreateResponseSchema>;
 export type TeamChannelUpdateResponse = z.infer<typeof TeamChannelUpdateResponseSchema>;
@@ -610,6 +631,9 @@ export type TeamProjectStopAllResponse = z.infer<typeof TeamProjectStopAllRespon
 export type TeamProjectResumeResponse = z.infer<typeof TeamProjectResumeResponseSchema>;
 export type TeamProjectAdoptLegacyChatResponse = z.infer<
   typeof TeamProjectAdoptLegacyChatResponseSchema
+>;
+export type TeamProjectRestoreSnapshotResponse = z.infer<
+  typeof TeamProjectRestoreSnapshotResponseSchema
 >;
 export type TeamMessagePosted = z.infer<typeof TeamMessagePostedSchema>;
 export type TeamTaskChanged = z.infer<typeof TeamTaskChangedSchema>;

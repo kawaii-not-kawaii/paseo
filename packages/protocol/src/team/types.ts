@@ -105,6 +105,29 @@ export const TeamProjectSettingsSchema = z.object({
 
 export type TeamProjectSettings = z.infer<typeof TeamProjectSettingsSchema>;
 
+export const TeamProjectRetentionStatusSchema = z.object({
+  lastPrunedMessageCount: z.number().int().nonnegative(),
+  lastPrunedAt: z.string().nullable(),
+});
+
+export type TeamProjectRetentionStatus = z.infer<typeof TeamProjectRetentionStatusSchema>;
+
+export const TeamProjectRecoverySchema = z.object({
+  error: z.string().nullable(),
+  latestSnapshotAt: z.string().nullable(),
+  canRestore: z.boolean(),
+  isCorrupt: z.boolean(),
+});
+
+export type TeamProjectRecovery = z.infer<typeof TeamProjectRecoverySchema>;
+
+export const TeamProjectMaintenanceSchema = z.object({
+  retention: TeamProjectRetentionStatusSchema.optional(),
+  recovery: TeamProjectRecoverySchema.optional(),
+});
+
+export type TeamProjectMaintenance = z.infer<typeof TeamProjectMaintenanceSchema>;
+
 export const TeamRoleTemplateSchema = z.object({
   id: z.string(),
   name: z.string(),

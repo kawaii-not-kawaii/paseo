@@ -369,10 +369,19 @@ export const en = {
       noProgressLimit: "No-progress backstop",
       retentionWarning:
         "On next start, oldest messages above the new cap are pruned before the project loads.",
+      retentionPrunedTitle: "History was pruned on startup",
+      retentionPrunedBody: "The daemon pruned {{count}} oldest messages to enforce this cap.",
       adoption: {
         title: "Adopt existing chat history",
         body: "{{roomCount}} legacy rooms and {{messageCount}} messages are still in the old chat store. Import them into this project without changing `paseo chat`.",
         action: "Adopt chat history",
+      },
+      recovery: {
+        title: "Team data needs recovery",
+        body: "This project's Team database could not be read. Restore the most recent automatic snapshot to recover channels, messages, and tasks.",
+        restoreAction: "Restore snapshot",
+        restoringAction: "Restoring...",
+        failedTitle: "Restore failed",
       },
     },
   },
