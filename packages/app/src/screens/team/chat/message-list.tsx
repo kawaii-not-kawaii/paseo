@@ -1,11 +1,21 @@
+/* eslint-disable react-perf/jsx-no-new-function-as-prop */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { TeamMessage } from "@getpaseo/protocol/team/types";
-import type { TeamMessagePosted } from "@getpaseo/protocol/team/rpc-schemas";
+import type { TeamChannel, TeamMember, TeamMessage, TeamTask } from "@getpaseo/protocol/team/types";
+import type {
+  TeamMemberChanged,
+  TeamMessagePosted,
+  TeamTaskChanged,
+} from "@getpaseo/protocol/team/rpc-schemas";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { listTeamMessages } from "@/screens/team/team-client";
+import { listTeamChannels, listTeamMembers, listTeamMessages } from "@/screens/team/team-client";
+import { InlineReferenceText } from "@/screens/team/tasks/inline-reference-text";
+import { ReferenceSheet } from "@/screens/team/tasks/reference-sheet";
+import { TaskDetailSheet } from "@/screens/team/tasks/task-detail";
+import { listTeamTasks } from "@/screens/team/tasks/team-tasks-client";
+import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { settingsStyles } from "@/styles/settings";
 
@@ -46,11 +56,21 @@ export function MessageList({
   loadingLabel,
   retryLabel,
 }: MessageListProps) {
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<TeamMessage[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [channels, setChannels] = useState<TeamChannel[]>([]);
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [tasks, setTasks] = useState<TeamTask[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [referenceSheetState, setReferenceSheetState] = useState<{
+    title: string;
+    subtitle: string;
+    body: string | null;
+  } | null>(null);
 
   const loadPage = useCallback(
     async (before?: string) => {
@@ -109,9 +129,34 @@ export function MessageList({
     void handleLoadOlder();
   }, [handleLoadOlder]);
 
+  const loadReferences = useCallback(async () => {
+    if (!client || !projectId) {
+      setChannels([]);
+      setMembers([]);
+      setTasks([]);
+      return;
+    }
+    try {
+      const [nextChannels, nextMembers, nextTasks] = await Promise.all([
+        listTeamChannels(client, projectId),
+        listTeamMembers(client, projectId),
+        listTeamTasks({ client, projectId }),
+      ]);
+      setChannels(nextChannels);
+      setMembers(nextMembers);
+      setTasks(nextTasks);
+    } catch {
+      // Keep message history readable even if one reference dataset fails.
+    }
+  }, [client, projectId]);
+
   useEffect(() => {
     void loadInitial();
   }, [loadInitial]);
+
+  useEffect(() => {
+    void loadReferences();
+  }, [loadReferences]);
 
   useEffect(() => {
     if (!client || !projectId || !channelId) {
@@ -124,6 +169,58 @@ export function MessageList({
       setMessages((current) => mergeMessages(current, [event.payload.message]));
     });
   }, [channelId, client, projectId]);
+
+  useEffect(() => {
+    if (!client || !projectId) {
+      return;
+    }
+    const unsubTask = client.on("team.task.changed", (event: TeamTaskChanged) => {
+      if (event.payload.projectId !== projectId) {
+        return;
+      }
+      setTasks((current) => upsertTask(current, event.payload.task));
+    });
+    const unsubMember = client.on("team.member.changed", (event: TeamMemberChanged) => {
+      if (event.payload.projectId !== projectId) {
+        return;
+      }
+      setMembers((current) => upsertMember(current, event.payload.member));
+    });
+    return () => {
+      unsubTask();
+      unsubMember();
+    };
+  }, [client, projectId]);
+
+  const handleReferencePress = useCallback(
+    (
+      target:
+        | { kind: "task"; taskId: string }
+        | { kind: "channel"; channelId: string }
+        | { kind: "member"; memberId: string },
+    ) => {
+      if (target.kind === "task") {
+        setSelectedTaskId(target.taskId);
+        return;
+      }
+      if (target.kind === "channel") {
+        const channel = channels.find((entry) => entry.id === target.channelId);
+        setReferenceSheetState({
+          title: channel ? `#${channel.name}` : "#channel",
+          subtitle: t("team.tasks.references.channel"),
+          body: channel?.purpose ?? null,
+        });
+        return;
+      }
+      const member = members.find((entry) => entry.id === target.memberId);
+      setReferenceSheetState({
+        title: member ? `@${member.name}` : "@member",
+        subtitle: t("team.tasks.references.member"),
+        body: member?.description ?? null,
+      });
+    },
+    [channels, members, t],
+  );
 
   const content = useMemo(() => {
     if (isLoading) {
@@ -163,10 +260,19 @@ export function MessageList({
         {messages.map((message) => (
           <View key={message.id} style={styles.messageCard}>
             <View style={styles.messageMetaRow}>
-              <Text style={styles.author}>{message.authorMemberId}</Text>
+              <Text style={styles.author}>
+                {members.find((member) => member.id === message.authorMemberId)?.name ??
+                  message.authorMemberId}
+              </Text>
               <Text style={styles.timestamp}>{new Date(message.createdAt).toLocaleString()}</Text>
             </View>
-            <Text style={styles.body}>{message.body}</Text>
+            <InlineReferenceText
+              text={message.body}
+              channels={channels}
+              members={members}
+              tasks={tasks}
+              onPressReference={handleReferencePress}
+            />
           </View>
         ))}
       </>
@@ -181,15 +287,56 @@ export function MessageList({
     loadOlderLabel,
     loadingLabel,
     messages,
+    members,
     nextCursor,
     retryLabel,
+    channels,
+    tasks,
+    handleReferencePress,
   ]);
 
   return (
-    <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-      {content}
-    </ScrollView>
+    <>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        {content}
+      </ScrollView>
+      <TaskDetailSheet
+        visible={selectedTaskId !== null}
+        client={client}
+        projectId={projectId}
+        taskId={selectedTaskId}
+        tasks={tasks}
+        members={members}
+        onClose={() => setSelectedTaskId(null)}
+        onTaskChange={(task) => {
+          setTasks((current) => upsertTask(current, task));
+        }}
+      />
+      <ReferenceSheet
+        visible={referenceSheetState !== null}
+        title={referenceSheetState?.title ?? ""}
+        subtitle={referenceSheetState?.subtitle ?? ""}
+        body={referenceSheetState?.body ?? null}
+        onClose={() => setReferenceSheetState(null)}
+      />
+    </>
   );
+}
+
+function upsertTask(current: TeamTask[], task: TeamTask): TeamTask[] {
+  const next = new Map(current.map((entry) => [entry.id, entry] as const));
+  next.set(task.id, task);
+  return Array.from(next.values()).sort(compareTasksBySeq);
+}
+
+function compareTasksBySeq(left: TeamTask, right: TeamTask): number {
+  return left.seq - right.seq;
+}
+
+function upsertMember(current: TeamMember[], member: TeamMember): TeamMember[] {
+  const next = new Map(current.map((entry) => [entry.id, entry] as const));
+  next.set(member.id, member);
+  return Array.from(next.values()).sort((left, right) => left.name.localeCompare(right.name));
 }
 
 const styles = StyleSheet.create((theme) => ({

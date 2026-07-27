@@ -1,17 +1,29 @@
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type {
   TeamChannel,
+  TeamHomeFileEntry,
   TeamMember,
   TeamMessage,
   TeamProjectSettings,
+  TeamRoleTemplate,
 } from "@getpaseo/protocol/team/types";
 import type {
   TeamChannelListResponse,
+  TeamMemberAssignResponse,
+  TeamMemberCreateResponse,
   TeamMemberListResponse,
+  TeamMemberListHomeFilesResponse,
+  TeamMemberListTemplatesResponse,
+  TeamMemberReadHomeFileResponse,
+  TeamMemberRemoveResponse,
+  TeamMemberStartResponse,
+  TeamMemberStopResponse,
+  TeamMemberUpdateResponse,
   TeamMessageListResponse,
   TeamMessagePostResponse,
   TeamProjectGetSettingsResponse,
 } from "@getpaseo/protocol/team/rpc-schemas";
+import type { AgentProvider } from "@getpaseo/protocol/agent-types";
 
 type TeamClientRequest =
   | {
@@ -23,6 +35,69 @@ type TeamClientRequest =
       type: "team.member.list.request";
       requestId: string;
       projectId: string;
+    }
+  | {
+      type: "team.member.create.request";
+      requestId: string;
+      projectId: string;
+      name: string;
+      description?: string;
+      provider: AgentProvider;
+      model?: string;
+      homeWorkspaceId: string;
+    }
+  | {
+      type: "team.member.update.request";
+      requestId: string;
+      memberId: string;
+      name?: string;
+      description?: string | null;
+      provider?: AgentProvider;
+      model?: string | null;
+      modeId?: string | null;
+      rolePrompt?: string;
+      templateId?: string | null;
+    }
+  | {
+      type: "team.member.assign.request";
+      requestId: string;
+      projectId: string;
+      memberId: string;
+      homeWorkspaceId: string;
+    }
+  | {
+      type: "team.member.remove.request";
+      requestId: string;
+      projectId: string;
+      memberId: string;
+    }
+  | {
+      type: "team.member.start.request";
+      requestId: string;
+      projectId: string;
+      memberId: string;
+    }
+  | {
+      type: "team.member.stop.request";
+      requestId: string;
+      projectId: string;
+      memberId: string;
+    }
+  | {
+      type: "team.member.list_templates.request";
+      requestId: string;
+    }
+  | {
+      type: "team.member.list_home_files.request";
+      requestId: string;
+      memberId: string;
+      path?: string;
+    }
+  | {
+      type: "team.member.read_home_file.request";
+      requestId: string;
+      memberId: string;
+      path: string;
     }
   | {
       type: "team.message.list.request";
@@ -48,7 +123,16 @@ type TeamClientRequest =
 
 type TeamClientResponse =
   | TeamChannelListResponse["payload"]
+  | TeamMemberAssignResponse["payload"]
+  | TeamMemberCreateResponse["payload"]
   | TeamMemberListResponse["payload"]
+  | TeamMemberListHomeFilesResponse["payload"]
+  | TeamMemberListTemplatesResponse["payload"]
+  | TeamMemberReadHomeFileResponse["payload"]
+  | TeamMemberRemoveResponse["payload"]
+  | TeamMemberStartResponse["payload"]
+  | TeamMemberStopResponse["payload"]
+  | TeamMemberUpdateResponse["payload"]
   | TeamMessageListResponse["payload"]
   | TeamMessagePostResponse["payload"]
   | TeamProjectGetSettingsResponse["payload"];
@@ -137,6 +221,219 @@ export async function listTeamMembers(
   });
   throwTeamError(payload);
   return payload.members;
+}
+
+export async function createTeamMember(input: {
+  client: DaemonClient;
+  projectId: string;
+  name: string;
+  description?: string;
+  provider: AgentProvider;
+  model?: string | null;
+  homeWorkspaceId: string;
+}): Promise<TeamMember | null> {
+  const requestId = createRequestId("team-member-create");
+  const payload = await sendTeamRequest<TeamMemberCreateResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.member.create.request",
+      requestId,
+      projectId: input.projectId,
+      name: input.name,
+      ...(input.description ? { description: input.description } : {}),
+      provider: input.provider,
+      ...(input.model ? { model: input.model } : {}),
+      homeWorkspaceId: input.homeWorkspaceId,
+    },
+    responseType: "team.member.create.response",
+  });
+  throwTeamError(payload);
+  return payload.member;
+}
+
+export async function updateTeamMember(input: {
+  client: DaemonClient;
+  memberId: string;
+  name?: string;
+  description?: string | null;
+  provider?: AgentProvider;
+  model?: string | null;
+  modeId?: string | null;
+  rolePrompt?: string;
+  templateId?: string | null;
+}): Promise<TeamMember | null> {
+  const requestId = createRequestId("team-member-update");
+  const payload = await sendTeamRequest<TeamMemberUpdateResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.member.update.request",
+      requestId,
+      memberId: input.memberId,
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.provider !== undefined ? { provider: input.provider } : {}),
+      ...(input.model !== undefined ? { model: input.model } : {}),
+      ...(input.modeId !== undefined ? { modeId: input.modeId } : {}),
+      ...(input.rolePrompt !== undefined ? { rolePrompt: input.rolePrompt } : {}),
+      ...(input.templateId !== undefined ? { templateId: input.templateId } : {}),
+    },
+    responseType: "team.member.update.response",
+  });
+  throwTeamError(payload);
+  return payload.member;
+}
+
+export async function assignTeamMember(input: {
+  client: DaemonClient;
+  projectId: string;
+  memberId: string;
+  homeWorkspaceId: string;
+}): Promise<TeamMember | null> {
+  const requestId = createRequestId("team-member-assign");
+  const payload = await sendTeamRequest<TeamMemberAssignResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.member.assign.request",
+      requestId,
+      projectId: input.projectId,
+      memberId: input.memberId,
+      homeWorkspaceId: input.homeWorkspaceId,
+    },
+    responseType: "team.member.assign.response",
+  });
+  throwTeamError(payload);
+  return payload.member;
+}
+
+export async function removeTeamMember(input: {
+  client: DaemonClient;
+  projectId: string;
+  memberId: string;
+}): Promise<string | null> {
+  const requestId = createRequestId("team-member-remove");
+  const payload = await sendTeamRequest<TeamMemberRemoveResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.member.remove.request",
+      requestId,
+      projectId: input.projectId,
+      memberId: input.memberId,
+    },
+    responseType: "team.member.remove.response",
+  });
+  throwTeamError(payload);
+  return payload.memberId;
+}
+
+export async function startTeamMember(input: {
+  client: DaemonClient;
+  projectId: string;
+  memberId: string;
+}): Promise<TeamMember | null> {
+  const requestId = createRequestId("team-member-start");
+  const payload = await sendTeamRequest<TeamMemberStartResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.member.start.request",
+      requestId,
+      projectId: input.projectId,
+      memberId: input.memberId,
+    },
+    responseType: "team.member.start.response",
+  });
+  throwTeamError(payload);
+  return payload.member;
+}
+
+export async function stopTeamMember(input: {
+  client: DaemonClient;
+  projectId: string;
+  memberId: string;
+}): Promise<TeamMember | null> {
+  const requestId = createRequestId("team-member-stop");
+  const payload = await sendTeamRequest<TeamMemberStopResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.member.stop.request",
+      requestId,
+      projectId: input.projectId,
+      memberId: input.memberId,
+    },
+    responseType: "team.member.stop.response",
+  });
+  throwTeamError(payload);
+  return payload.member;
+}
+
+export async function listTeamMemberTemplates(client: DaemonClient): Promise<TeamRoleTemplate[]> {
+  const requestId = createRequestId("team-member-list-templates");
+  const payload = await sendTeamRequest<TeamMemberListTemplatesResponse["payload"]>({
+    client,
+    requestId,
+    message: {
+      type: "team.member.list_templates.request",
+      requestId,
+    },
+    responseType: "team.member.list_templates.response",
+  });
+  throwTeamError(payload);
+  return payload.templates;
+}
+
+export async function listTeamMemberHomeFiles(input: {
+  client: DaemonClient;
+  memberId: string;
+  path?: string;
+}): Promise<{ memberId: string; path: string; entries: TeamHomeFileEntry[] }> {
+  const requestId = createRequestId("team-member-list-home-files");
+  const payload = await sendTeamRequest<TeamMemberListHomeFilesResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.member.list_home_files.request",
+      requestId,
+      memberId: input.memberId,
+      ...(input.path ? { path: input.path } : {}),
+    },
+    responseType: "team.member.list_home_files.response",
+  });
+  throwTeamError(payload);
+  return {
+    memberId: payload.memberId,
+    path: payload.path,
+    entries: payload.entries,
+  };
+}
+
+export async function readTeamMemberHomeFile(input: {
+  client: DaemonClient;
+  memberId: string;
+  path: string;
+}): Promise<{ memberId: string; path: string; content: string | null }> {
+  const requestId = createRequestId("team-member-read-home-file");
+  const payload = await sendTeamRequest<TeamMemberReadHomeFileResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.member.read_home_file.request",
+      requestId,
+      memberId: input.memberId,
+      path: input.path,
+    },
+    responseType: "team.member.read_home_file.response",
+  });
+  throwTeamError(payload);
+  return {
+    memberId: payload.memberId,
+    path: payload.path,
+    content: payload.content,
+  };
 }
 
 export async function listTeamMessages(input: {

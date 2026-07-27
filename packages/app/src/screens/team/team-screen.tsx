@@ -22,6 +22,8 @@ import { ChannelList } from "@/screens/team/chat/channel-list";
 import { MemberActivityStrip } from "@/screens/team/chat/member-activity-strip";
 import { MessageComposer } from "@/screens/team/chat/message-composer";
 import { MessageList } from "@/screens/team/chat/message-list";
+import { TeamMembersSection } from "@/screens/team/members/member-section";
+import { TeamTasksSection } from "@/screens/team/tasks/task-section";
 import { useTeamCapability } from "@/screens/team/team-capability";
 import { listTeamChannels, listTeamMembers } from "@/screens/team/team-client";
 import { buildHostTeamRoute } from "@/utils/host-routes";
@@ -128,6 +130,10 @@ export function TeamScreen() {
     void refreshRosterAndChannels();
   }, [refreshRosterAndChannels]);
 
+  const handleMembersChanged = useCallback(() => {
+    void refreshRosterAndChannels();
+  }, [refreshRosterAndChannels]);
+
   useEffect(() => {
     if (!client || !projectId) {
       return;
@@ -225,37 +231,22 @@ export function TeamScreen() {
     );
   }
 
-  let routeBody: React.ReactNode;
-  if (!selectedProject) {
-    routeBody = (
-      <View style={styles.centered}>
-        <Text style={styles.muted}>
-          {projectsResult.isLoading || isLoading
-            ? t("common.states.loading")
-            : t("team.project.none")}
-        </Text>
-      </View>
-    );
-  } else if (section !== "chat") {
-    routeBody = (
-      <View style={styles.sectionCard}>
-        <Text style={styles.muted}>{t("team.sections.pending")}</Text>
-      </View>
-    );
-  } else {
-    routeBody = (
-      <TeamChatSection
-        client={client}
-        projectId={selectedProject.projectKey}
-        channelId={activeChannelId}
-        channels={channels}
-        members={members}
-        error={error}
-        memberLabels={memberLabels}
-        onSelectChannel={setActiveChannelId}
-      />
-    );
-  }
+  const routeBody = (
+    <TeamSectionBody
+      section={section}
+      selectedProject={selectedProject}
+      isLoading={projectsResult.isLoading || isLoading}
+      client={client}
+      serverId={serverId}
+      members={members}
+      channels={channels}
+      activeChannelId={activeChannelId}
+      error={error}
+      memberLabels={memberLabels}
+      onSelectChannel={setActiveChannelId}
+      onMembersChanged={handleMembersChanged}
+    />
+  );
 
   return (
     <View style={styles.screen} testID="team-screen">
@@ -325,6 +316,95 @@ function TeamProjectMenuItem({
     <DropdownMenuItem selected={selected} onSelect={handleSelect}>
       {projectName}
     </DropdownMenuItem>
+  );
+}
+
+/**
+ * Which section the Team route is showing.
+ *
+ * Extracted from TeamScreen so that adding a section does not push that component past the
+ * complexity limit — the switcher grows, this stays a flat dispatch.
+ */
+function TeamSectionBody({
+  section,
+  selectedProject,
+  isLoading,
+  client,
+  serverId,
+  members,
+  channels,
+  activeChannelId,
+  error,
+  memberLabels,
+  onSelectChannel,
+  onMembersChanged,
+}: {
+  section: TeamSection;
+  selectedProject: { projectKey: string } | null;
+  isLoading: boolean;
+  client: DaemonClient | null;
+  serverId: string | null;
+  members: TeamMember[];
+  channels: TeamChannel[];
+  activeChannelId: string | null;
+  error: string | null;
+  memberLabels: {
+    idle: string;
+    working: string;
+    stopped: string;
+    unavailable: string;
+  };
+  onSelectChannel: (channelId: string) => void;
+  onMembersChanged: () => void;
+}) {
+  const { t } = useTranslation();
+
+  if (!selectedProject) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.muted}>
+          {isLoading ? t("common.states.loading") : t("team.project.none")}
+        </Text>
+      </View>
+    );
+  }
+
+  if (section === "members") {
+    return (
+      <TeamMembersSection
+        client={client}
+        serverId={serverId}
+        projectId={selectedProject.projectKey}
+        members={members}
+        channels={channels}
+        onMembersChanged={onMembersChanged}
+      />
+    );
+  }
+
+  if (section === "tasks") {
+    return <TeamTasksSection client={client} projectId={selectedProject.projectKey} />;
+  }
+
+  if (section !== "chat") {
+    return (
+      <View style={styles.sectionCard}>
+        <Text style={styles.muted}>{t("team.sections.pending")}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <TeamChatSection
+      client={client}
+      projectId={selectedProject.projectKey}
+      channelId={activeChannelId}
+      channels={channels}
+      members={members}
+      error={error}
+      memberLabels={memberLabels}
+      onSelectChannel={onSelectChannel}
+    />
   );
 }
 

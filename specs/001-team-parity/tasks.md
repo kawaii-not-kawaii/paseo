@@ -165,12 +165,12 @@ description, role prompt, project assignments, and home workspaces (SC-005).
 - [x] T067 [US2] **SEAM** Add a guard clause to `packages/server/src/server/auto-archive-on-merge/archive-if-safe.ts` so a member's home workspace is never auto-archived; update `docs/fork.md`
 - [x] T068 [US2] **INVARIANT TEST** Write a test asserting that with `autoArchiveAfterMerge` enabled, merging a member's branch leaves its home workspace intact and the member runnable (SC-011c) — a feature that punishes success is a bug
 - [x] T069 [US2] Write a test in `packages/server/src/server/team/team-service.members.test.ts` asserting removing a member leaves its messages readable and correctly attributed (FR-022)
-- [ ] T070 [US2] [P] Implement the roster view in `packages/app/src/screens/team/members/member-list.tsx` — status, description, home workspace, channels
-- [ ] T071 [US2] Implement the member detail view in `packages/app/src/screens/team/members/member-detail.tsx` including an editable role prompt and a `MEMORY.md` reader (FR-014f)
-- [ ] T072 [US2] Implement the create/edit member form in `packages/app/src/screens/team/members/member-form.tsx` following `docs/forms.md` — non-React form model, load-state gating — covering every field a member owns: name, description, runtime and model (FR-014, reusing the existing provider/model pickers — this feature adds no new provider surface), role prompt, template picker, project assignments (FR-016), and home workspace per project (FR-017). The FR-018 uniqueness conflict MUST surface as a usable error naming the member already holding that workspace, never a raw constraint violation
+- [x] T070 [US2] [P] Implement the roster view in `packages/app/src/screens/team/members/member-list.tsx` — status, description, home workspace, channels
+- [x] T071 [US2] Implement the member detail view in `packages/app/src/screens/team/members/member-detail.tsx` including an editable role prompt and a `MEMORY.md` reader (FR-014f)
+- [x] T072 [US2] Implement the create/edit member form in `packages/app/src/screens/team/members/member-form.tsx` following `docs/forms.md` — non-React form model, load-state gating — covering every field a member owns: name, description, runtime and model (FR-014, reusing the existing provider/model pickers — this feature adds no new provider surface), role prompt, template picker, project assignments (FR-016), and home workspace per project (FR-017). The FR-018 uniqueness conflict MUST surface as a usable error naming the member already holding that workspace, never a raw constraint violation
 - [x] T072a1 [US2] Implement the `team.member.start` and `team.member.stop` handlers in `packages/server/src/server/team/member-lifecycle.ts` and `team-session.ts` (FR-021). Stopping ends the runtime and **must not** release the member's claims — a member paused by the user would otherwise have its in-progress work taken (research R1). This task was missing: the RPCs were specified in `contracts/rpc.md` and the schemas generated, but no task implemented the handlers
-- [ ] T072a [US2] Implement member lifecycle actions in `packages/app/src/screens/team/members/member-actions.tsx` — start, stop, and remove (FR-021). Removal MUST state that history is preserved and attribution kept (FR-022) before it is confirmed, and a member flagged unable to run (lost home workspace, FR-019) MUST show why and offer re-pointing rather than a disabled button with no explanation
-- [ ] T073 [US2] Implement proposal review cards in `packages/app/src/screens/team/members/member-proposal-cards.tsx` so each proposed member is created only on individual confirmation (FR-014c)
+- [x] T072a [US2] Implement member lifecycle actions in `packages/app/src/screens/team/members/member-actions.tsx` — start, stop, and remove (FR-021). Removal MUST state that history is preserved and attribution kept (FR-022) before it is confirmed, and a member flagged unable to run (lost home workspace, FR-019) MUST show why and offer re-pointing rather than a disabled button with no explanation
+- [x] T073 [US2] Implement proposal review cards in `packages/app/src/screens/team/members/member-proposal-cards.tsx` so each proposed member is created only on individual confirmation (FR-014c)
 - [ ] T074 [US2] **STORY VALIDATION** Execute quickstart steps 8, 12, and 13 (worktree removal, memory survival, merge does not strand)
 
 **Checkpoint**: members are durable and accumulate expertise.
@@ -212,14 +212,14 @@ change in both directions and that contention resolves to exactly one holder (SC
 
 ### App — board
 
-- [ ] T093 [US3] [P] Implement the board in `packages/app/src/screens/team/tasks/task-board.tsx` with Todo/In Progress/In Review/Done columns and counts
-- [ ] T094 [US3] Implement drag between columns, reusing `packages/app/src/components/draggable-list.*` rather than a new gesture implementation
-- [ ] T095 [US3] [P] Implement the list view and the board/list toggle in `packages/app/src/screens/team/tasks/task-list.tsx`
-- [ ] T096 [US3] Implement creator and assignee filters in `packages/app/src/screens/team/tasks/task-filters.ts`, persisting while the user stays in the view (FR-026)
-- [ ] T097 [US3] Implement task detail in `packages/app/src/screens/team/tasks/task-detail.tsx` — editable fields, notes in time order, acceptance criteria, dependencies, handback count, and claimant shown distinctly from assignee (FR-024d)
-- [ ] T098 [US3] Render inline `#18`, `#channel`, and `@member` references in message bodies as navigable links, degrading readably when the target is deleted (FR-011)
-- [ ] T099 [US3] Implement live task updates via `team.task.changed` without manual refresh (FR-028)
-- [ ] T100 [US3] Verify compact parity: every board action completable at phone width, including moving a task between columns (SC-010), and confirm Team does **not** participate in the workspace three-panel swipe (`docs/mobile-panels.md`)
+- [x] T093 [US3] [P] Implement the board in `packages/app/src/screens/team/tasks/task-board.tsx` with Todo/In Progress/In Review/Done columns and counts
+- [x] T094 [US3] Implement drag between columns, reusing `packages/app/src/components/draggable-list.*` rather than a new gesture implementation
+- [x] T095 [US3] [P] Implement the list view and the board/list toggle in `packages/app/src/screens/team/tasks/task-list.tsx`
+- [x] T096 [US3] Implement creator and assignee filters in `packages/app/src/screens/team/tasks/task-filters.ts`, persisting while the user stays in the view (FR-026)
+- [x] T097 [US3] Implement task detail in `packages/app/src/screens/team/tasks/task-detail.tsx` — editable fields, notes in time order, acceptance criteria, dependencies, handback count, and claimant shown distinctly from assignee (FR-024d)
+- [x] T098 [US3] Render inline `#18`, `#channel`, and `@member` references in message bodies as navigable links, degrading readably when the target is deleted (FR-011)
+- [x] T099 [US3] Implement live task updates via `team.task.changed` without manual refresh (FR-028)
+- [x] T100 [US3] Verify compact parity: every board action completable at phone width, including moving a task between columns (SC-010), and confirm Team does **not** participate in the workspace three-panel swipe (`docs/mobile-panels.md`)
 - [ ] T101 [US3] **STORY VALIDATION** Execute quickstart steps 2, 4, and 5 (claim exclusivity, converging loop uninterrupted, escalation)
 
 **Checkpoint**: work is tracked, contention is safe, runaway loops are bounded.
