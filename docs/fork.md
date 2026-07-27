@@ -38,14 +38,14 @@ our diff is, it is how much of it lands in upstream-owned files.
 
 Code here is ours. Upstream does not touch it, so it never conflicts.
 
-| Path | Contents |
-| --- | --- |
-| `packages/protocol/src/team/` | Team surface wire schemas |
-| `packages/server/src/server/team/` | Team service, storage, migrations, loop control |
-| `packages/app/src/screens/team/` | Team view screens |
-| `packages/app/src/app/h/[serverId]/team/` | Team routes |
-| `docs/fork.md` | This file |
-| `specs/` | Fork feature specs |
+| Path                                      | Contents                                        |
+| ----------------------------------------- | ----------------------------------------------- |
+| `packages/protocol/src/team/`             | Team surface wire schemas                       |
+| `packages/server/src/server/team/`        | Team service, storage, migrations, loop control |
+| `packages/app/src/screens/team/`          | Team view screens                               |
+| `packages/app/src/app/h/[serverId]/team/` | Team routes                                     |
+| `docs/fork.md`                            | This file                                       |
+| `specs/`                                  | Fork feature specs                              |
 
 ## Touched upstream files
 
@@ -55,31 +55,31 @@ that is a signal to move logic back into a fork-owned file.
 
 Planned for the team-parity feature (not yet applied — see `specs/001-team-parity/plan.md`):
 
-| File | Kind | Reason |
-| --- | --- | --- |
-| `packages/protocol/src/messages.ts` | Union entries | Team RPC schemas must join the session inbound/outbound discriminated unions — the single validated boundary. The largest seam. |
-| `packages/server/src/server/session.ts` | One-line seam | `if (isTeamRequest(msg)) return this.teamSession.handle(msg)` before the existing switch. |
-| `packages/server/src/server/bootstrap.ts` | ~4 lines | Construct `TeamService`; contribute member ids to the existing `protectedAgentIds` set. |
-| `packages/app/src/app/h/[serverId]/_layout.tsx` | One-line seam | Register the `team/[section]` host leaf. |
-| `packages/app/src/utils/host-routes.ts` | Appended function | `buildHostTeamRoute()`. |
-| `packages/app/src/components/left-sidebar.tsx` | ~6 additions | Team nav row. Not a one-liner: the row is duplicated across compact and wide render paths. Accepted with rationale in the plan's Complexity Tracking. |
-| `packages/server/src/server/agent/tools/paseo-tools.ts` | One-line seam | Register the `team_*` MCP tools. |
-| `packages/server/src/server/auto-archive-on-merge/archive-if-safe.ts` | One-line seam | Guard clause so a member's home workspace is never auto-archived on merge. |
-| `docs/glossary.md` | Additive | New terms, required by Principle VI. |
-| `docs/data-model.md` | Additive | The SQLite boundary, required by Principle VII. |
+| File                                                                  | Kind              | Reason                                                                                                                                                                                                  |
+| --------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/protocol/src/messages.ts`                                   | Applied seam      | Imports the fork-owned team schema tuples and registers them in the session inbound/outbound discriminated unions, and extends `server_info.features` with the fork-owned `team` capability flag shape. |
+| `packages/server/src/server/session.ts`                               | Applied seam      | Imports the fork-owned team session helper, attaches it in the constructor, and delegates team RPCs with `if (isTeamRequest(msg)) return this.teamSession.handle(msg)` before the existing switch.      |
+| `packages/server/src/server/bootstrap.ts`                             | Applied seam      | Constructs the fork-owned `TeamService`, patches `server_info.features.team` through the fork-owned bootstrap helper, and closes the service on daemon shutdown.                                        |
+| `packages/app/src/app/h/[serverId]/_layout.tsx`                       | One-line seam     | Register the `team/[section]` host leaf.                                                                                                                                                                |
+| `packages/app/src/utils/host-routes.ts`                               | Appended function | `buildHostTeamRoute()`.                                                                                                                                                                                 |
+| `packages/app/src/components/left-sidebar.tsx`                        | ~6 additions      | Team nav row. Not a one-liner: the row is duplicated across compact and wide render paths. Accepted with rationale in the plan's Complexity Tracking.                                                   |
+| `packages/server/src/server/agent/tools/paseo-tools.ts`               | One-line seam     | Register the `team_*` MCP tools.                                                                                                                                                                        |
+| `packages/server/src/server/auto-archive-on-merge/archive-if-safe.ts` | One-line seam     | Guard clause so a member's home workspace is never auto-archived on merge.                                                                                                                              |
+| `docs/glossary.md`                                                    | Additive          | New terms, required by Principle VI.                                                                                                                                                                    |
+| `docs/data-model.md`                                                  | Additive          | The SQLite boundary, required by Principle VII.                                                                                                                                                         |
 
 ## Deliberately not upstreamable
 
 Changes that only make sense for this fork, kept centralized so upstream churn around them does not
 scatter conflicts.
 
-| Concern | Where |
-| --- | --- |
+| Concern                                  | Where                                  |
+| ---------------------------------------- | -------------------------------------- |
 | Relay endpoint and app base URL defaults | Pending — see the relay carve-out spec |
 
 ## Upstream services we build alongside rather than modify
 
-| Upstream service | Why we leave it alone | What we do instead |
-| --- | --- | --- |
-| `packages/server/src/server/chat/chat-service.ts` | Daemon-global JSON store, serves the `paseo chat` CLI that upstream owns | Team chat is a separate project-scoped store. Existing rooms are imported once; the upstream service keeps running untouched. |
-| `packages/server/src/server/loop-service.ts` | ~1000 lines, actively developed, owns the existing loops surface | Team loop control is a fork-owned module reusing the same guard semantics. Loops created outside the Team view keep using upstream's service unchanged. |
+| Upstream service                                  | Why we leave it alone                                                    | What we do instead                                                                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/server/src/server/chat/chat-service.ts` | Daemon-global JSON store, serves the `paseo chat` CLI that upstream owns | Team chat is a separate project-scoped store. Existing rooms are imported once; the upstream service keeps running untouched.                           |
+| `packages/server/src/server/loop-service.ts`      | ~1000 lines, actively developed, owns the existing loops surface         | Team loop control is a fork-owned module reusing the same guard semantics. Loops created outside the Team view keep using upstream's service unchanged. |

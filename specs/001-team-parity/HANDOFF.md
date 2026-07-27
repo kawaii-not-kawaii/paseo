@@ -34,7 +34,7 @@ and the relationship graph is **explicitly out of scope** — this product is si
 2. `docs/fork.md` — the merge policy and the touched-upstream-file table.
 3. `specs/001-team-parity/spec.md` — 71 FRs, 23 SCs, 4 prioritized user stories.
 4. `specs/001-team-parity/plan.md` — structure, seams, complexity tracking.
-5. `specs/001-team-parity/research.md` — R1–R11, the *why* behind every non-obvious decision.
+5. `specs/001-team-parity/research.md` — R1–R11, the _why_ behind every non-obvious decision.
 6. `specs/001-team-parity/data-model.md` — SQLite schema, claim SQL, state transitions.
 7. `specs/001-team-parity/contracts/` — RPC surface and MCP tool contracts.
 8. `specs/001-team-parity/quickstart.md` — 14 runnable validation scenarios.
@@ -55,7 +55,7 @@ Recorded so it is not re-attempted:
 
 - **Extending `loop-service.ts` to drive members** — was the plan until Constitution VIII was added.
   Rejected: ~1000 lines of actively developed upstream code becomes a permanent conflict zone.
-  Its *semantics* are reimplemented in `team/review-cycle.ts` instead.
+  Its _semantics_ are reimplemented in `team/review-cycle.ts` instead.
 - **Reshaping `chat-service.ts` for project scoping and SQLite** — rejected for the same reason, and
   it serves the `paseo chat` CLI that upstream owns. The daemon will run two chat stores. That is
   deliberate; `docs/fork.md` records why so nobody "cleans it up".
@@ -64,23 +64,23 @@ Recorded so it is not re-attempted:
 - **Cherry-picking open upstream PRs** — rejected: taking unmerged third-party branches creates the
   conflicts Principle VIII exists to avoid. Only merge from upstream `main`.
 - **A template marketplace** — rejected: single-user. Built-in templates as data plus an agent that
-  *proposes* rosters covers the real need.
+  _proposes_ rosters covers the real need.
 
 ## Decisions
 
 Do not reopen these; the user settled each one.
 
-| Decision | Where |
-|---|---|
-| Team is per project **per daemon** (the app's project spans daemons) | FR-001a/b |
-| Members are a daemon-wide roster, assigned to projects, one home workspace each | FR-016/017 |
-| Claims are **lease-based**, decoupled from runtime liveness | research R1 |
-| Board records work; a claim is an exclusive lock, released to pass work along | FR-024a–f |
-| Mentions auto-start idle members | FR-035a |
-| Bounded by progress, not turns: handbacks 3, wall-clock 30 min, no-progress 12 | research R2–R4 |
-| SQLite via `node:sqlite`, one db per project, migrations from v1 | Constitution VII |
-| Team is a **route**, not a fourth mobile panel | research R8 |
-| Role prompt (user-owned) and MEMORY.md (member-owned) are different things | FR-014a/d/e |
+| Decision                                                                        | Where            |
+| ------------------------------------------------------------------------------- | ---------------- |
+| Team is per project **per daemon** (the app's project spans daemons)            | FR-001a/b        |
+| Members are a daemon-wide roster, assigned to projects, one home workspace each | FR-016/017       |
+| Claims are **lease-based**, decoupled from runtime liveness                     | research R1      |
+| Board records work; a claim is an exclusive lock, released to pass work along   | FR-024a–f        |
+| Mentions auto-start idle members                                                | FR-035a          |
+| Bounded by progress, not turns: handbacks 3, wall-clock 30 min, no-progress 12  | research R2–R4   |
+| SQLite via `node:sqlite`, one db per project, migrations from v1                | Constitution VII |
+| Team is a **route**, not a fourth mobile panel                                  | research R8      |
+| Role prompt (user-owned) and MEMORY.md (member-owned) are different things      | FR-014a/d/e      |
 
 ## Traps
 

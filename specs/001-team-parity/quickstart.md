@@ -58,7 +58,7 @@ been wrongly tied to runtime liveness, and another member can steal in-progress 
 Give `qa` criteria the first two attempts cannot satisfy but the third can.
 
 **Pass**: the loop runs to acceptance with no human input and no guard firing. A guard that stops a
-*converging* loop is the worst failure mode in this feature.
+_converging_ loop is the worst failure mode in this feature.
 
 ## 5. Escalation on a non-converging loop (SC-016)
 

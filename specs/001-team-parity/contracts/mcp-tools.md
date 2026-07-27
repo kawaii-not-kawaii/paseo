@@ -27,11 +27,11 @@ broken one.
 
 Post a message to a channel.
 
-| Param | Type | Notes |
-|---|---|---|
-| `channel` | string | Name or id. |
-| `body` | string | `@name` mentions are parsed server-side; mentioning a member delivers to it and starts it if idle (FR-035a). |
-| `replyToMessageId` | string? | |
+| Param              | Type    | Notes                                                                                                        |
+| ------------------ | ------- | ------------------------------------------------------------------------------------------------------------ |
+| `channel`          | string  | Name or id.                                                                                                  |
+| `body`             | string  | `@name` mentions are parsed server-side; mentioning a member delivers to it and starts it if idle (FR-035a). |
+| `replyToMessageId` | string? |                                                                                                              |
 
 Returns the created message id. Mentioning a member not assigned to the project fails with a
 message saying so, rather than silently not delivering (edge case in spec).
@@ -40,11 +40,11 @@ message saying so, rather than silently not delivering (edge case in spec).
 
 Read recent channel history.
 
-| Param | Type | Notes |
-|---|---|---|
-| `channel` | string | |
-| `limit` | number? | Default 50. |
-| `before` | string? | Keyset cursor for older pages. |
+| Param     | Type    | Notes                          |
+| --------- | ------- | ------------------------------ |
+| `channel` | string  |                                |
+| `limit`   | number? | Default 50.                    |
+| `before`  | string? | Keyset cursor for older pages. |
 
 Returns messages newest-first with author names resolved, so a member can address people by name
 without a second lookup.
@@ -60,10 +60,10 @@ identity, so a member knows what to mention when escalating.
 
 Query tasks.
 
-| Param | Type | Notes |
-|---|---|---|
-| `status` | string? | |
-| `mine` | boolean? | Tasks claimed by the calling member. |
+| Param       | Type     | Notes                                                   |
+| ----------- | -------- | ------------------------------------------------------- |
+| `status`    | string?  |                                                         |
+| `mine`      | boolean? | Tasks claimed by the calling member.                    |
 | `claimable` | boolean? | Unclaimed or lease-expired, with all dependencies done. |
 
 Returns tasks with `seq` (the `#18` display number), status, assignee, claimant, handback count, and
@@ -74,11 +74,11 @@ blocking dependencies.
 Create, claim, release, and modify tasks. One tool rather than six, because the guard and claim
 checks are identical across them and splitting invites drift.
 
-| Param | Type | Notes |
-|---|---|---|
-| `action` | enum | `create` \| `claim` \| `release` \| `set_status` \| `note` \| `satisfy_criterion` \| `handback` |
-| `taskId` | string? | Required except for `create`. |
-| `title` / `body` / `status` / `note` / `criterionIndex` | | Per action. |
+| Param                                                   | Type    | Notes                                                                                           |
+| ------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
+| `action`                                                | enum    | `create` \| `claim` \| `release` \| `set_status` \| `note` \| `satisfy_criterion` \| `handback` |
+| `taskId`                                                | string? | Required except for `create`.                                                                   |
+| `title` / `body` / `status` / `note` / `criterionIndex` |         | Per action.                                                                                     |
 
 Rules enforced server-side, not by agent cooperation:
 
@@ -96,10 +96,10 @@ Rules enforced server-side, not by agent cooperation:
 Propose a roster for the project. This is the "talk to an agent about roles" path (FR-014c) — the
 behaviour the walkthrough shows when Cindy proposes three agent cards.
 
-| Param | Type | Notes |
-|---|---|---|
-| `context` | string | What the project is and what the user wants staffed. |
-| `count` | number? | Suggested number of roles. |
+| Param     | Type    | Notes                                                |
+| --------- | ------- | ---------------------------------------------------- |
+| `context` | string  | What the project is and what the user wants staffed. |
+| `count`   | number? | Suggested number of roles.                           |
 
 Returns proposed members: `name`, `description`, `rolePrompt`, and a suggested provider/model.
 

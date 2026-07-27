@@ -212,6 +212,7 @@ import {
   type HubRelationshipRemote,
 } from "./hub/relationship-remote.js";
 import { DaemonExecutions } from "./hub/daemon-executions.js";
+import { createTeamServiceForDaemon, installTeamServerInfo } from "./team/bootstrap.js";
 
 const MAX_MCP_DEBUG_BATCH_ITEMS = 10;
 const REDACTED_LOG_VALUE = "[redacted]";
@@ -1194,6 +1195,7 @@ export async function createPaseoDaemon(
     archiveWorkspace: archiveScheduleWorkspaceExternal,
   });
   await scheduleService.start();
+  const teamService = createTeamServiceForDaemon(config.paseoHome);
   let inFlightIdleAgentCollection: Promise<void> | null = null;
   const collectIdleAgentRuntimes = async () => {
     const protectedAgentIds = await scheduleService.listActiveAgentTargetIds();
@@ -1570,6 +1572,7 @@ export async function createPaseoDaemon(
               browserToolsBroker,
               hubRelationships,
             );
+            installTeamServerInfo(wsServer);
             await hubRelationships.start();
 
             if (relayEnabled) {
@@ -1647,6 +1650,7 @@ export async function createPaseoDaemon(
     terminalManager.killAll();
     speechService.stop();
     await scheduleService.stop().catch(() => undefined);
+    teamService.close();
     await relayTransport?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();

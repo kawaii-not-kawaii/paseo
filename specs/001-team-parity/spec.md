@@ -22,7 +22,7 @@ rather than being the message bus.
 The user-facing deliverable is a new **Team** view in the app. Backend work is in scope only where
 it is required to make that view real.
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Agents coordinate in a channel without the human relaying (Priority: P1)
 
@@ -92,13 +92,13 @@ present with their descriptions, project assignments, and home workspaces intact
 1. **Given** the Members section of the Team view, **When** the user adds a member, **Then** they
    name it, describe what it owns, choose its runtime and model, choose the workspace it works in,
    and give it a role prompt — optionally starting from a built-in template.
-1a. **Given** an existing member, **When** the user asks it to propose a team for the project,
-    **Then** it returns proposed roles with names, descriptions, and role prompts, and each is
-    created only when the user reviews and confirms it individually.
-1b. **Given** a member has been working for some time, **When** the user opens its detail view,
-    **Then** they can read its memory document and browse its home directory.
-1c. **Given** a member has accumulated memory, **When** its home workspace is removed and it is
-    re-pointed at a new one, **Then** its memory and home directory are unchanged.
+   1a. **Given** an existing member, **When** the user asks it to propose a team for the project,
+   **Then** it returns proposed roles with names, descriptions, and role prompts, and each is
+   created only when the user reviews and confirms it individually.
+   1b. **Given** a member has been working for some time, **When** the user opens its detail view,
+   **Then** they can read its memory document and browse its home directory.
+   1c. **Given** a member has accumulated memory, **When** its home workspace is removed and it is
+   re-pointed at a new one, **Then** its memory and home directory are unchanged.
 2. **Given** a member exists, **When** the daemon restarts, **Then** the member is still listed
    with its name, description, runtime configuration, project assignments, and home workspace.
 3. **Given** a member is listed, **When** the user views it, **Then** they can see whether it is
@@ -244,7 +244,7 @@ restart, and verify no committed message or task is lost and the view opens norm
 - **The user switches daemon while viewing the Team view.** The view must follow to that daemon's
   team for the project rather than showing stale content from the previous one.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -458,7 +458,7 @@ restart, and verify no committed message or task is lost and the view opens norm
 - **Snapshot** — A point-in-time consistent copy of one project's team data, taken automatically
   and retained in a bounded set.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 
@@ -531,7 +531,7 @@ Two things stop them:
 
 1. **Repeated failure on one task.** Every task counts how many times it has been handed back —
    moved backward from review, or failed against its acceptance criteria. On reaching a configurable
-   limit, work on *that task* stops and the user is escalated to by name in the channel where it was
+   limit, work on _that task_ stops and the user is escalated to by name in the channel where it was
    happening, with the history of attempts readable. This is the QA loop that is not converging, and
    it is the case worth a human's attention. Other tasks and members carry on (FR-035c to FR-035e).
 

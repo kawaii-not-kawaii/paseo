@@ -18,7 +18,7 @@ The technical approach is shaped by three facts discovered in the code rather th
    **lease-based** rather than tied to runtime liveness, or a member would lose its task two minutes
    after claiming it.
 2. **The app's project spans daemons** (`ProjectSummary.hosts`, `packages/app/src/utils/projects.ts`).
-   A team is per project *per daemon*; the Team view shows the connected daemon's team.
+   A team is per project _per daemon_; the Team view shows the connected daemon's team.
 3. **This is a fork that must keep merging upstream** (Constitution VIII). All logic lives in
    fork-owned directories; upstream files are touched only at enumerated seams.
 
@@ -53,18 +53,18 @@ protocol schema modules, ~12 new server modules, ~15 new app screens/components,
 
 ## Constitution Check
 
-*GATE: evaluated before Phase 0, re-evaluated after Phase 1 design.*
+_GATE: evaluated before Phase 0, re-evaluated after Phase 1 design._
 
-| Principle | Status | How this design satisfies it |
-|---|---|---|
-| I. Protocol Backward Compatibility | PASS | All team RPCs are new `type` values; no existing schema is modified. New fields optional. Dotted namespaces with `.request`/`.response`. `discriminatedUnion` throughout. No `.transform`/`.catch`/`.preprocess` in wire schemas — retention and normalization happen post-validation. |
-| II. Capability Gates, Not Fallback Paths | PASS | Single flag `server_info.features.team`. The app shows the Team view or tells the user to update the host. No degraded path, no legacy-RPC fan-out. One `COMPAT(team)` comment. |
-| III. Cross-Platform By Default | PASS | No new platform gates beyond `useIsCompactFormFactor()` for layout. Team is *not* a mobile panel (see Structure). Hover-to-reveal uses `isHovered \|\| isNative \|\| isCompact`. |
-| IV. Behavior-Proving Tests, Real Dependencies | PASS | Real SQLite in tests. Claim contention, lease expiry, migration, and adoption are behavioral tests. Every fallible UI action gets success and failure coverage. |
-| V. Commit To A Shape | PASS | Zod validation at the SQLite read boundary and the WebSocket boundary; typed internals after. No barrel files. |
-| VI. Glossary-Authoritative Terminology | PASS | New glossary entries required in the same change: Member, Channel, Task (disambiguated from Agent session), Claim, Home workspace. |
-| VII. JSON By Default, SQLite By Exception | PASS | SQLite confined to the team surface. Migration runner present at schema v1. Zod at read boundary. `docs/data-model.md` gains the boundary section. |
-| VIII. Fork Mergeability | PASS WITH ONE NOTED EXCEPTION | All logic in fork-owned directories. Seams enumerated below. **One seam is not a one-liner** — see Complexity Tracking. |
+| Principle                                     | Status                        | How this design satisfies it                                                                                                                                                                                                                                                           |
+| --------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I. Protocol Backward Compatibility            | PASS                          | All team RPCs are new `type` values; no existing schema is modified. New fields optional. Dotted namespaces with `.request`/`.response`. `discriminatedUnion` throughout. No `.transform`/`.catch`/`.preprocess` in wire schemas — retention and normalization happen post-validation. |
+| II. Capability Gates, Not Fallback Paths      | PASS                          | Single flag `server_info.features.team`. The app shows the Team view or tells the user to update the host. No degraded path, no legacy-RPC fan-out. One `COMPAT(team)` comment.                                                                                                        |
+| III. Cross-Platform By Default                | PASS                          | No new platform gates beyond `useIsCompactFormFactor()` for layout. Team is _not_ a mobile panel (see Structure). Hover-to-reveal uses `isHovered \|\| isNative \|\| isCompact`.                                                                                                       |
+| IV. Behavior-Proving Tests, Real Dependencies | PASS                          | Real SQLite in tests. Claim contention, lease expiry, migration, and adoption are behavioral tests. Every fallible UI action gets success and failure coverage.                                                                                                                        |
+| V. Commit To A Shape                          | PASS                          | Zod validation at the SQLite read boundary and the WebSocket boundary; typed internals after. No barrel files.                                                                                                                                                                         |
+| VI. Glossary-Authoritative Terminology        | PASS                          | New glossary entries required in the same change: Member, Channel, Task (disambiguated from Agent session), Claim, Home workspace.                                                                                                                                                     |
+| VII. JSON By Default, SQLite By Exception     | PASS                          | SQLite confined to the team surface. Migration runner present at schema v1. Zod at read boundary. `docs/data-model.md` gains the boundary section.                                                                                                                                     |
+| VIII. Fork Mergeability                       | PASS WITH ONE NOTED EXCEPTION | All logic in fork-owned directories. Seams enumerated below. **One seam is not a one-liner** — see Complexity Tracking.                                                                                                                                                                |
 
 ## Project Structure
 
@@ -125,17 +125,17 @@ packages/app/src/app/h/[serverId]/team/
 
 Every touched upstream file, to be recorded in `docs/fork.md`:
 
-| File | Edit | Size |
-|---|---|---|
-| `packages/protocol/src/messages.ts` | Import team schemas; add entries to the inbound/outbound session unions | Import block + N union entries — **the one non-trivial seam** |
-| `packages/server/src/server/session.ts` | One delegation before the existing switch: `if (isTeamRequest(msg)) return this.teamSession.handle(msg)` | 1 line + 1 import |
-| `packages/server/src/server/bootstrap.ts` | Construct `TeamService`; add its member IDs to the existing `protectedAgentIds` set | ~4 lines |
-| `packages/app/src/app/h/[serverId]/_layout.tsx` | One `<Stack.Screen name="team/[section]" />` | 1 line |
-| `packages/app/src/utils/host-routes.ts` | Append `buildHostTeamRoute()` | 1 function, appended |
-| `packages/app/src/components/left-sidebar.tsx` | Team nav row | ~6 small additions — see Complexity Tracking |
-| `packages/server/src/server/agent/tools/paseo-tools.ts` | Register `team_*` tools | 1 import + 1 spread |
-| `packages/server/src/server/auto-archive-on-merge/archive-if-safe.ts` | Skip workspaces that are a member's home workspace (FR-019a) | 1 guard clause + 1 import |
-| `docs/glossary.md`, `docs/data-model.md`, `docs/fork.md` | Documentation, required by Principles VI/VII/VIII | Additive sections |
+| File                                                                  | Edit                                                                                                     | Size                                                          |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `packages/protocol/src/messages.ts`                                   | Import team schemas; add entries to the inbound/outbound session unions                                  | Import block + N union entries — **the one non-trivial seam** |
+| `packages/server/src/server/session.ts`                               | One delegation before the existing switch: `if (isTeamRequest(msg)) return this.teamSession.handle(msg)` | 1 line + 1 import                                             |
+| `packages/server/src/server/bootstrap.ts`                             | Construct `TeamService`; add its member IDs to the existing `protectedAgentIds` set                      | ~4 lines                                                      |
+| `packages/app/src/app/h/[serverId]/_layout.tsx`                       | One `<Stack.Screen name="team/[section]" />`                                                             | 1 line                                                        |
+| `packages/app/src/utils/host-routes.ts`                               | Append `buildHostTeamRoute()`                                                                            | 1 function, appended                                          |
+| `packages/app/src/components/left-sidebar.tsx`                        | Team nav row                                                                                             | ~6 small additions — see Complexity Tracking                  |
+| `packages/server/src/server/agent/tools/paseo-tools.ts`               | Register `team_*` tools                                                                                  | 1 import + 1 spread                                           |
+| `packages/server/src/server/auto-archive-on-merge/archive-if-safe.ts` | Skip workspaces that are a member's home workspace (FR-019a)                                             | 1 guard clause + 1 import                                     |
+| `docs/glossary.md`, `docs/data-model.md`, `docs/fork.md`              | Documentation, required by Principles VI/VII/VIII                                                        | Additive sections                                             |
 
 **Structure Decision**: Fork-owned modules under `team/` in each package, wired through the eight
 seams above. The app's Team view is a **host-level leaf route**, registered by
@@ -150,9 +150,9 @@ three-panel gesture system.
 
 ## Complexity Tracking
 
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|---|---|---|
-| Two chat stores in one daemon (upstream's JSON `chat-service.ts` plus team SQLite) | Constitution VIII: `chat-service.ts` is upstream-owned and serves the `paseo chat` CLI. Reshaping it for project scoping and SQLite would make it a permanent conflict zone. | Modifying it in place is less code but creates recurring merge cost in an actively developed file. Recorded in `docs/fork.md` so it is not "cleaned up" later. |
-| Loop guard semantics reimplemented in `review-cycle.ts` rather than reusing `loop-service.ts` | Same reason: ~1000 lines of actively developed upstream code, and loops created outside the Team view must keep working unchanged. | Extending `loop-service.ts` was the original plan; Principle VIII (constitution 1.1.0) supersedes it. |
-| `left-sidebar.tsx` seam is ~6 additions, not one line | The nav row is duplicated across the compact and wide render paths, plus a labels type, a labels map, a handler, and an active-path check. There is no single registration point. | A fork-owned sidebar wrapper would mean forking the whole sidebar — far larger and more conflict-prone than 6 mechanical lines. Accepted and recorded. |
-| `messages.ts` union entries | The protocol's discriminated unions are the single validated dispatch boundary; new RPCs must be listed there. There is no plugin registry. | A separate union would break `WSInboundMessageSchema` as the single boundary and defeat the zod-aot pipeline. |
+| Violation                                                                                     | Why Needed                                                                                                                                                                        | Simpler Alternative Rejected Because                                                                                                                           |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Two chat stores in one daemon (upstream's JSON `chat-service.ts` plus team SQLite)            | Constitution VIII: `chat-service.ts` is upstream-owned and serves the `paseo chat` CLI. Reshaping it for project scoping and SQLite would make it a permanent conflict zone.      | Modifying it in place is less code but creates recurring merge cost in an actively developed file. Recorded in `docs/fork.md` so it is not "cleaned up" later. |
+| Loop guard semantics reimplemented in `review-cycle.ts` rather than reusing `loop-service.ts` | Same reason: ~1000 lines of actively developed upstream code, and loops created outside the Team view must keep working unchanged.                                                | Extending `loop-service.ts` was the original plan; Principle VIII (constitution 1.1.0) supersedes it.                                                          |
+| `left-sidebar.tsx` seam is ~6 additions, not one line                                         | The nav row is duplicated across the compact and wide render paths, plus a labels type, a labels map, a handler, and an active-path check. There is no single registration point. | A fork-owned sidebar wrapper would mean forking the whole sidebar — far larger and more conflict-prone than 6 mechanical lines. Accepted and recorded.         |
+| `messages.ts` union entries                                                                   | The protocol's discriminated unions are the single validated dispatch boundary; new RPCs must be listed there. There is no plugin registry.                                       | A separate union would break `WSInboundMessageSchema` as the single boundary and defeat the zod-aot pipeline.                                                  |

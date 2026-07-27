@@ -37,10 +37,10 @@ front; that produces tests of imagined behaviour.
 
 **Purpose**: This checkout has no dependencies installed. Nothing else can run until it does.
 
-- [ ] T001 Run `npm install` at repo root, then `npm run build:server` to generate protocol, client, and server declarations
-- [ ] T002 Verify `node:sqlite` availability in the daemon's Node version with a scratch script: open `:memory:`, create a table, run `VACUUM INTO` to a temp path; delete the script afterwards
-- [ ] T003 [P] Create fork-owned directory skeletons with a placeholder `.gitkeep` in `packages/protocol/src/team/`, `packages/server/src/server/team/storage/`, `packages/app/src/screens/team/`, `packages/app/src/app/h/[serverId]/team/`
-- [ ] T004 [P] Add the "Fork-owned directories" rows for this feature to the table in `docs/fork.md` if any are missing
+- [x] T001 Run `npm install` at repo root, then `npm run build:server` to generate protocol, client, and server declarations
+- [x] T002 Verify `node:sqlite` availability in the daemon's Node version with a scratch script: open `:memory:`, create a table, run `VACUUM INTO` to a temp path; delete the script afterwards
+- [x] T003 [P] Create fork-owned directory skeletons with a placeholder `.gitkeep` in `packages/protocol/src/team/`, `packages/server/src/server/team/storage/`, `packages/app/src/screens/team/`, `packages/app/src/app/h/[serverId]/team/`
+- [x] T004 [P] Add the "Fork-owned directories" rows for this feature to the table in `docs/fork.md` if any are missing
 
 ---
 
@@ -50,38 +50,38 @@ front; that produces tests of imagined behaviour.
 can start until this phase completes.**
 
 Minimal member identity lives here rather than in US2 because messages need an author. US2 adds what
-makes members *persistent and expert* — role prompts, home directories, templates, workspace
+makes members _persistent and expert_ — role prompts, home directories, templates, workspace
 lifecycle.
 
 ### Storage foundation
 
-- [ ] T005 Write a failing test for the migration runner in `packages/server/src/server/team/storage/migrations.test.ts`: a fresh database reaches the latest `PRAGMA user_version`, migrations are idempotent on reopen, and a database stamped with a **newer** version than the code is refused with a clear error rather than opened
-- [ ] T006 Implement the forward-only migration runner in `packages/server/src/server/team/storage/migrations.ts`, applying each `{version, up(db)}` inside a transaction
-- [ ] T007 Write a failing test in `packages/server/src/server/team/storage/database.test.ts` asserting the connection pragmas from data-model.md are actually set: `journal_mode=WAL`, `synchronous=NORMAL`, `foreign_keys=ON`, `busy_timeout=5000`
-- [ ] T008 Implement `packages/server/src/server/team/storage/database.ts` — open via `node:sqlite` `DatabaseSync`, apply pragmas, cache one handle per project, run migrations on open
-- [ ] T009 Implement the v1 schema migration in `packages/server/src/server/team/storage/migrations.ts` for `<projectId>.db`: `project_members`, `channels`, `messages`, `message_mentions`, `tasks`, `task_dependencies`, `task_notes`, `task_acceptance_criteria`, `progress_events`, `project_settings`, per data-model.md
-- [ ] T010 Implement the v1 schema migration for `roster.db`: `members` table with `role_prompt`, `template_id`, `kind`, `archived_at`
-- [ ] T011 Write a failing test in `packages/server/src/server/team/storage/database.test.ts` proving the unique index on `project_members.home_workspace_id` rejects two members sharing one workspace (FR-018), then confirm the T009 schema satisfies it
-- [ ] T012 Write a failing test for keyset pagination in `packages/server/src/server/team/storage/project-store.test.ts`: seed 10,000 messages, page backwards with a cursor, assert no page re-reads rows and `EXPLAIN QUERY PLAN` uses the `(channel_id, created_at DESC, id DESC)` index
-- [ ] T013 Implement `packages/server/src/server/team/storage/project-store.ts` with Zod validation at every read boundary (Principle V)
-- [ ] T014 Implement `packages/server/src/server/team/storage/roster-store.ts` with Zod validation at every read boundary
+- [x] T005 Write a failing test for the migration runner in `packages/server/src/server/team/storage/migrations.test.ts`: a fresh database reaches the latest `PRAGMA user_version`, migrations are idempotent on reopen, and a database stamped with a **newer** version than the code is refused with a clear error rather than opened
+- [x] T006 Implement the forward-only migration runner in `packages/server/src/server/team/storage/migrations.ts`, applying each `{version, up(db)}` inside a transaction
+- [x] T007 Write a failing test in `packages/server/src/server/team/storage/database.test.ts` asserting the connection pragmas from data-model.md are actually set: `journal_mode=WAL`, `synchronous=NORMAL`, `foreign_keys=ON`, `busy_timeout=5000`
+- [x] T008 Implement `packages/server/src/server/team/storage/database.ts` — open via `node:sqlite` `DatabaseSync`, apply pragmas, cache one handle per project, run migrations on open
+- [x] T009 Implement the v1 schema migration in `packages/server/src/server/team/storage/migrations.ts` for `<projectId>.db`: `project_members`, `channels`, `messages`, `message_mentions`, `tasks`, `task_dependencies`, `task_notes`, `task_acceptance_criteria`, `progress_events`, `project_settings`, per data-model.md
+- [x] T010 Implement the v1 schema migration for `roster.db`: `members` table with `role_prompt`, `template_id`, `kind`, `archived_at`
+- [x] T011 Write a failing test in `packages/server/src/server/team/storage/database.test.ts` proving the unique index on `project_members.home_workspace_id` rejects two members sharing one workspace (FR-018), then confirm the T009 schema satisfies it
+- [x] T012 Write a failing test for keyset pagination in `packages/server/src/server/team/storage/project-store.test.ts`: seed 10,000 messages, page backwards with a cursor, assert no page re-reads rows and `EXPLAIN QUERY PLAN` uses the `(channel_id, created_at DESC, id DESC)` index
+- [x] T013 Implement `packages/server/src/server/team/storage/project-store.ts` with Zod validation at every read boundary (Principle V)
+- [x] T014 Implement `packages/server/src/server/team/storage/roster-store.ts` with Zod validation at every read boundary
 
 ### Protocol schemas
 
-- [ ] T015 [P] Create wire types in `packages/protocol/src/team/types.ts`: `TeamMember`, `TeamChannel`, `TeamMessage`, `TeamTask`, `TeamTaskNote`, `TeamProjectSettings`, `TeamRoleTemplate`
-- [ ] T016 [P] Create `packages/protocol/src/team/capabilities.ts` declaring the `features.team` flag shape with the single `// COMPAT(team): added in v0.2.3, drop the gate when floor >= v0.2.3` comment
-- [ ] T017 Create `packages/protocol/src/team/rpc-schemas.ts` with every `.request`/`.response` pair from `contracts/rpc.md`, using `z.discriminatedUnion` and **no** `.transform`/`.catch`/`.preprocess` (Constitution I)
-- [ ] T018 Write a failing test in `packages/protocol/src/team/rpc-schemas.test.ts` asserting schema purity: no transforms, every response carries `requestId` and a nullable `error`, and unknown extra fields do not break parsing
-- [ ] T019 **SEAM** Register team schemas in the session inbound/outbound discriminated unions in `packages/protocol/src/messages.ts`; update the `docs/fork.md` touched-file table
-- [ ] T020 Write a backward-compatibility test in `packages/protocol/src/team/rpc-schemas.test.ts`: a payload lacking every optional team field still parses, and an old-shaped session message is unaffected by the new union entries
+- [x] T015 [P] Create wire types in `packages/protocol/src/team/types.ts`: `TeamMember`, `TeamChannel`, `TeamMessage`, `TeamTask`, `TeamTaskNote`, `TeamProjectSettings`, `TeamRoleTemplate`
+- [x] T016 [P] Create `packages/protocol/src/team/capabilities.ts` declaring the `features.team` flag shape with the single `// COMPAT(team): added in v0.2.3, drop the gate when floor >= v0.2.3` comment
+- [x] T017 Create `packages/protocol/src/team/rpc-schemas.ts` with every `.request`/`.response` pair from `contracts/rpc.md`, using `z.discriminatedUnion` and **no** `.transform`/`.catch`/`.preprocess` (Constitution I)
+- [x] T018 Write a failing test in `packages/protocol/src/team/rpc-schemas.test.ts` asserting schema purity: no transforms, every response carries `requestId` and a nullable `error`, and unknown extra fields do not break parsing
+- [x] T019 **SEAM** Register team schemas in the session inbound/outbound discriminated unions in `packages/protocol/src/messages.ts`; update the `docs/fork.md` touched-file table
+- [x] T020 Write a backward-compatibility test in `packages/protocol/src/team/rpc-schemas.test.ts`: a payload lacking every optional team field still parses, and an old-shaped session message is unaffected by the new union entries
 
 ### Server wiring
 
-- [ ] T021 Implement `packages/server/src/server/team/team-session.ts` exposing `isTeamRequest(msg)` and a single `handle(msg)` entry point
-- [ ] T022 **SEAM** Add the one-line delegation `if (isTeamRequest(msg)) return this.teamSession.handle(msg)` before the existing switch in `packages/server/src/server/session.ts`; update `docs/fork.md`
-- [ ] T023 Implement minimal member identity in `packages/server/src/server/team/team-service.ts`: create, list, soft-delete members; create the single `kind: "human"` row on first start (FR-006a)
-- [ ] T024 **SEAM** Construct `TeamService` in `packages/server/src/server/bootstrap.ts` and publish the `features.team` capability flag; update `docs/fork.md`
-- [ ] T025 Write a test in `packages/server/src/server/team/team-service.test.ts` asserting a member survives a service restart with configuration intact (FR-015)
+- [x] T021 Implement `packages/server/src/server/team/team-session.ts` exposing `isTeamRequest(msg)` and a single `handle(msg)` entry point
+- [x] T022 **SEAM** Add the one-line delegation `if (isTeamRequest(msg)) return this.teamSession.handle(msg)` before the existing switch in `packages/server/src/server/session.ts`; update `docs/fork.md`
+- [x] T023 Implement minimal member identity in `packages/server/src/server/team/team-service.ts`: create, list, soft-delete members; create the single `kind: "human"` row on first start (FR-006a)
+- [x] T024 **SEAM** Construct `TeamService` in `packages/server/src/server/bootstrap.ts` and publish the `features.team` capability flag; update `docs/fork.md`
+- [x] T025 Write a test in `packages/server/src/server/team/team-service.test.ts` asserting a member survives a service restart with configuration intact (FR-015)
 
 **Checkpoint**: storage, migrations, protocol, and member identity exist. User stories can begin.
 
@@ -167,7 +167,8 @@ description, role prompt, project assignments, and home workspaces (SC-005).
 - [ ] T069 [US2] Write a test in `packages/server/src/server/team/team-service.members.test.ts` asserting removing a member leaves its messages readable and correctly attributed (FR-022)
 - [ ] T070 [US2] [P] Implement the roster view in `packages/app/src/screens/team/members/member-list.tsx` — status, description, home workspace, channels
 - [ ] T071 [US2] Implement the member detail view in `packages/app/src/screens/team/members/member-detail.tsx` including an editable role prompt and a `MEMORY.md` reader (FR-014f)
-- [ ] T072 [US2] Implement the create/edit member form in `packages/app/src/screens/team/members/member-form.tsx` following `docs/forms.md` — non-React form model, load-state gating — with a template picker
+- [ ] T072 [US2] Implement the create/edit member form in `packages/app/src/screens/team/members/member-form.tsx` following `docs/forms.md` — non-React form model, load-state gating — covering every field a member owns: name, description, runtime and model (FR-014, reusing the existing provider/model pickers — this feature adds no new provider surface), role prompt, template picker, project assignments (FR-016), and home workspace per project (FR-017). The FR-018 uniqueness conflict MUST surface as a usable error naming the member already holding that workspace, never a raw constraint violation
+- [ ] T072a [US2] Implement member lifecycle actions in `packages/app/src/screens/team/members/member-actions.tsx` — start, stop, and remove (FR-021). Removal MUST state that history is preserved and attribution kept (FR-022) before it is confirmed, and a member flagged unable to run (lost home workspace, FR-019) MUST show why and offer re-pointing rather than a disabled button with no explanation
 - [ ] T073 [US2] Implement proposal review cards in `packages/app/src/screens/team/members/member-proposal-cards.tsx` so each proposed member is created only on individual confirmation (FR-014c)
 - [ ] T074 [US2] **STORY VALIDATION** Execute quickstart steps 8, 12, and 13 (worktree removal, memory survival, merge does not strand)
 
@@ -196,14 +197,16 @@ change in both directions and that contention resolves to exactly one holder (SC
 - [ ] T081 [US3] Implement task CRUD, dependencies, notes, and acceptance criteria in `packages/server/src/server/team/team-service.ts` with the per-project `seq` counter for `#18`-style references
 - [ ] T082 [US3] Implement `progress_events` writes for every claim, release, status change, note, and satisfied criterion
 - [ ] T083 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting handback increments the count, releases the claim, and resets on acceptance (FR-035c)
-- [ ] T084 [US3] Implement `packages/server/src/server/team/review-cycle.ts` — handback counting, escalation at the limit, guards. Reuse the *semantics* of `loop-service.ts`; do not import from or modify it
+- [ ] T084 [US3] Implement `packages/server/src/server/team/review-cycle.ts` — handback counting, escalation at the limit, guards. Reuse the _semantics_ of `loop-service.ts`; do not import from or modify it
 - [ ] T085 [US3] **INVARIANT TEST** Write a test in `packages/server/src/server/team/review-cycle.test.ts` asserting a **converging** review loop is never interrupted regardless of round count, as long as progress is recorded (SC-015) — a guard that stops productive work is the worst failure mode in this feature
 - [ ] T086 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting a non-converging task escalates after the handback limit, stops **only that task**, and leaves other members working (FR-035d, FR-035e)
 - [ ] T087 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting the per-attempt wall-clock limit stops a member wedged inside one attempt, where the handback count never increments (FR-035d1)
 - [ ] T088 [US3] Write a failing test in `packages/server/src/server/team/review-cycle.test.ts` asserting the no-progress backstop stops members exchanging messages without touching work, and that any progress event or user message resets it (FR-035f)
 - [ ] T089 [US3] Implement escalation delivery in `packages/server/src/server/team/review-cycle.ts` through the existing notification path, verified with the app backgrounded rather than open on the Team view (FR-035e1, SC-017a)
 - [ ] T090 [US3] Implement `team.project.stop_all` and `team.project.resume` with counter resets (FR-035g, FR-035h)
-- [ ] T091 [US3] Implement `project_settings` defaults from research: handbacks 3, attempt timeout 30 min (also the claim lease TTL), no-progress backstop 12
+- [ ] T091 [US3] Implement `project_settings` defaults from research: handbacks 3, attempt timeout 30 min (also the claim lease TTL), no-progress backstop 12, message retention cap 50,000 (user-chosen placeholder, not derived from research — revisit at T108/T109)
+- [ ] T091a [US3] Write a failing test then implement the `team.project.get_settings` and `team.project.update_settings` handlers in `packages/server/src/server/team/team-service.ts`, validating each value at the trust boundary — a retention cap of `0` or a negative attempt timeout must be refused with a message naming the valid range, never persisted
+- [ ] T091b [US3] Implement the project settings view in `packages/app/src/screens/team/settings/project-settings-form.tsx` following `docs/forms.md` (non-React form model, load-state gating), exposing all four values — message retention cap, handback limit, attempt timeout, no-progress backstop — as editable fields with their defaults shown, reachable from the Team section switcher. Lowering the retention cap MUST say what it will prune before it is saved (FR-040 discoverability)
 - [ ] T092 [US3] Write a failing test then implement `team_tasks` and `team_task_update` in `packages/server/src/server/team/mcp-tools.ts`, asserting every refusal explains what to do next — a bare "denied" makes members retry in a loop
 
 ### App — board

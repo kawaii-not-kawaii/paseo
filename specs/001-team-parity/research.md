@@ -30,10 +30,11 @@ be able to disagree. One value, two uses.
 working is by definition producing progress, and one that is not should lose the lease.
 
 **Alternatives considered**:
-- *Release on member stop* — rejected: broken by the 2-minute reaper, as above.
-- *Explicit heartbeat* — rejected: a second liveness mechanism that can disagree with progress, and
+
+- _Release on member stop_ — rejected: broken by the 2-minute reaper, as above.
+- _Explicit heartbeat_ — rejected: a second liveness mechanism that can disagree with progress, and
   a timer to own. Progress is already the signal the guards use.
-- *Never expire, manual release only* — rejected: a crashed member strands a task forever, which
+- _Never expire, manual release only_ — rejected: a crashed member strands a task forever, which
   FR-024e exists to prevent.
 
 ---
@@ -64,7 +65,7 @@ fix-and-retest cycle completes, which would make the feature feel broken.
 (R1).
 
 **Rationale**: This guard exists for the case handback counting cannot see — a member wedged
-*inside* one attempt, where the count never increments. It must therefore sit above the slowest
+_inside_ one attempt, where the count never increments. It must therefore sit above the slowest
 legitimate attempt. The reference workload is the user's own: build an Android app and run it in an
 emulator. A cold Gradle build plus emulator boot plus a test pass is minutes, occasionally tens of
 minutes on a loaded machine. 30 minutes clears that with margin while still bounding a hung attempt
@@ -114,9 +115,10 @@ acts — while the resource profile is far better.
 resident; `scheduleService.listActiveAgentTargetIds()` is the precedent to copy. Not needed for v1.
 
 **Alternatives considered**:
-- *Protect all members from reaping* — rejected: twenty idle runtimes held open, for no behavioural
+
+- _Protect all members from reaping_ — rejected: twenty idle runtimes held open, for no behavioural
   gain.
-- *Raise `IDLE_AGENT_RUNTIME_TTL_MS`* — rejected: modifies upstream behaviour for every agent to
+- _Raise `IDLE_AGENT_RUNTIME_TTL_MS`_ — rejected: modifies upstream behaviour for every agent to
   serve a fork feature. Violates Constitution VIII.
 
 ---
@@ -191,8 +193,9 @@ The directory is plain files rather than database rows because the member reads 
 ordinary file tools it already has — no new capability, no new MCP surface.
 
 **Alternatives considered**:
-- *Memory inside the worktree* — rejected: destroyed on merge, or committed into the user's repo.
-- *Memory as a SQLite table* — rejected: the member would need a bespoke tool to read and write its
+
+- _Memory inside the worktree_ — rejected: destroyed on merge, or committed into the user's repo.
+- _Memory as a SQLite table_ — rejected: the member would need a bespoke tool to read and write its
   own notes, where a file needs nothing. Also outside the Principle VII boundary, which covers
   query-shaped data; a single markdown document is not query-shaped.
 
@@ -217,9 +220,10 @@ user confirms each one. This mirrors the reference product, where proposed agent
 with a Create button.
 
 **Alternatives considered**:
-- *Templates as files in `~/.paseo/team/templates/`* — rejected: a sharing format for a single user
+
+- _Templates as files in `~/.paseo/team/templates/`_ — rejected: a sharing format for a single user
   is ceremony, and it invites a schema to version. Revisit only if users ask to share rosters.
-- *Proposal tool that creates directly* — rejected: unattended usage the user never approved.
+- _Proposal tool that creates directly_ — rejected: unattended usage the user never approved.
 
 ---
 
