@@ -105,13 +105,15 @@ describe("TeamService member behavior", () => {
       }),
     ).rejects.toThrowError("Home workspace workspace-reviewer is unavailable for Reviewer.");
 
-    expect(service.listMembers("project-1")).toEqual([
+    // Select the agent rather than asserting the whole roster: the roster also carries the human
+    // identity, and this test is about the stranded member's state.
+    expect(service.listMembers("project-1").find((entry) => entry.id === member.id)).toEqual(
       expect.objectContaining({
         id: member.id,
         status: "unavailable",
         homeWorkspaceId: null,
       }),
-    ]);
+    );
 
     await expect(
       lifecycle.deliverMention({
@@ -187,6 +189,26 @@ describe("TeamService member behavior", () => {
     cleanupPaths.push(path);
     return path;
   }
+  // The human authors messages and is the escalation target, but is never assigned to a project.
+  // If the project roster omits it, the app resolves the author of the user's own messages to a
+  // raw id and escalation has nobody to mention (FR-006a, FR-035e).
+  test("the project roster includes the human identity alongside assigned members", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({ paseoHome });
+    service.createMember({
+      projectId: "project-1",
+      name: "impl",
+      provider: "codex",
+      homeWorkspaceId: "workspace-impl",
+    });
+
+    const roster = service.listMembers("project-1");
+
+    expect(roster.map((member) => member.kind).sort()).toEqual(["agent", "human"]);
+    expect(roster.find((member) => member.kind === "human")).toBeDefined();
+
+    service.close();
+  });
 });
 
 class FakeAgentManager {

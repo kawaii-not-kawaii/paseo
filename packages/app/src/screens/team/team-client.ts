@@ -49,6 +49,9 @@ type TeamClientRequest =
       provider: AgentProvider;
       model?: string;
       homeWorkspaceId: string;
+      modeId?: string | null;
+      rolePrompt?: string;
+      templateId?: string | null;
     }
   | {
       type: "team.member.update.request";
@@ -267,6 +270,9 @@ export async function createTeamMember(input: {
   provider: AgentProvider;
   model?: string | null;
   homeWorkspaceId: string;
+  modeId?: string | null;
+  rolePrompt?: string;
+  templateId?: string | null;
 }): Promise<TeamMember | null> {
   const requestId = createRequestId("team-member-create");
   const payload = await sendTeamRequest<TeamMemberCreateResponse["payload"]>({
@@ -281,6 +287,9 @@ export async function createTeamMember(input: {
       provider: input.provider,
       ...(input.model ? { model: input.model } : {}),
       homeWorkspaceId: input.homeWorkspaceId,
+      ...(input.modeId !== undefined ? { modeId: input.modeId } : {}),
+      ...(input.rolePrompt !== undefined ? { rolePrompt: input.rolePrompt } : {}),
+      ...(input.templateId !== undefined ? { templateId: input.templateId } : {}),
     },
     responseType: "team.member.create.response",
   });

@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
+import { composeMemberSystemPrompt, ensureMemberHome } from "./member-home.js";
 import { TeamService } from "./team-service.js";
 
 describe("member home", () => {
@@ -138,6 +139,21 @@ describe("member home", () => {
     cleanupPaths.push(path);
     return path;
   }
+  // SC-002 depends on this. Members run with the full Paseo tool catalogue, so a member told to
+  // "hand this to QA" will reach for create_agent unless the prompt points it at the channel.
+  // Observed for real in the T056 run: impl did the work, spawned two throwaway agents, and the
+  // channel stayed empty.
+  test("the member system prompt directs collaboration through the channel, not new agents", async () => {
+    const paseoHome = await createPaseoHome();
+    const memberHomeDir = ensureMemberHome(paseoHome, "member-1");
+
+    const prompt = composeMemberSystemPrompt("You implement changes.", memberHomeDir);
+
+    expect(prompt).toContain("You implement changes.");
+    expect(prompt).toContain("team_post");
+    expect(prompt).toContain("@name");
+    expect(prompt).toMatch(/Do not create ad-hoc agents/i);
+  });
 });
 
 function sequenceIds(...ids: string[]): () => string {

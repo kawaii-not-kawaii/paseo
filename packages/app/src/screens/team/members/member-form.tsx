@@ -451,6 +451,10 @@ function LoadedMemberForm({
           provider: state.selectedProvider,
           model: state.selectedModel || null,
           homeWorkspaceId: currentAssignment.homeWorkspaceId,
+          // Carried on create so the member is never startable without its role prompt.
+          modeId: state.selectedModeId || null,
+          rolePrompt: state.rolePrompt,
+          templateId: state.selectedTemplateId,
         });
         if (!savedMember) {
           throw new Error(t("common.errors.unableToSave"));

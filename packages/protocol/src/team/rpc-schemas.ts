@@ -150,6 +150,12 @@ export const TeamMemberCreateRequestSchema = z.object({
   provider: AgentProviderSchema,
   model: z.string().optional(),
   homeWorkspaceId: z.string(),
+  // A member created without these has no role prompt until a follow-up update lands. A mention
+  // arriving in that window starts it unconfigured, which FR-014a forbids: the role prompt applies
+  // to every session the member runs, including its first.
+  modeId: z.string().nullable().optional(),
+  rolePrompt: z.string().optional(),
+  templateId: z.string().nullable().optional(),
 });
 
 export const TeamMemberUpdateRequestSchema = z.object({

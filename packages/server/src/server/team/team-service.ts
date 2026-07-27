@@ -232,7 +232,15 @@ export class TeamService {
 
     return createRosterStore(this.dbManager.openRoster())
       .listMembers()
-      .filter((member) => member.archivedAt === null && assignments.has(member.id))
+      .filter(
+        (member) =>
+          member.archivedAt === null &&
+          // The human is never assigned to a project — it is the single daemon-wide identity — but
+          // it authors messages and is the escalation target, so every project roster includes it.
+          // Without this the app resolves the author of your own messages to a raw id, and there is
+          // nothing to mention when a task escalates (FR-006a, FR-035e).
+          (member.kind === "human" || assignments.has(member.id)),
+      )
       .map((member) => {
         const assignment = assignments.get(member.id) ?? null;
         return toTeamMember(member, assignment?.homeWorkspaceId ?? null);

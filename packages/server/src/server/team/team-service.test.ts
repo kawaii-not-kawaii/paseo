@@ -38,12 +38,12 @@ describe("TeamService", () => {
     const members = restartedService.listMembers(projectId);
     restartedService.close();
 
-    expect(members).toEqual([
-      {
-        ...created,
-        status: "idle",
-      },
-    ]);
+    // The roster also carries the human identity; this test is about the created member surviving
+    // a restart with its configuration intact (FR-015).
+    expect(members.find((member) => member.id === created.id)).toEqual({
+      ...created,
+      status: "idle",
+    });
   });
 
   test("lists built-in role templates as data", async () => {
