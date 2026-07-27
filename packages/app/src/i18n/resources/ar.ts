@@ -363,6 +363,19 @@ export const ar: TranslationResources = {
         empty: "لا توجد ملاحظات بعد",
       },
     },
+    settings: {
+      retentionCap: "حد الاحتفاظ بالرسائل",
+      handbackLimit: "حد الإرجاعات",
+      attemptTimeout: "مهلة المحاولة (بالدقائق)",
+      noProgressLimit: "حد انعدام التقدم",
+      retentionWarning:
+        "عند التشغيل التالي، ستُحذف أقدم الرسائل التي تتجاوز الحد الجديد قبل تحميل المشروع.",
+      adoption: {
+        title: "اعتماد سجل المحادثات الحالي",
+        body: "لا يزال هناك {{roomCount}} غرفة قديمة و{{messageCount}} رسالة في مخزن المحادثات القديم. استوردها إلى هذا المشروع من دون تغيير `paseo chat`.",
+        action: "اعتماد سجل المحادثات",
+      },
+    },
   },
   agentList: {
     fallbackTitle: "جلسة جديدة",

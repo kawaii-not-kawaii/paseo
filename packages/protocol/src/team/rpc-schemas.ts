@@ -30,6 +30,12 @@ const TeamTaskUpdatePatchSchema = z.object({
 });
 
 const TeamProjectStopReasonSchema = z.string();
+const TeamLegacyChatAdoptionStateSchema = z.object({
+  status: z.enum(["none", "pending", "adopted"]),
+  roomCount: z.number().int().nonnegative(),
+  messageCount: z.number().int().nonnegative(),
+  projectId: z.string().nullable(),
+});
 
 export const TeamChannelListRequestSchema = z.object({
   type: z.literal("team.channel.list.request"),
@@ -401,6 +407,7 @@ export const TeamProjectGetSettingsResponseSchema = z.object({
   type: z.literal("team.project.get_settings.response"),
   payload: TeamResponseEnvelopeSchema.extend({
     settings: TeamProjectSettingsSchema.nullable(),
+    legacyChatAdoption: TeamLegacyChatAdoptionStateSchema.optional(),
   }),
 });
 
@@ -430,6 +437,7 @@ export const TeamProjectAdoptLegacyChatResponseSchema = z.object({
   type: z.literal("team.project.adopt_legacy_chat.response"),
   payload: TeamResponseEnvelopeSchema.extend({
     projectId: z.string().nullable(),
+    legacyChatAdoption: TeamLegacyChatAdoptionStateSchema.optional(),
   }),
 });
 

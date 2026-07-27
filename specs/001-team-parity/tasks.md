@@ -207,7 +207,7 @@ change in both directions and that contention resolves to exactly one holder (SC
 - [x] T090 [US3] Implement `team.project.stop_all` and `team.project.resume` with counter resets (FR-035g, FR-035h)
 - [x] T091 [US3] Implement `project_settings` defaults from research: handbacks 3, attempt timeout 30 min (also the claim lease TTL), no-progress backstop 12, message retention cap 50,000 (user-chosen placeholder, not derived from research — revisit at T108/T109)
 - [x] T091a [US3] Write a failing test then implement the `team.project.get_settings` and `team.project.update_settings` handlers in `packages/server/src/server/team/team-service.ts`, validating each value at the trust boundary — a retention cap of `0` or a negative attempt timeout must be refused with a message naming the valid range, never persisted
-- [ ] T091b [US3] Implement the project settings view in `packages/app/src/screens/team/settings/project-settings-form.tsx` following `docs/forms.md` (non-React form model, load-state gating), exposing all four values — message retention cap, handback limit, attempt timeout, no-progress backstop — as editable fields with their defaults shown, reachable from the Team section switcher. Lowering the retention cap MUST say what it will prune before it is saved (FR-040 discoverability)
+- [x] T091b [US3] Implement the project settings view in `packages/app/src/screens/team/settings/project-settings-form.tsx` following `docs/forms.md` (non-React form model, load-state gating), exposing all four values — message retention cap, handback limit, attempt timeout, no-progress backstop — as editable fields with their defaults shown, reachable from the Team section switcher. Lowering the retention cap MUST say what it will prune before it is saved (FR-040 discoverability)
 - [x] T092 [US3] Write a failing test then implement `team_tasks` and `team_task_update` in `packages/server/src/server/team/mcp-tools.ts`, asserting every refusal explains what to do next — a bare "denied" makes members retry in a loop
 
 ### App — board
@@ -233,10 +233,10 @@ change in both directions and that contention resolves to exactly one holder (SC
 **Independent test**: Populate a project, force an unclean shutdown mid-write, restart, and verify no
 acknowledged message or task change is lost (SC-006).
 
-- [ ] T102 [US4] Write a failing test in `packages/server/src/server/team/adoption.test.ts` importing rooms and messages from a fixture `~/.paseo/chat/rooms.json` into a chosen project, with an adoption marker preventing re-import
-- [ ] T103 [US4] Implement `packages/server/src/server/team/adoption.ts` — copy, never move; leave the original file untouched
-- [ ] T104 [US4] **INVARIANT TEST** Write a test asserting `paseo chat ls` and `paseo chat read` still work unchanged after adoption (SC-008, Constitution VIII) — upstream's service must be untouched
-- [ ] T105 [US4] Implement the one-time adoption prompt, since existing rooms carry no `projectId` and the target cannot be safely inferred (research R7)
+- [x] T102 [US4] Write a failing test in `packages/server/src/server/team/adoption.test.ts` importing rooms and messages from a fixture `~/.paseo/chat/rooms.json` into a chosen project, with an adoption marker preventing re-import
+- [x] T103 [US4] Implement `packages/server/src/server/team/adoption.ts` — copy, never move; leave the original file untouched
+- [x] T104 [US4] **INVARIANT TEST** Write a test asserting `paseo chat ls` and `paseo chat read` still work unchanged after adoption (SC-008, Constitution VIII) — upstream's service must be untouched
+- [x] T105 [US4] Implement the one-time adoption prompt, since existing rooms carry no `projectId` and the target cannot be safely inferred (research R7)
 - [ ] T106 [US4] Write a failing test in `packages/server/src/server/team/storage/backup.test.ts` asserting `VACUUM INTO` produces a readable snapshot **while a concurrent write is in flight**, and that only the last 3 are retained
 - [ ] T107 [US4] Implement `packages/server/src/server/team/storage/backup.ts` — snapshot on daemon start and every 24h, per database, pruning to 3 (FR-039)
 - [ ] T108 [US4] Write a failing test in `packages/server/src/server/team/retention.test.ts` asserting messages beyond the per-project cap are pruned oldest-first on start, and the pruned count is recorded and readable by the user (FR-040)

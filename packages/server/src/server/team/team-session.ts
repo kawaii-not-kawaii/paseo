@@ -149,7 +149,10 @@ export class TeamSession {
         this.handleProjectResume(
           msg as Extract<TeamRequest, { type: "team.project.resume.request" }>,
         ),
-      "team.project.adopt_legacy_chat.request": (msg) => this.emitNotImplemented(msg),
+      "team.project.adopt_legacy_chat.request": (msg) =>
+        this.handleProjectAdoptLegacyChat(
+          msg as Extract<TeamRequest, { type: "team.project.adopt_legacy_chat.request" }>,
+        ),
     };
     this.service.subscribe((event) => {
       if (event.type === "team.message.posted") {
@@ -529,15 +532,16 @@ export class TeamSession {
 
   private handleProjectGetSettings(
     msg: Extract<TeamRequest, { type: "team.project.get_settings.request" }>,
-  ): void {
-    this.emit({
-      type: "team.project.get_settings.response",
-      payload: {
-        requestId: msg.requestId,
-        error: null,
+  ): Promise<void> {
+    return this.emitResult(
+      "team.project.get_settings.response",
+      msg.requestId,
+      async () => ({
         settings: this.service.getProjectSettings(msg.projectId),
-      },
-    });
+        legacyChatAdoption: await this.service.getLegacyChatAdoptionState(),
+      }),
+      { settings: null },
+    );
   }
 
   private handleProjectUpdateSettings(
@@ -572,6 +576,20 @@ export class TeamSession {
       msg.requestId,
       () => ({ ...this.service.resumeProject(msg.projectId, msg.taskId) }),
       { taskId: null },
+    );
+  }
+
+  private handleProjectAdoptLegacyChat(
+    msg: Extract<TeamRequest, { type: "team.project.adopt_legacy_chat.request" }>,
+  ): Promise<void> {
+    return this.emitResult(
+      "team.project.adopt_legacy_chat.response",
+      msg.requestId,
+      async () => ({
+        projectId: msg.projectId,
+        legacyChatAdoption: await this.service.adoptLegacyChat(msg.projectId),
+      }),
+      { projectId: null },
     );
   }
 

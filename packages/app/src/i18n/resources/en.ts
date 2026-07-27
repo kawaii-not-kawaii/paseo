@@ -362,6 +362,19 @@ export const en = {
         empty: "No notes yet",
       },
     },
+    settings: {
+      retentionCap: "Message retention cap",
+      handbackLimit: "Handback limit",
+      attemptTimeout: "Attempt timeout (minutes)",
+      noProgressLimit: "No-progress backstop",
+      retentionWarning:
+        "On next start, oldest messages above the new cap are pruned before the project loads.",
+      adoption: {
+        title: "Adopt existing chat history",
+        body: "{{roomCount}} legacy rooms and {{messageCount}} messages are still in the old chat store. Import them into this project without changing `paseo chat`.",
+        action: "Adopt chat history",
+      },
+    },
   },
   agentList: {
     fallbackTitle: "New session",

@@ -365,6 +365,19 @@ export const ru: TranslationResources = {
         empty: "Заметок пока нет",
       },
     },
+    settings: {
+      retentionCap: "Лимит хранения сообщений",
+      handbackLimit: "Лимит возвратов",
+      attemptTimeout: "Тайм-аут попытки (в минутах)",
+      noProgressLimit: "Порог отсутствия прогресса",
+      retentionWarning:
+        "При следующем запуске самые старые сообщения сверх нового лимита будут удалены до загрузки проекта.",
+      adoption: {
+        title: "Подключить существующую историю чата",
+        body: "В старом хранилище чата всё ещё есть {{roomCount}} старых комнат и {{messageCount}} сообщений. Импортируйте их в этот проект, не меняя `paseo chat`.",
+        action: "Подключить историю чата",
+      },
+    },
   },
   agentList: {
     fallbackTitle: "Новая сессия",

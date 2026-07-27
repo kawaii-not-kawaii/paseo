@@ -21,7 +21,9 @@ import type {
   TeamMemberUpdateResponse,
   TeamMessageListResponse,
   TeamMessagePostResponse,
+  TeamProjectAdoptLegacyChatResponse,
   TeamProjectGetSettingsResponse,
+  TeamProjectUpdateSettingsResponse,
 } from "@getpaseo/protocol/team/rpc-schemas";
 import type { AgentProvider } from "@getpaseo/protocol/agent-types";
 
@@ -119,6 +121,17 @@ type TeamClientRequest =
       type: "team.project.get_settings.request";
       requestId: string;
       projectId: string;
+    }
+  | {
+      type: "team.project.update_settings.request";
+      requestId: string;
+      projectId: string;
+      settings: TeamProjectSettings;
+    }
+  | {
+      type: "team.project.adopt_legacy_chat.request";
+      requestId: string;
+      projectId: string;
     };
 
 type TeamClientResponse =
@@ -135,10 +148,24 @@ type TeamClientResponse =
   | TeamMemberUpdateResponse["payload"]
   | TeamMessageListResponse["payload"]
   | TeamMessagePostResponse["payload"]
-  | TeamProjectGetSettingsResponse["payload"];
+  | TeamProjectAdoptLegacyChatResponse["payload"]
+  | TeamProjectGetSettingsResponse["payload"]
+  | TeamProjectUpdateSettingsResponse["payload"];
 
 interface TeamResponsePayload {
   error?: string | null;
+}
+
+export interface TeamLegacyChatAdoptionState {
+  status: "none" | "pending" | "adopted";
+  roomCount: number;
+  messageCount: number;
+  projectId: string | null;
+}
+
+export interface TeamProjectSettingsState {
+  settings: TeamProjectSettings | null;
+  legacyChatAdoption: TeamLegacyChatAdoptionState | null;
 }
 
 interface PrivateDaemonClient {
@@ -488,6 +515,14 @@ export async function getTeamProjectSettings(
   client: DaemonClient,
   projectId: string,
 ): Promise<TeamProjectSettings | null> {
+  const result = await getTeamProjectSettingsState(client, projectId);
+  return result.settings;
+}
+
+export async function getTeamProjectSettingsState(
+  client: DaemonClient,
+  projectId: string,
+): Promise<TeamProjectSettingsState> {
   const requestId = createRequestId("team-project-settings");
   const payload = await sendTeamRequest<TeamProjectGetSettingsResponse["payload"]>({
     client,
@@ -500,5 +535,59 @@ export async function getTeamProjectSettings(
     responseType: "team.project.get_settings.response",
   });
   throwTeamError(payload);
+  return {
+    settings: payload.settings,
+    legacyChatAdoption:
+      (
+        payload as TeamProjectGetSettingsResponse["payload"] & {
+          legacyChatAdoption?: TeamLegacyChatAdoptionState;
+        }
+      ).legacyChatAdoption ?? null,
+  };
+}
+
+export async function updateTeamProjectSettings(input: {
+  client: DaemonClient;
+  projectId: string;
+  settings: TeamProjectSettings;
+}): Promise<TeamProjectSettings | null> {
+  const requestId = createRequestId("team-project-settings-update");
+  const payload = await sendTeamRequest<TeamProjectUpdateSettingsResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.project.update_settings.request",
+      requestId,
+      projectId: input.projectId,
+      settings: input.settings,
+    },
+    responseType: "team.project.update_settings.response",
+  });
+  throwTeamError(payload);
   return payload.settings;
+}
+
+export async function adoptLegacyTeamChat(input: {
+  client: DaemonClient;
+  projectId: string;
+}): Promise<TeamLegacyChatAdoptionState | null> {
+  const requestId = createRequestId("team-project-adopt-legacy-chat");
+  const payload = await sendTeamRequest<TeamProjectAdoptLegacyChatResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.project.adopt_legacy_chat.request",
+      requestId,
+      projectId: input.projectId,
+    },
+    responseType: "team.project.adopt_legacy_chat.response",
+  });
+  throwTeamError(payload);
+  return (
+    (
+      payload as TeamProjectAdoptLegacyChatResponse["payload"] & {
+        legacyChatAdoption?: TeamLegacyChatAdoptionState;
+      }
+    ).legacyChatAdoption ?? null
+  );
 }

@@ -366,6 +366,19 @@ export const es: TranslationResources = {
         empty: "Todavía no hay notas",
       },
     },
+    settings: {
+      retentionCap: "Límite de retención de mensajes",
+      handbackLimit: "Límite de devoluciones",
+      attemptTimeout: "Tiempo límite del intento (minutos)",
+      noProgressLimit: "Límite de falta de progreso",
+      retentionWarning:
+        "En el próximo inicio, los mensajes más antiguos por encima del nuevo límite se podarán antes de que cargue el proyecto.",
+      adoption: {
+        title: "Adoptar el historial de chat existente",
+        body: "Todavía hay {{roomCount}} salas heredadas y {{messageCount}} mensajes en el almacén de chat antiguo. Impórtalos a este proyecto sin cambiar `paseo chat`.",
+        action: "Adoptar historial de chat",
+      },
+    },
   },
   agentList: {
     fallbackTitle: "Nueva sesión",

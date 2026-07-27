@@ -19,6 +19,11 @@ import {
   listMemberHomeFiles,
   readMemberHomeFile,
 } from "./member-home.js";
+import {
+  adoptLegacyChatIntoProject,
+  getLegacyChatAdoptionState,
+  type LegacyChatAdoptionState,
+} from "./adoption.js";
 import { ReviewCycle } from "./review-cycle.js";
 import { listBuiltInRoleTemplates } from "./role-templates.js";
 import {
@@ -527,6 +532,16 @@ export class TeamService {
       fromTeamProjectSettings(settings),
     );
     return this.getProjectSettings(projectId);
+  }
+
+  public getLegacyChatAdoptionState(): Promise<LegacyChatAdoptionState> {
+    return getLegacyChatAdoptionState(this.paseoHome);
+  }
+
+  public adoptLegacyChat(projectId: string): Promise<LegacyChatAdoptionState> {
+    return adoptLegacyChatIntoProject({ paseoHome: this.paseoHome, projectId }).then(() =>
+      this.getLegacyChatAdoptionState(),
+    );
   }
 
   public listTasks(input: ListTeamTasksInput): TeamTask[] {

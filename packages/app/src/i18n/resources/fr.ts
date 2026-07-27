@@ -367,6 +367,19 @@ export const fr: TranslationResources = {
         empty: "Aucune note pour le moment",
       },
     },
+    settings: {
+      retentionCap: "Limite de rétention des messages",
+      handbackLimit: "Limite de renvois",
+      attemptTimeout: "Délai d'une tentative (minutes)",
+      noProgressLimit: "Seuil d'absence de progression",
+      retentionWarning:
+        "Au prochain démarrage, les messages les plus anciens au-dessus de la nouvelle limite seront supprimés avant le chargement du projet.",
+      adoption: {
+        title: "Adopter l'historique de chat existant",
+        body: "{{roomCount}} salons hérités et {{messageCount}} messages sont encore dans l'ancien stockage de chat. Importez-les dans ce projet sans modifier `paseo chat`.",
+        action: "Adopter l'historique du chat",
+      },
+    },
   },
   agentList: {
     fallbackTitle: "Nouvelle séance",

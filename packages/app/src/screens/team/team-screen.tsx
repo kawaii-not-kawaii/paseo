@@ -3,8 +3,9 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronDown, Hash, Settings, SquareKanban, Users } from "lucide-react-native";
 import { ScrollView, Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { TeamChannel, TeamMember } from "@getpaseo/protocol/team/types";
+import type { TeamChannel, TeamMember, TeamProjectSettings } from "@getpaseo/protocol/team/types";
 import { MenuHeader } from "@/components/headers/menu-header";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +26,14 @@ import { MessageList } from "@/screens/team/chat/message-list";
 import { TeamMembersSection } from "@/screens/team/members/member-section";
 import { TeamTasksSection } from "@/screens/team/tasks/task-section";
 import { useTeamCapability } from "@/screens/team/team-capability";
-import { listTeamChannels, listTeamMembers } from "@/screens/team/team-client";
+import { ProjectSettingsForm } from "@/screens/team/settings/project-settings-form";
+import {
+  adoptLegacyTeamChat,
+  getTeamProjectSettingsState,
+  listTeamChannels,
+  listTeamMembers,
+  type TeamLegacyChatAdoptionState,
+} from "@/screens/team/team-client";
 import { buildHostTeamRoute } from "@/utils/host-routes";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
@@ -386,25 +394,118 @@ function TeamSectionBody({
     return <TeamTasksSection client={client} projectId={selectedProject.projectKey} />;
   }
 
-  if (section !== "chat") {
+  if (section === "settings") {
+    return <TeamSettingsSection client={client} projectId={selectedProject.projectKey} />;
+  }
+
+  if (section === "chat") {
+    return (
+      <TeamChatSection
+        client={client}
+        projectId={selectedProject.projectKey}
+        channelId={activeChannelId}
+        channels={channels}
+        members={members}
+        error={error}
+        memberLabels={memberLabels}
+        onSelectChannel={onSelectChannel}
+      />
+    );
+  }
+
+  return (
+    <View style={styles.sectionCard}>
+      <Text style={styles.muted}>{t("team.sections.pending")}</Text>
+    </View>
+  );
+}
+
+function TeamSettingsSection({
+  client,
+  projectId,
+}: {
+  client: DaemonClient | null;
+  projectId: string;
+}) {
+  const { t } = useTranslation();
+  const [settings, setSettings] = useState<TeamProjectSettings | null>(null);
+  const [adoption, setAdoption] = useState<TeamLegacyChatAdoptionState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    if (!client) {
+      setSettings(null);
+      setAdoption(null);
+      return;
+    }
+    try {
+      const nextState = await getTeamProjectSettingsState(client, projectId);
+      setSettings(nextState.settings);
+      setAdoption(nextState.legacyChatAdoption);
+      setError(null);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
+  }, [client, projectId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const handleAdoptLegacyChat = useCallback(async () => {
+    if (!client) {
+      return;
+    }
+    try {
+      const nextAdoption = await adoptLegacyTeamChat({ client, projectId });
+      setAdoption(nextAdoption);
+      setError(null);
+      await refresh();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
+  }, [client, projectId, refresh]);
+
+  if (!settings && !error) {
     return (
       <View style={styles.sectionCard}>
-        <Text style={styles.muted}>{t("team.sections.pending")}</Text>
+        <Text style={styles.muted}>{t("common.states.loading")}</Text>
+      </View>
+    );
+  }
+
+  if (!settings) {
+    return (
+      <View style={styles.sectionCard}>
+        <Text style={settingsStyles.rowError}>{error ?? t("message.actions.forkUnavailable")}</Text>
       </View>
     );
   }
 
   return (
-    <TeamChatSection
-      client={client}
-      projectId={selectedProject.projectKey}
-      channelId={activeChannelId}
-      channels={channels}
-      members={members}
-      error={error}
-      memberLabels={memberLabels}
-      onSelectChannel={onSelectChannel}
-    />
+    <View style={styles.sectionCard}>
+      <Text style={styles.sectionLabel}>{t("team.sections.settings")}</Text>
+      {adoption?.status === "pending" ? (
+        <View style={styles.adoptionCard}>
+          <Text style={styles.adoptionTitle}>{t("team.settings.adoption.title")}</Text>
+          <Text style={styles.muted}>
+            {t("team.settings.adoption.body", {
+              roomCount: adoption.roomCount,
+              messageCount: adoption.messageCount,
+            })}
+          </Text>
+          <Button onPress={handleAdoptLegacyChat} testID="team-adopt-legacy-chat-button">
+            {t("team.settings.adoption.action")}
+          </Button>
+        </View>
+      ) : null}
+      <ProjectSettingsForm
+        client={client}
+        projectId={projectId}
+        settings={settings}
+        onSaved={setSettings}
+      />
+    </View>
   );
 }
 
@@ -564,6 +665,19 @@ const styles = StyleSheet.create((theme) => ({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface1,
     padding: theme.spacing[4],
+  },
+  adoptionCard: {
+    gap: theme.spacing[3],
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface0,
+    padding: theme.spacing[4],
+  },
+  adoptionTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.base,
+    fontWeight: theme.fontWeight.medium,
   },
   sectionLabel: {
     color: theme.colors.foregroundMuted,

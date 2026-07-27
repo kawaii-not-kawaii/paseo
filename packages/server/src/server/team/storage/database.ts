@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 import { migrateDatabase } from "./migrations.js";
@@ -59,8 +59,34 @@ export function createTeamDatabaseManager(options: TeamDatabaseManagerOptions) {
     rosterHandle = null;
   }
 
+  function getProjectPath(projectId: string): string {
+    return join(options.teamDir, `${projectId}.db`);
+  }
+
+  function getRosterPath(): string {
+    return join(options.teamDir, "roster.db");
+  }
+
+  function listProjectIds(): string[] {
+    return readdirSync(options.teamDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".db") && entry.name !== "roster.db")
+      .map((entry) => entry.name.slice(0, -3))
+      .sort();
+  }
+
+  function deleteProjectData(projectId: string): void {
+    const handle = projectHandles.get(projectId);
+    handle?.close();
+    projectHandles.delete(projectId);
+    rmSync(getProjectPath(projectId), { force: true });
+  }
+
   return {
     closeAll,
+    deleteProjectData,
+    getProjectPath,
+    getRosterPath,
+    listProjectIds,
     openProject,
     openRoster,
   };

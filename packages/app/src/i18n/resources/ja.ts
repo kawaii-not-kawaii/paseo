@@ -366,6 +366,19 @@ export const ja: TranslationResources = {
         empty: "ノートはまだありません",
       },
     },
+    settings: {
+      retentionCap: "メッセージ保持上限",
+      handbackLimit: "差し戻し上限",
+      attemptTimeout: "試行タイムアウト（分）",
+      noProgressLimit: "進捗なしの上限",
+      retentionWarning:
+        "次回起動時に、新しい上限を超える最も古いメッセージがプロジェクト読み込み前に削除されます。",
+      adoption: {
+        title: "既存のチャット履歴を取り込む",
+        body: "古いチャットストアに {{roomCount}} 件の旧ルームと {{messageCount}} 件のメッセージが残っています。`paseo chat` を変えずにこのプロジェクトへ取り込みます。",
+        action: "チャット履歴を取り込む",
+      },
+    },
   },
   agentList: {
     fallbackTitle: "新しいセッション",

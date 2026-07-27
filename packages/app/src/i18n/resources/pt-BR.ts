@@ -366,6 +366,19 @@ export const ptBR: TranslationResources = {
         empty: "Ainda não há notas",
       },
     },
+    settings: {
+      retentionCap: "Limite de retenção de mensagens",
+      handbackLimit: "Limite de devoluções",
+      attemptTimeout: "Tempo limite da tentativa (minutos)",
+      noProgressLimit: "Limite de falta de progresso",
+      retentionWarning:
+        "Na próxima inicialização, as mensagens mais antigas acima do novo limite serão podadas antes de o projeto carregar.",
+      adoption: {
+        title: "Adotar o histórico de chat existente",
+        body: "Ainda há {{roomCount}} salas legadas e {{messageCount}} mensagens no armazenamento antigo de chat. Importe tudo para este projeto sem alterar `paseo chat`.",
+        action: "Adotar histórico de chat",
+      },
+    },
   },
   agentList: {
     fallbackTitle: "Nova sessão",

@@ -361,6 +361,18 @@ export const zhCN: TranslationResources = {
         empty: "还没有备注",
       },
     },
+    settings: {
+      retentionCap: "消息保留上限",
+      handbackLimit: "退回上限",
+      attemptTimeout: "尝试超时（分钟）",
+      noProgressLimit: "无进展回退阈值",
+      retentionWarning: "下次启动时，超过新上限的最旧消息会在项目加载前被清理。",
+      adoption: {
+        title: "接管现有聊天历史",
+        body: "旧聊天存储中仍有 {{roomCount}} 个旧房间和 {{messageCount}} 条消息。将它们导入此项目，同时不改动 `paseo chat`。",
+        action: "接管聊天历史",
+      },
+    },
   },
   agentList: {
     fallbackTitle: "新会话",
