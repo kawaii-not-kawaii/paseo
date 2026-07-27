@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { spawn } from "node:child_process";
 import { afterEach, describe, expect, test } from "vitest";
 import { once } from "node:events";
-import { pathToFileURL } from "node:url";
 import { TEAM_DATABASE_BUSY_TIMEOUT_MS, createTeamDatabaseManager } from "./database.js";
 import { LATEST_TEAM_DATABASE_VERSION } from "./migrations.js";
 import { createProjectStore } from "./project-store.js";
@@ -79,8 +78,8 @@ describe("team database manager", () => {
     await writeFile(
       scriptPath,
       `
-import { createTeamDatabaseManager } from ${JSON.stringify(pathToFileURL(new URL("./database.ts", import.meta.url).pathname).href)};
-import { createProjectStore } from ${JSON.stringify(pathToFileURL(new URL("./project-store.ts", import.meta.url).pathname).href)};
+import { createTeamDatabaseManager } from ${JSON.stringify(new URL("./database.ts", import.meta.url).href)};
+import { createProjectStore } from ${JSON.stringify(new URL("./project-store.ts", import.meta.url).href)};
 
 const teamDir = process.argv[2];
 if (!teamDir) {
@@ -115,7 +114,22 @@ setInterval(() => {}, 1000);
       stdio: ["ignore", "pipe", "pipe"],
     });
 
-    await once(child.stdout!, "data");
+    // Wait for the child's own acknowledgement, but never wait forever: if the child dies before
+    // acknowledging, surface its stderr instead of hanging until the suite timeout. A hang here
+    // also skips the cleanup below, which then fails the Windows job with EBUSY rather than
+    // pointing at the real problem.
+    let stderr = "";
+    child.stderr!.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    const acknowledged = await Promise.race([
+      once(child.stdout!, "data").then(() => true),
+      once(child, "exit").then(() => false),
+    ]);
+    if (!acknowledged) {
+      throw new Error(`Durability child exited before acknowledging the write.\n${stderr}`);
+    }
+
     child.kill("SIGKILL");
     await once(child, "exit");
 
