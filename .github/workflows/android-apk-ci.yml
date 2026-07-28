@@ -1,0 +1,108 @@
+# Builds an installable Android APK on GitHub's runners with plain Gradle.
+#
+# Deliberately does NOT use EAS. `android-apk-release.yml` delegates to Expo's hosted build
+# service, which needs an Expo account, an `EXPO_TOKEN` secret, and an EAS project owned by the
+# org named in `app.config.js`. None of that is required to compile an APK: `expo prebuild`
+# generates the native `android/` project locally and Gradle takes it from there. The repo already
+# depends on this working, because F-Droid source builds cannot use EAS either (docs/android.md).
+#
+# Runs on demand only — it is a validation and sideload build, not a release path. Tagged releases
+# still go through `android-apk-release.yml`.
+name: Android APK (CI)
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "App variant"
+        required: true
+        default: development
+        type: choice
+        options:
+          - development
+          - production
+      build_type:
+        description: "Gradle build type. debug is signed with the auto-generated debug keystore, so it installs without any secret. release is unsigned here."
+        required: true
+        default: debug
+        type: choice
+        options:
+          - debug
+          - release
+
+concurrency:
+  group: android-apk-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      # ubuntu-latest ships the Android SDK and command-line tools already; only the JDK needs
+      # pinning. Gradle caching keys off the generated wrapper, which does not exist until prebuild.
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install dependencies
+        run: node scripts/npm-retry.mjs ci
+
+      # EAS runs `eas-build-post-install` for us. Building by hand means running it by hand, or
+      # prebuild resolves workspace packages that have never been compiled.
+      - name: Build workspace dependencies
+        run: |
+          npm run build:app-deps
+          npm run build:terminal-webview --workspace=@getpaseo/app
+
+      - name: Generate the native Android project
+        working-directory: packages/app
+        env:
+          APP_VARIANT: ${{ inputs.variant }}
+          # `--non-interactive` is accepted but ignored by expo prebuild; CI=1 is what suppresses
+          # the prompts.
+          CI: "1"
+        run: npx expo prebuild --platform android
+
+      - name: Assemble APK
+        working-directory: packages/app/android
+        env:
+          APP_VARIANT: ${{ inputs.variant }}
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4096m
+        # Serial and daemon-free: compiling the Expo modules alongside Hermes bundling can exhaust a
+        # hosted runner and kill the build with exit 137 even when Gradle's own heap is sized right.
+        run: |
+          ./gradlew assemble${{ inputs.build_type == 'release' && 'Release' || 'Debug' }} \
+            --no-daemon --max-workers=1 -Dorg.gradle.parallel=false
+
+      - name: Collect APK
+        id: apk
+        run: |
+          set -euo pipefail
+          apk="$(find packages/app/android/app/build/outputs/apk -name '*.apk' -print -quit)"
+          if [[ -z "$apk" ]]; then
+            echo "No APK produced" >&2
+            find packages/app/android/app/build/outputs -type f >&2 || true
+            exit 1
+          fi
+          echo "path=$apk" >> "$GITHUB_OUTPUT"
+          ls -lh "$apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: paseo-${{ inputs.variant }}-${{ inputs.build_type }}-apk
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+          retention-days: 14
