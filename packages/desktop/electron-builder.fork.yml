@@ -32,3 +32,9 @@ publish:
   repo: paseo
 win:
   artifactName: "PaseoTeam-Setup-${version}-${arch}.${ext}"
+  # Without this the executable stays `Paseo.exe`, inherited from the top-level `executableName`,
+  # and the NSIS installer's running-instance check matches a *vanilla* Paseo and shuts it down
+  # mid-install. Scoped to `win` so the mac/linux shims, which hardcode "Paseo" and "Paseo Helper"
+  # paths, keep working untouched.
+  # Kept in sync with `bin/paseo.cmd`, which resolves the executable by name.
+  executableName: PaseoTeam

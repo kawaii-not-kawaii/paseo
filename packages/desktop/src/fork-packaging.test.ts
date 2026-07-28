@@ -7,6 +7,7 @@ const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const forkConfig = readFileSync(join(packageRoot, "electron-builder.fork.yml"), "utf8");
 const baseConfig = readFileSync(join(packageRoot, "electron-builder.yml"), "utf8");
 const mainSource = readFileSync(join(packageRoot, "src", "main.ts"), "utf8");
+const windowsCliShim = readFileSync(join(packageRoot, "bin", "paseo.cmd"), "utf8");
 
 /**
  * These three values are what let this build install and run alongside a vanilla Paseo. Every
@@ -26,6 +27,17 @@ describe("fork packaging identity", () => {
 
     expect(productName).toBe("Paseo Team");
     expect(appName).toBe(productName);
+  });
+
+  it("renames the Windows executable so the installer does not shut down vanilla Paseo", () => {
+    // NSIS matches running processes by executable name. Inheriting the top-level
+    // `executableName: Paseo` leaves this build's exe called Paseo.exe, and installing it kills a
+    // running vanilla Paseo.
+    const winExecutableName = /^\s{2}executableName:\s*(.+)$/m.exec(forkConfig)?.[1]?.trim();
+
+    expect(winExecutableName).toBe("PaseoTeam");
+    expect(windowsCliShim).toContain(`${winExecutableName}.exe`);
+    expect(windowsCliShim).not.toContain("\\Paseo.exe");
   });
 
   it("takes its own appId so the two installs do not share an uninstall entry", () => {
