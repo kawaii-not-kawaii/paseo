@@ -30,7 +30,22 @@ export function setConfiguredTeamServiceForTests(service: TeamService | null): v
   }
 }
 
-export function installTeamServerInfo(server: VoiceAssistantWebSocketServer): void {
+/**
+ * Publishes the `team` capability, but only while members will actually receive the Paseo MCP
+ * server.
+ *
+ * Members coordinate exclusively through the `team_*` MCP tools. When MCP injection is off those
+ * tools never reach the member's runtime, so a mentioned member does its work and goes silent —
+ * no error, no channel message, nothing to see. That silence is what SC-002 failed on, and it is
+ * indistinguishable from a model that simply chose not to post.
+ *
+ * `isTeamToolInjectionEnabled` is read per request rather than captured, because
+ * `mcp.injectIntoAgents` can be toggled on a live daemon.
+ */
+export function installTeamServerInfo(
+  server: VoiceAssistantWebSocketServer,
+  isTeamToolInjectionEnabled: () => boolean,
+): void {
   const original = server["buildServerInfoStatusPayload"].bind(
     server,
   ) as () => ServerInfoStatusPayload;
@@ -41,7 +56,7 @@ export function installTeamServerInfo(server: VoiceAssistantWebSocketServer): vo
       ...payload,
       features: {
         ...payload.features,
-        team: true,
+        team: isTeamToolInjectionEnabled(),
       },
     };
   };

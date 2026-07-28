@@ -28,6 +28,9 @@ const daemon = await createPaseoDaemon(
     paseoHome,
     corsAllowedOrigins: [],
     hostnames: true,
+    // Testing Team members? This must be `true`, and leave `mcpInjectIntoAgents` unset (bootstrap
+    // treats `undefined` as on). Members coordinate only through the `team_*` MCP tools, so with
+    // this off they start, do the work, and never post — silently. See the note below.
     mcpEnabled: false,
     staticDir,
     mcpDebug: false,
@@ -43,6 +46,7 @@ const daemon = await createPaseoDaemon(
 );
 
 await daemon.start();
+
 const target = daemon.getListenTarget();
 const port = target!.type === "tcp" ? target!.port : null;
 
@@ -60,6 +64,12 @@ await daemon.stop();
 await rm(paseoHomeRoot, { recursive: true, force: true });
 await rm(staticDir, { recursive: true, force: true });
 ```
+
+> **The MCP injection asymmetry.** The **persisted config loader** defaults `mcp.injectIntoAgents`
+> to `false`, while **bootstrap** treats `undefined` as `true`. So a daemon started from a real
+> `config.json` with no `mcp` block injects nothing, and that state is not reproducible by passing a
+> config object here — a harness built from this page will not see the bug it causes. See
+> [team.md](team.md) for what it costs Team members.
 
 Run with:
 

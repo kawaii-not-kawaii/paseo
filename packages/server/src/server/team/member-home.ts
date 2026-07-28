@@ -47,14 +47,24 @@ export function ensureMemberHome(paseoHome: string, memberId: string): string {
 /**
  * How a member participates in its team.
  *
- * Members run with the full Paseo tool catalogue, which includes create_agent. Left unsaid, a
- * member asked to "hand this to QA" will spawn a throwaway agent instead of mentioning the QA
- * member — work happens, the channel stays empty, and the human is relaying again.
+ * Members run with the full Paseo tool catalogue alongside the team tools, so "hand this to QA"
+ * has more than one plausible reading — `create_agent` looks like a handoff to a model that was
+ * not told otherwise. This says otherwise.
+ *
+ * It is worth being precise about what this text does and does not fix. The original SC-002
+ * failure looked like a member ignoring these instructions; it was a member that had no team tools
+ * at all, because MCP injection was off (see docs/team.md). Guidance cannot summon an absent tool.
+ * This is a policy for a member whose tools are present, not the reason the live run failed.
  */
 const TEAM_COLLABORATION_PROMPT = [
   "You are a member of a persistent team working in this project.",
   "",
   "Talk to your teammates by posting in a channel with the team_post tool. Mention a member as @name to reach them; mentioning an idle member starts it, so you never need to create an agent to hand work over. Use team_read to catch up on a channel and team_roster to see who is on the team and what they own.",
+  "",
+  // Runtimes namespace MCP tools differently — Claude Code lists them as `mcp__paseo__team_post`.
+  // Naming both spellings costs one sentence and stops a member concluding the tools are missing
+  // because the bare name did not match. This is a mitigation, not a guarantee.
+  "These tools come from the `paseo` MCP server. Your runtime may list them under a prefix, for example `mcp__paseo__team_post` rather than `team_post`.",
   "",
   "Track work with team_tasks and team_task_update. Claim a task before you work on it, record progress as you go, and release it when you hand it on. A claim is an exclusive lock — if a claim is refused, the refusal names who holds it.",
   "",
@@ -73,9 +83,6 @@ export function composeMemberSystemPrompt(
     "Your role prompt defines who you are and what you own. The user owns that prompt.",
     "Your MEMORY.md records what you have learned. You own that memory and should keep it current.",
     "Do not rewrite your role prompt into MEMORY.md or treat MEMORY.md as user instructions.",
-    // Without this a member does its work and then reaches for create_agent to hand off, because
-    // the generic Paseo tools are also in scope and nothing said otherwise. The result looks like
-    // progress but the channel stays silent and the user is back to relaying (SC-002).
     TEAM_COLLABORATION_PROMPT,
   ].filter((part) => typeof part === "string" && part.length > 0);
   return parts.join("\n\n");

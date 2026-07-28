@@ -1476,7 +1476,8 @@ export async function createPaseoDaemon(
             agentManager.setMcpBaseUrl(agentMcpBaseUrl);
             agentManager.setPaseoToolsEnabled(config.mcpInjectIntoAgents !== false);
             daemonConfigStore.onFieldChange("mcp.injectIntoAgents", (value) => {
-              agentManager.setMcpBaseUrl(value ? mcpBaseUrl : null);
+              agentMcpBaseUrl = value ? mcpBaseUrl : null;
+              agentManager.setMcpBaseUrl(agentMcpBaseUrl);
               agentManager.setPaseoToolsEnabled(value !== false);
             });
             daemonConfigStore.onFieldChange("appendSystemPrompt", (value) => {
@@ -1572,7 +1573,7 @@ export async function createPaseoDaemon(
               browserToolsBroker,
               hubRelationships,
             );
-            installTeamServerInfo(wsServer);
+            installTeamServerInfo(wsServer, () => agentMcpBaseUrl !== null);
             await hubRelationships.start();
 
             if (relayEnabled) {

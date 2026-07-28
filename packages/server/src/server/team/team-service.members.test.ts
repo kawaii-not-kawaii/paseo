@@ -217,6 +217,11 @@ class FakeAgentManager {
   }> = [];
   private liveAgents = 0;
 
+  /** Members refuse to start without an agent MCP base URL — see MemberLifecycle. */
+  public getMcpBaseUrl(): string | null {
+    return "http://127.0.0.1:6768/mcp/agents";
+  }
+
   public listAgents() {
     return Array.from({ length: this.liveAgents }, (_, index) => ({
       id: `agent-${index + 1}`,

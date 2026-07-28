@@ -20,6 +20,13 @@ export class FakeAgentManager {
   private readonly liveAgents = new Map<string, ManagedAgent>();
   private nextAgentId = 1;
 
+  /** Non-null by default: most tests are about member behaviour, not about injection being off. */
+  public mcpBaseUrl: string | null = "http://127.0.0.1:6768/mcp/agents";
+
+  public getMcpBaseUrl(): string | null {
+    return this.mcpBaseUrl;
+  }
+
   public listAgents(): ManagedAgent[] {
     return Array.from(this.liveAgents.values());
   }

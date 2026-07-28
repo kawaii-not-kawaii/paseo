@@ -2,6 +2,23 @@
 
 Team is the project-scoped surface where persistent members coordinate in channels and track work on a shared board. It is visible only when the connected daemon publishes `server_info.features.team`; there is no fallback path to legacy chat or loop RPCs.
 
+## Team requires MCP injection
+
+`features.team` is published only while the daemon resolves a non-null agent MCP base URL. This is not a preference — members talk to each other exclusively through the `team_*` MCP tools, so without that URL a mentioned member starts, does the work, and never posts. Nothing errors; the channel just stays empty and the user is back to relaying.
+
+Three conditions have to hold, and missing any one of them withholds the capability:
+
+- `mcp.enabled` — mounts `/mcp/agents`.
+- `mcp.injectIntoAgents` — hands that server to agents. Independent of the above; calling the endpoint by hand proves only the first.
+- A **TCP** listen target. A daemon on a unix socket has no injectable HTTP URL.
+
+Two traps worth knowing:
+
+- The persisted config loader defaults `mcp.injectIntoAgents` to **`false`**, while bootstrap treats `undefined` as **`true`**. A daemon started from a `config.json` with no `mcp` block injects nothing. `scripts/dev-home.sh` seeds it for dev homes.
+- The capability is evaluated per request, but `server_info` only reaches a client at hello. Toggling injection on a live daemon does not reach connected clients, so `MemberLifecycle` refuses to start a member when the URL is null rather than trusting the flag.
+
+One edge the capability cannot see: it answers "will the daemon inject", not "will this member's provider use what was injected". A provider with `supportsMcpServers: false` and no native Paseo tool support drops the injected config, and that member comes up tool-less while `team` is still `true`. `omp` is safe here — it takes the native catalogue instead.
+
 ## Scope
 
 - Team data is split by two keys:

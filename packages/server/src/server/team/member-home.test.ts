@@ -153,6 +153,9 @@ describe("member home", () => {
     expect(prompt).toContain("team_post");
     expect(prompt).toContain("@name");
     expect(prompt).toMatch(/Do not create ad-hoc agents/i);
+    // Runtimes namespace MCP tools differently; a member searching for the bare name may find
+    // nothing and conclude the tools are missing.
+    expect(prompt).toContain("mcp__paseo__team_post");
   });
 });
 

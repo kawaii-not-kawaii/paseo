@@ -78,6 +78,11 @@ cfg.daemon = cfg.daemon || {};
 cfg.daemon.listen = listen;
 cfg.daemon.cors = cfg.daemon.cors || {};
 cfg.daemon.cors.allowedOrigins = ["*"];
+// The persisted-config default for mcp.injectIntoAgents is false, so a fresh dev home starts
+// agents with no Paseo MCP server and Team members come up with no team_* tools at all. Seed it
+// only when absent, so an explicit `false` here still means false.
+cfg.daemon.mcp = cfg.daemon.mcp || {};
+if (cfg.daemon.mcp.injectIntoAgents === undefined) cfg.daemon.mcp.injectIntoAgents = true;
 fs.writeFileSync(path, JSON.stringify(cfg, null, 2));
 ' "$PASEO_HOME/config.json" "$PASEO_LISTEN"
 }

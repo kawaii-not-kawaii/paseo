@@ -16,6 +16,7 @@ interface MemberLifecycleOptions {
     AgentManager,
     | "createAgent"
     | "getAgent"
+    | "getMcpBaseUrl"
     | "listAgents"
     | "tryRunOutOfBand"
     | "hasInFlightRun"
@@ -44,11 +45,20 @@ export class MemberLifecycle {
 
   public async deliverMentions(input: { projectId: string; message: TeamMessage }): Promise<void> {
     const mentionMemberIds = Array.from(new Set(input.message.mentionMemberIds ?? []));
+    if (mentionMemberIds.length === 0) {
+      return;
+    }
+    const prompt = formatMentionPrompt(
+      this.teamService,
+      input.projectId,
+      input.message,
+      this.logger,
+    );
     for (const memberId of mentionMemberIds) {
       await this.deliverMention({
         projectId: input.projectId,
         memberId,
-        prompt: input.message.body,
+        prompt,
       });
     }
   }
@@ -65,6 +75,7 @@ export class MemberLifecycle {
     if (member.kind === "human") {
       return null;
     }
+    this.assertTeamToolsReachable(member.name);
 
     const assignment = this.teamService.getProjectMemberAssignment(input.projectId, input.memberId);
     if (!assignment) {
@@ -136,6 +147,7 @@ export class MemberLifecycle {
     if (member.kind === "human") {
       return null;
     }
+    this.assertTeamToolsReachable(member.name);
 
     const existing = findLiveTeamMemberAgent(this.agentManager.listAgents(), input);
     if (existing) {
@@ -172,6 +184,28 @@ export class MemberLifecycle {
     return true;
   }
 
+  /**
+   * Refuses to start a member that cannot reach the team tools.
+   *
+   * `features.team` tells clients not to offer Team, but a capability flag only guides a
+   * well-behaved client with a current `server_info`. Team RPCs are routed unconditionally
+   * (`session.ts`, `isTeamRequest`), and `server_info` is delivered at hello and re-broadcast only
+   * on speech-readiness changes — so a client that connected while injection was on keeps offering
+   * Team after it is toggled off, and its next mention lands here.
+   *
+   * Without this the member starts, burns a model turn, finds no `team_*` tools, and goes silent.
+   * That is the exact failure this whole change exists to remove, so it must not be reachable by
+   * any path.
+   */
+  private assertTeamToolsReachable(memberName: string): void {
+    if (this.agentManager.getMcpBaseUrl() !== null) {
+      return;
+    }
+    throw new Error(
+      `${memberName} cannot start: team members coordinate through the Paseo MCP tools, and this daemon is not injecting them. Enable mcp.injectIntoAgents on the host.`,
+    );
+  }
+
   private async resolveRunnableWorkspace(input: { projectId: string; memberId: string }) {
     const member = this.teamService.getMember(input.memberId);
     const name = member?.name ?? input.memberId;
@@ -193,6 +227,46 @@ export class MemberLifecycle {
     }
     return workspace;
   }
+}
+
+/**
+ * Names the channel the member was mentioned in.
+ *
+ * `team_post` and `team_read` both require an exact channel name, and no tool lists channels, so a
+ * member handed only the message body has no way to learn where it is expected to reply. Guessing
+ * throws `Channel <name> was not found`, which reads to a model exactly like a broken tool — the
+ * member then reports the team tools as unusable and goes quiet.
+ *
+ * Falls back to the bare body when the channel cannot be resolved: a mention that still reaches the
+ * member is better than one that throws on its way there.
+ */
+function formatMentionPrompt(
+  teamService: TeamService,
+  projectId: string,
+  message: TeamMessage,
+  logger: Logger,
+): string {
+  const channel = teamService.getChannel(projectId, message.channelId);
+  if (!channel) {
+    // The message row is already persisted by the time mentions are delivered, so throwing here
+    // would strand a stored message nobody was told about. Deliver it — but say so, because a
+    // mention arriving without a channel is the exact shape of the bug this code exists to stop.
+    logger.warn(
+      { projectId, channelId: message.channelId, messageId: message.id },
+      "Team mention delivered without a channel name; the member cannot be told where to reply.",
+    );
+    return message.body;
+  }
+  const author = teamService.getMemberDisplayName(message.authorMemberId);
+  return [
+    author
+      ? `${author} mentioned you in #${channel.name}.`
+      : `You were mentioned in #${channel.name}.`,
+    "",
+    message.body,
+    "",
+    `Reply in that channel: call team_post with channel "${channel.name}". Mention a teammate as @name to hand work over.`,
+  ].join("\n");
 }
 
 export function buildTeamAgentLabels(input: {

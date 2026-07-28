@@ -249,6 +249,78 @@ describe("MemberLifecycle", () => {
     service.close();
   });
 
+  test("a mention names the channel it came from, because team_post cannot be called without one", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human"),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully before approving.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    const channel = service.createChannel({ projectId: "project-1", name: "build" });
+
+    const agentManager = new FakeAgentManager();
+    const lifecycle = createLifecycle(service, agentManager);
+
+    await lifecycle.deliverMentions({
+      projectId: "project-1",
+      message: {
+        ...buildMessage("Please review this change", ["member-reviewer"]),
+        channelId: channel.id,
+      },
+    });
+
+    // Without the channel name the member has to guess: no tool lists channels, and both team_post
+    // and team_read require an exact name. Guessing throws, and a throw reads as a broken tool.
+    const prompt = String(agentManager.promptCalls[0]?.prompt);
+    expect(prompt).toContain(`team_post with channel "build"`);
+    expect(prompt).toContain("Please review this change");
+
+    service.close();
+  });
+
+  test("a mention for a channel that cannot be resolved still delivers the body", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human"),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully before approving.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+
+    const agentManager = new FakeAgentManager();
+    const lifecycle = createLifecycle(service, agentManager);
+
+    // buildMessage points at "channel-1", which was never created in this project.
+    await lifecycle.deliverMentions({
+      projectId: "project-1",
+      message: buildMessage("Please review this change", ["member-reviewer"]),
+    });
+
+    const prompt = String(agentManager.promptCalls[0]?.prompt);
+    expect(prompt).toContain("Please review this change");
+    // Pins the fallback branch specifically: the body alone appears on both paths, so without
+    // this the test passes even if the fallback is deleted.
+    expect(prompt).not.toContain("mentioned you in");
+    expect(prompt).not.toContain("team_post with channel");
+
+    service.close();
+  });
+
   function createLifecycle(service: TeamService, agentManager: FakeAgentManager): MemberLifecycle {
     return new MemberLifecycle({
       teamService: service,
