@@ -1,9 +1,10 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { usePathname, router } from "expo-router";
+import { useHostFeatureMap } from "@/runtime/host-features";
 import { useHosts } from "@/runtime/host-runtime";
 import { useActiveWorkspaceSelection } from "@/stores/navigation-active-workspace-store";
 import { buildHostTeamRoute } from "@/utils/host-routes";
-import { useTeamCapability } from "./team-capability";
+import { selectTeamServerId } from "./team-host-selection";
 
 export interface TeamNav {
   /** Null when no host is selected, or when the host does not publish `features.team`. */
@@ -25,20 +26,26 @@ export function useTeamNav(onNavigate?: () => void): TeamNav {
   const pathname = usePathname();
   const hosts = useHosts();
   const activeWorkspaceSelection = useActiveWorkspaceSelection();
-  const serverId = activeWorkspaceSelection?.serverId ?? hosts[0]?.serverId ?? null;
-  const supportsTeam = useTeamCapability(serverId);
+  const serverIds = useMemo(() => hosts.map((host) => host.serverId), [hosts]);
+  const teamByServerId = useHostFeatureMap(serverIds, "team");
+
+  const serverId = selectTeamServerId(
+    serverIds,
+    teamByServerId,
+    activeWorkspaceSelection?.serverId,
+  );
 
   const navigate = useCallback(() => {
-    if (!serverId || !supportsTeam) {
+    if (!serverId) {
       return;
     }
     onNavigate?.();
     router.push(buildHostTeamRoute(serverId, "chat"));
-  }, [onNavigate, serverId, supportsTeam]);
+  }, [onNavigate, serverId]);
 
   return {
     serverId,
-    visible: supportsTeam && serverId !== null,
+    visible: serverId !== null,
     isActive: serverId ? pathname.startsWith(`/h/${serverId}/team/`) : false,
     navigate,
   };
