@@ -133,6 +133,16 @@ class RecordingAgentClient implements AgentClient {
   }
 }
 
+function findLaunchForAgent(
+  recorder: LaunchRecorder,
+  agentId: string,
+): AgentSessionConfig | undefined {
+  return recorder.recordedLaunches.find((config) => {
+    const paseo = config.mcpServers?.paseo;
+    return paseo && "url" in paseo ? paseo.url.includes(agentId) : false;
+  });
+}
+
 function createMcpRecordingAgentClients(recorder: LaunchRecorder) {
   const clients = createTestAgentClients();
   const claude = clients.claude;
@@ -369,7 +379,10 @@ describe("agent MCP end-to-end (offline)", () => {
       agentId = typeof payload?.agentId === "string" ? payload.agentId : null;
       expect(agentId).toBeTruthy();
 
-      expect(recorder.recordedLaunches.at(-1)?.mcpServers).toMatchObject({
+      // Select the launch by agent id, not by position. `at(-1)` assumes nothing else launches
+      // after create_agent, which stopped being true and made this assert against a different
+      // agent's config.
+      expect(findLaunchForAgent(recorder, agentId!)?.mcpServers).toMatchObject({
         paseo: {
           type: "http",
           url: `http://127.0.0.1:${port}/mcp/agents?callerAgentId=${agentId!}`,
@@ -458,7 +471,10 @@ describe("agent MCP end-to-end (offline)", () => {
       agentId = typeof payload?.agentId === "string" ? payload.agentId : null;
       expect(agentId).toBeTruthy();
 
-      expect(recorder.recordedLaunches.at(-1)?.mcpServers).toMatchObject({
+      // Select the launch by agent id, not by position. `at(-1)` assumes nothing else launches
+      // after create_agent, which stopped being true and made this assert against a different
+      // agent's config.
+      expect(findLaunchForAgent(recorder, agentId!)?.mcpServers).toMatchObject({
         paseo: {
           type: "http",
           url: `http://127.0.0.1:${port}/mcp/agents?callerAgentId=${agentId!}`,
