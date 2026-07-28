@@ -45,8 +45,15 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # `github.sha` is the commit of the ref the workflow was *dispatched from* (the default
+      # branch), not the one that was checked out and built. Naming the artifact after it points at
+      # code the installer does not contain.
+      - name: Resolve built commit
+        shell: bash
+        run: echo "BUILT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
       # No tag to derive a version from, so the version in package.json is used as-is and the build
-      # is identified by the commit instead.
+      # is identified by the branch and commit instead.
       - name: Build Windows installer
         shell: bash
         env:
@@ -57,7 +64,7 @@ jobs:
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: paseo-team-windows-x64-${{ github.sha }}
+          name: paseo-team-windows-x64-${{ github.event.inputs.ref }}-${{ env.BUILT_SHA }}
           path: |
             packages/desktop/release/PaseoTeam-Setup-*.exe
           if-no-files-found: error
