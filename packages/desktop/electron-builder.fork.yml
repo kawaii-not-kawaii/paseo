@@ -1,0 +1,34 @@
+# Fork identity. Everything else — files, asarUnpack, extraResources, per-platform targets — is
+# inherited from the upstream config so this file never has to track changes to it.
+#
+# What each override buys, for installing alongside a vanilla Paseo on the same machine:
+#
+# - `appId` gives the installer its own uninstall registry key, so installing or removing one build
+#   leaves the other alone.
+# - `productName` gives it its own install directory and Start Menu entry. It also has to be
+#   matched by `APP_NAME` in `src/main.ts`: that is what feeds `app.setName`, which picks the
+#   %APPDATA% directory, which is what keys Electron's single-instance lock. Without that, launching
+#   this build while vanilla Paseo is running just focuses vanilla and exits.
+# - `protocols` adds a `paseo-team://` association. It cannot *remove* the inherited `paseo://` one
+#   — electron-builder concatenates arrays when merging an extended config — so both builds claim
+#   `paseo://` and the last one installed wins it. That is harmless while the two share `~/.paseo`:
+#   either app opens the link against the same state. `paseo-team://` exists so this build can be
+#   targeted unambiguously if that ever stops being true.
+#   The *internal* `APP_SCHEME` in main.ts stays `paseo` on purpose — it is a privileged renderer
+#   origin and the daemon's CORS allowlist contains `paseo://app`, so renaming it would break the
+#   renderer load, not just an association.
+# - `publish` repoints the auto-updater at this fork. Left at upstream's, this build would find a
+#   newer getpaseo release and quietly replace itself with vanilla.
+extends: file:./electron-builder.yml
+appId: app.dneet.paseo-team
+productName: Paseo Team
+protocols:
+  - name: Paseo Team agent link
+    schemes:
+      - paseo-team
+publish:
+  provider: github
+  owner: kawaii-not-kawaii
+  repo: paseo
+win:
+  artifactName: "PaseoTeam-Setup-${version}-${arch}.${ext}"
