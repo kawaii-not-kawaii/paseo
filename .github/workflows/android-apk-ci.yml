@@ -11,6 +11,13 @@
 name: Android APK (CI)
 
 on:
+  # TEMPORARY: workflow_dispatch only works once the file exists on the default branch, and this
+  # workflow lives on raft-parity. Remove this push trigger after the first successful build —
+  # keeping it burns a ~30 minute Android build on every push to the branch.
+  push:
+    branches: [raft-parity]
+    paths:
+      - ".github/workflows/android-apk-ci.yml"
   workflow_dispatch:
     inputs:
       variant:
