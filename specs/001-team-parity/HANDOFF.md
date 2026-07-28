@@ -1,7 +1,7 @@
 # Handoff: Team Parity
 
 **For**: a fresh session picking up where this one stopped
-**State**: 121 of 127 tasks done. Built, tested, CI-green, pushed. **Not validated end to end.**
+**State**: 122 of 127 tasks done. **T056 passes** — the MVP thesis is proven against live models.
 **Branch**: `raft-parity`, pushed. **PR #1** open on the fork (`kawaii-not-kawaii/paseo`), draft.
 
 ---
@@ -10,11 +10,19 @@
 
 Every phase is implemented: storage, protocol, member identity, agent-to-agent chat, persistent
 members, the taskboard and claims, durability and recovery, and the docs. CI is green on the OS
-matrix. The six open tasks are **all validation**, and they are the honest gap — the feature
-compiles and unit-tests cleanly but has never been proven to do the thing it exists to do.
+matrix.
 
-**Do not read "121/127" as "nearly done".** The remaining six include T056, the MVP thesis, and it
-does not pass yet. See "The T056 gap" below — that is the most important section in this file.
+**T056 now passes.** Two members, one human message naming only `@impl`, and `impl` implemented the
+change and pulled in `@qa` by mention — `qa` verified it and posted the result. The human relayed
+nothing. Reproduce with:
+
+```bash
+npx tsx packages/server/src/server/team/t056-live-check.ts
+```
+
+That script is the acceptance test. It spends real tokens, runs on an isolated in-process daemon,
+and prints five mechanical checks against the project database rather than a chat log somebody
+reads and feels good about. Five open tasks remain, all validation.
 
 ## Read first, in this order
 
@@ -25,46 +33,65 @@ does not pass yet. See "The T056 gap" below — that is the most important secti
 5. `specs/001-team-parity/quickstart.md` — the 14 validation scenarios. **Note its gaps** below.
 6. `CLAUDE.md` and the `docs/` table.
 
-## The T056 gap — read this before anything else
+## How T056 was actually failing — read this before anything else
 
-T056 is quickstart step 1: two members, **one** human message, a multi-turn agent-to-agent exchange
-(SC-002). It is the reason this feature exists. It was run for real against a live daemon this
-session and **it does not pass**.
+The earlier diagnosis in this file was wrong, and wrong in a way worth understanding, because it
+cost a whole session of prompt engineering aimed at a non-problem.
 
-What the live run proved **does** work:
+The symptom was "members do not reliably choose to post in the channel". One run ended with `impl`
+writing _"the team handoff tools were not callable in this session"_ — and that statement was
+**literally true**. The member had no `team_*` tools. Codex's rollout logs
+(`~/.codex/sessions/**/rollout-*.jsonl`) record every tool search: `impl` searched three times with
+the right names and got back nothing but `mcp__codex_apps__github`. No `mcp__paseo` namespace ever.
 
-- `features.team` is published; the capability gate resolves on a real daemon.
-- `@name` mentions parse into `message_mentions` on the RPC post path.
-- Mentioning an idle member **starts** it (FR-035a), with its role prompt as `systemPrompt`.
-- `team_roster` returns impl, qa and the human when called with a member's `callerAgentId`.
-- The `team_*` MCP tools are registered, listed, and callable. Verified by hand over HTTP.
+The cause was one config default:
 
-What does **not** work: **members do not reliably choose to post in the channel.**
+```text
+config.ts        mcpInjectIntoAgents ?? false   ← persisted loader defaults OFF
+.dev/paseo-home/config.json                     ← had no "mcp" block at all
+bootstrap.ts     agentMcpBaseUrl = null, setPaseoToolsEnabled(false)
+runtime-mcp-config.ts   no mcpBaseUrl → no injection
+```
 
-Two observed failure modes, in order:
+Note the asymmetry that hid it: the **persisted loader** defaults `injectIntoAgents` to `false`,
+while **bootstrap** treats `undefined` as `true`. Tests that build a config object get injection;
+a daemon booting from a real `config.json` with no `mcp` block does not. `~/.paseo/config.json` had
+`injectIntoAgents: true` set explicitly, so the production daemon worked and only the dev daemon
+was broken.
 
-1. **Before the fix**: `impl` did the work correctly, then spawned two throwaway agents via
-   `create_agent` to "hand off" to QA. Members run with the full Paseo tool catalogue and nothing
-   told them the channel was how they communicate. Work happened; the channel stayed empty; the
-   human was back to relaying. Fixed by adding `TEAM_COLLABORATION_PROMPT` in `member-home.ts`.
-2. **After the fix**: no more throwaway agents — but members still go quiet. One run ended with
-   `impl` writing _"the team handoff tools were not callable in this session"_, despite those tools
-   being demonstrably callable at that moment via the same agent's `callerAgentId`.
+Hand-verifying `/mcp/agents` over HTTP did not catch this because `mcp.enabled` (mounts the route)
+and `mcp.injectIntoAgents` (hands the server to agents) are independent switches. The manual check
+exercised the half that was never broken.
 
-**That second one is the open question.** It is not proven whether the tools are genuinely absent
-from the member's session or the model failed to find them. Worth checking first:
+The same cause produced the _other_ failure mode too. `setPaseoToolsEnabled(false)` also strips the
+generic Paseo tools, so the earlier run where `impl` "spawned throwaway agents via `create_agent`"
+did not happen either — the transcript shows it shelling out to `paseo run` after its tool searches
+came back empty. Both symptoms, one cause.
 
-- Whether Codex namespaces MCP tools (e.g. `paseo__team_post`) so a prompt naming `team_post` sends
-  the model looking for something it cannot see. `runtime-mcp-config.ts` injects the server under
-  the name `paseo`.
-- Whether the member's launch config actually carries `mcpServers` — `withRuntimePaseoMcpServer`
-  injects it at launch and the stored config is stripped, so inspect the **launch** config, not the
-  agent JSON on disk.
-- Members are created with `modeId: "auto-review"` by default. Confirm a tool call is not sitting in
-  a permission prompt.
+**Dead hypotheses, do not re-chase:** tool namespacing (the model searched semantically, not by
+exact name — a prefix mismatch would still have surfaced `mcp__paseo__team_post`); permission
+prompts (`mode_id` was `null`, nothing was ever pending); prompt wording (no wording reaches a tool
+that is not there).
 
-This is behavioural tuning against a real model, not a code defect. **Budget it explicitly** — it is
-an open-ended loop and it spends tokens per attempt.
+### What fixed it
+
+1. `team/bootstrap.ts` — `features.team` is gated on the resolved agent MCP base URL instead of
+   hardcoded `true`. That URL additionally requires `mcp.enabled` and a TCP listen target.
+2. `member-lifecycle.ts` — `assertTeamToolsReachable` refuses to start a member when that URL is
+   null. The capability flag is not enough on its own: team RPCs route unconditionally and
+   `server_info` only reaches a client at hello, so a client that connected before injection was
+   turned off still reaches the mention path.
+3. `member-lifecycle.ts` — the mention now names the channel and the author. `team_post` requires an
+   exact channel name, no tool lists channels, and the member was previously handed only the message
+   body. It had to guess, and a wrong guess throws something that reads like a broken tool.
+4. `scripts/dev-home.sh` — seeds `mcp.injectIntoAgents` for fresh dev homes.
+
+### The lesson
+
+Around sixty team tests passed throughout, because every one of them stopped at `TeamService` or at
+the composed prompt string. `member-home.test.ts` asserted `prompt.toContain("team_post")` — it
+verified the string was written, which was never in doubt. Nothing asserted what the provider was
+actually launched with. `member-mcp-injection.test.ts` now covers that boundary.
 
 ## What running T056 already found and fixed
 
@@ -77,7 +104,9 @@ Four real defects, none of which any unit test caught. All fixed, tested, pushed
 2. **`team.member.create` dropped `rolePrompt`, `modeId`, `templateId`.** Neither the schema nor the
    handler carried them. The app worked around it with a follow-up update, leaving a window where a
    mention starts a member with no role prompt — which FR-014a forbids. Added as optional fields.
-3. **Members were never told how to collaborate** (see above).
+3. **Members were never told how to collaborate.** `TEAM_COLLABORATION_PROMPT` in `member-home.ts`.
+   Worth keeping as policy, but note it fixed nothing at the time — see the section above. It was
+   aimed at a misread symptom.
 4. Two tests asserted whole-roster equality when they meant one member's state.
 
 **The lesson worth carrying**: every one of these was invisible to 60 passing unit tests. Run the
@@ -136,16 +165,17 @@ curl -s -X POST "http://127.0.0.1:6768/mcp/agents?callerAgentId=<agent-uuid>" \
 Without `callerAgentId` the team tools correctly refuse with "team tools require a calling member
 runtime" — that refusal is the tool working, not failing.
 
-## The six open tasks
+## The five open tasks
 
-| Task     | Needs                     | Notes                                                                                 |
-| -------- | ------------------------- | ------------------------------------------------------------------------------------- |
-| **T056** | Live daemon + tokens      | The MVP thesis. **Does not pass.** See above.                                         |
-| T074     | Live daemon               | US2: worktree removal, memory survival, merge does not strand.                        |
-| T101     | Live daemon + tokens      | Claim exclusivity, converging loop, escalation.                                       |
-| T114     | Live daemon, little spend | Unclean shutdown, adoption with CLI intact, cross-daemon. **Cheapest — start here.**  |
-| T046     | A real device             | Expo route mount. Fails **silently** with a blank screen; web passing proves nothing. |
-| T122     | Device + daemon           | Large-history perf, compact parity, back-compat both directions.                      |
+T056 is **done** — see above. `t056-live-check.ts` reproduces it in about a minute.
+
+| Task | Needs                     | Notes                                                                                 |
+| ---- | ------------------------- | ------------------------------------------------------------------------------------- |
+| T074 | Live daemon               | US2: worktree removal, memory survival, merge does not strand.                        |
+| T101 | Live daemon + tokens      | Claim exclusivity, converging loop, escalation.                                       |
+| T114 | Live daemon, little spend | Unclean shutdown, adoption with CLI intact, cross-daemon. **Cheapest — start here.**  |
+| T046 | A real device             | Expo route mount. Fails **silently** with a blank screen; web passing proves nothing. |
+| T122 | Device + daemon           | Large-history perf, compact parity, back-compat both directions.                      |
 
 **No native tooling on this machine**: no `adb`, `xcrun`, `java`, `emulator`, `maestro`, and no
 `android/` or `ios/` directories. T046 and T122 need either a real device or an EAS cloud build
@@ -198,7 +228,19 @@ route not a panel, role prompt vs MEMORY.md, per-project-per-daemon scope). Adde
 ## Suggested next steps
 
 1. **T114** — cheapest validation, needs a daemon but almost no token spend.
-2. **The T056 investigation** — with an explicit budget. Start with whether Codex namespaces MCP
-   tool names.
+2. **T101** — claim exclusivity and escalation. `t056-live-check.ts` is the template: seed real
+   workspaces into the daemon's own registry, drive it in-process, assert against the project
+   database. Do not stub the workspace registry (see the gotcha below).
 3. **The relay carve-out spec** — blocks any release regardless of the validations.
 4. T046 and T122 whenever a device is available.
+
+### Gotcha for the next live harness
+
+A member calling `team_post` does not go through whatever `MemberLifecycle` your script built.
+`mcp-tools.ts` constructs its own from the daemon's real `WorkspaceRegistry`. Stub that registry and
+the two disagree: the agent-to-agent mention resolves a home workspace that "does not exist", which
+clears `home_workspace_id` and makes the teammate unmentionable. It looks exactly like a product
+failure. Seed `$PASEO_HOME/projects/workspaces.json` before the daemon starts instead.
+
+Also: `project_members.home_workspace_id` is UNIQUE, so two members cannot share one workspace id.
+Two ids pointing at the same directory is fine, and is what lets qa read what impl wrote.
