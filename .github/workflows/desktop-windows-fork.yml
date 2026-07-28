@@ -1,0 +1,64 @@
+# Fork-owned. Builds one thing: the Windows x64 installer for this fork, from a branch, with no
+# tag and no release.
+#
+# Upstream's `desktop-release.yml` is a release pipeline — it wants an existing tag for its version
+# metadata, builds x64 and arm64 as both nsis and zip, and hangs a create-release job in front of
+# the platform jobs. This is the "I just want the installer" path.
+name: Desktop Windows (fork)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or ref to build"
+        required: false
+        default: "raft-parity"
+        type: string
+
+concurrency:
+  group: desktop-windows-fork-${{ github.event.inputs.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@boudra"
+
+      - name: Install JS dependencies
+        run: node scripts/npm-retry.mjs ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # No tag to derive a version from, so the version in package.json is used as-is and the build
+      # is identified by the commit instead.
+      - name: Build Windows installer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EP_GH_IGNORE_TIME: true
+        run: npm run build:desktop -- --publish never --win nsis --x64
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: paseo-team-windows-x64-${{ github.sha }}
+          path: |
+            packages/desktop/release/PaseoTeam-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 14
