@@ -24,6 +24,90 @@ That script is the acceptance test. It spends real tokens, runs on an isolated i
 and prints five mechanical checks against the project database rather than a chat log somebody
 reads and feels good about. Five open tasks remain, all validation.
 
+T101 passes too, on the same harness (`t101-live-check.ts`). It never tells the member the task id,
+so the member has to call `team_tasks` to find the board. Confirmed in the project database:
+`team_task_update` reached through MCP for claim, set_status, satisfy_criterion, and release. The
+guards never fired because the loop converged on the first round, so handback and no-progress
+escalation are still covered only at the service level.
+
+## OPEN: the Team surface does not appear in a client, cause unknown
+
+**This is where the session stopped. Start here.**
+
+A daemon was deployed to a remote box and a desktop client connected to it over the fork's own
+relay. Everything works except that the Team nav row never renders, so Channels/Members/Tasks are
+unreachable from the UI.
+
+Setup, all of which is confirmed working:
+
+| Piece                                                                     | State                                                                      |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `racknerd-2231314` (Debian 13, 2 cpu, ~2 GB), reachable via Tailscale SSH | daemon 0.2.2 installed from locally-built packs, `srv_QSQ7ipm7Dh-P`        |
+| Relay                                                                     | `wss://paseo.dneet.app:443`, `relay_control_connected`                     |
+| Claude Code 2.1.220                                                       | installed and authenticated, provider reports `available`                  |
+| Windows desktop client                                                    | built from `0d67e0ad9`, connected to `racknerd-2231314`, password enforced |
+
+**Verified, so do not re-check these:**
+
+- `loadConfig` on that box resolves `mcpEnabled: true`, `mcpInjectIntoAgents: true`,
+  `relayEndpoint: paseo.dneet.app:443`, `useTls: true`. Run it with the real loader against
+  `/usr/lib/node_modules/@getpaseo/server/dist/server/server/config.js` rather than reasoning from
+  the JSON.
+- The installed `team/bootstrap.js` contains the capability gate and `bootstrap.js` calls
+  `installTeamServerInfo(wsServer, () => ...)` unconditionally, after `agentMcpBaseUrl` is assigned.
+- The hello path does reach the patch: `createServerInfoMessage()` (websocket-server.ts:1554) calls
+  `this.buildServerInfoStatusPayload()`, and `installTeamServerInfo` replaces that as an own
+  property, which shadows the prototype method. Sent at both 1432 and 1457.
+- The desktop bundle is not vanilla. Root `build:desktop` runs `expo export --platform web` and
+  electron-builder ships `../app/dist` as `app-dist`. `0d67e0ad9` contains the team screens, and
+  `left-sidebar.tsx` renders `<TeamSidebarRow>` in both the compact and wide paths.
+- Not the local Windows daemon — the user confirmed it is disabled, and the app shows
+  `racknerd-2231314` connected.
+- The app was fully restarted, so hello-time staleness is not the explanation.
+
+**The one thing never verified: what `features` the daemon actually puts on the wire at hello.**
+Everything above is inference from code. Capturing the real `status`/`server_info` payload is the
+next step and it should be the first thing done — it splits the problem cleanly in half. It was
+blocked here only because the daemon now requires a password that the session did not hold.
+
+Ways to get it: connect a `DaemonClient` on the box with the password and log
+`lastServerInfoMessage`; or temporarily start a second daemon on another port with no password and
+the same config; or read it from the desktop app's devtools.
+
+**Untested hypothesis worth a look if the wire payload says `team: true`.** `use-team-nav.ts`
+resolves which host to ask like this:
+
+```ts
+const serverId = activeWorkspaceSelection?.serverId ?? hosts[0]?.serverId ?? null;
+```
+
+That is not the host chosen in the composer. With no active workspace selection it falls back to
+whichever host sorts first, so the row can reflect a different daemon than the one being worked
+against. Fork-owned code, so it is ours to change — but only after the wire payload rules the
+daemon in or out.
+
+## Infrastructure built this session, all verified working
+
+None of this is team-parity, but it is what the validation work now runs on.
+
+| Thing                              | State                                                                                                                                                                                                                                                       |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Android APK via GitHub Actions     | Works with **no EAS, no Expo account, no `EXPO_TOKEN`**. `expo prebuild` then Gradle on a stock `ubuntu-latest`. `.github/workflows/android-apk-ci.yml`, ~36 min, 90 MB artifact.                                                                           |
+| Windows desktop via GitHub Actions | Works with **no secrets** beyond the auto-provided `GITHUB_TOKEN` — no signing step exists. Dispatch `desktop-release.yml` with `platform=windows`, `publish=false`, `checkout_ref=<branch>`. Produces `Paseo-Setup-<version>-x64.exe`.                     |
+| Self-hosted relay                  | `paseo.dneet.app` on the fork's own Cloudflare account. `/health`, `/ws` rejections, and a real WebSocket session with a `sync` frame all verified. Free tier is viable because the Durable Object is SQLite-backed and uses the WebSocket Hibernation API. |
+
+Gotchas worth keeping:
+
+- `workflow_dispatch` only works once the workflow file exists on the **default branch**, even when
+  targeting another ref. `android-apk-ci.yml` carries a temporary path-filtered `push` trigger as a
+  workaround; delete it once merged.
+- On a `push` trigger every `inputs.*` is the empty string, which silently built the wrong variant
+  and named the artifact `paseo---apk`. Resolve inputs once at job level with explicit fallbacks.
+- Setting `PASEO_RELAY_UPSTREAM` in `wrangler.toml` turns the worker into a proxy to upstream's Fly
+  relay rather than a relay. It must stay unset.
+- `/user/tokens/verify` returns `Invalid API Token` for an account-scoped Cloudflare token. That is
+  the endpoint needing a User permission, not a bad token. Do not use it as a gate.
+
 ## Read first, in this order
 
 1. `.specify/memory/constitution.md` (v1.1.1) — Principles VII and VIII constrain most decisions.
