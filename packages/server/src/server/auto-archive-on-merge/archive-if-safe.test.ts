@@ -404,6 +404,8 @@ describe("archiveIfSafe", () => {
       agentManager: {
         listAgents: () => [],
         getAgent: () => undefined,
+        // Members refuse to start without an agent MCP base URL — see MemberLifecycle.
+        getMcpBaseUrl: () => "http://127.0.0.1:6768/mcp/agents",
         createAgent: async () =>
           ({
             id: "agent-reviewer",

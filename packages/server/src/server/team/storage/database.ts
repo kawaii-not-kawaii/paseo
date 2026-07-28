@@ -24,6 +24,22 @@ interface TeamDatabaseManagerOptions {
   teamDir: string;
 }
 
+/**
+ * Project ids reach this module straight off the wire — every team RPC carries `projectId` as an
+ * unconstrained `z.string()`, and it is used as a path component. Without this, an authenticated
+ * client sending `../../../tmp/x` gets a SQLite file created wherever the daemon can write.
+ *
+ * Real ids are `prj_<hex>` (see `projects.json`); tests use names like `project-1`. Anything with a
+ * path separator, a drive letter, or a leading dot is not an id we ever issue.
+ */
+const SAFE_PROJECT_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+export function assertSafeProjectId(projectId: string): void {
+  if (!SAFE_PROJECT_ID.test(projectId) || projectId.includes("..")) {
+    throw new Error(`Invalid project id: ${JSON.stringify(projectId)}`);
+  }
+}
+
 export function createTeamDatabaseManager(options: TeamDatabaseManagerOptions) {
   mkdirSync(options.teamDir, { recursive: true });
 
@@ -36,6 +52,7 @@ export function createTeamDatabaseManager(options: TeamDatabaseManagerOptions) {
       return cached;
     }
 
+    assertSafeProjectId(projectId);
     const db = openDatabase(join(options.teamDir, `${projectId}.db`), "project");
     projectHandles.set(projectId, db);
     return db;

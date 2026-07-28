@@ -24,6 +24,37 @@ describe("team database manager", () => {
     await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   });
 
+  test("refuses a project id that would escape the team directory", async () => {
+    const teamDir = await createTeamDir();
+    const manager = createTeamDatabaseManager({ teamDir });
+
+    // Every team RPC carries projectId as an unconstrained z.string() and it lands in a path join,
+    // so this is reachable by any authenticated client, not just by a bug in our own callers.
+    for (const projectId of [
+      "../escape",
+      "../../escape",
+      "nested/child",
+      "/absolute",
+      "..",
+      "",
+      ".hidden",
+    ]) {
+      expect(() => manager.openProject(projectId)).toThrow(/Invalid project id/);
+    }
+
+    expect(existsSync(join(teamDir, "..", "escape.db"))).toBe(false);
+    manager.closeAll();
+  });
+
+  test("still accepts the project id shapes the daemon actually issues", async () => {
+    const manager = createTeamDatabaseManager({ teamDir: await createTeamDir() });
+    // prj_<hex> is what projects.json holds; the dashed form is what tests and fixtures use.
+    for (const projectId of ["prj_6417ab69f2b15a9c", "project-1", "proj.1"]) {
+      expect(() => manager.openProject(projectId)).not.toThrow();
+    }
+    manager.closeAll();
+  });
+
   test("opens project databases with the required pragmas and runs migrations", async () => {
     const manager = createTeamDatabaseManager({ teamDir: await createTeamDir() });
     const db = manager.openProject("proj-1");
