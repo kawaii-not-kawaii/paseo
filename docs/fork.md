@@ -77,9 +77,10 @@ Planned for the team-parity feature (not yet applied — see `specs/001-team-par
 Changes that only make sense for this fork, kept centralized so upstream churn around them does not
 scatter conflicts.
 
-| Concern                                  | Where                                  |
-| ---------------------------------------- | -------------------------------------- |
-| Relay endpoint and app base URL defaults | Pending — see the relay carve-out spec |
+| Concern                                  | Where                                                                                                                                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Relay worker deployment target           | `packages/relay/wrangler.toml` — this fork's Cloudflare account and hostname, and no `PASEO_RELAY_UPSTREAM`. Setting that var turns the worker into a proxy to upstream's Fly relay.                    |
+| Relay endpoint and app base URL defaults | **Unchanged on purpose.** The daemon reaches the fork's relay through `daemon.relay.endpoint` (or `PASEO_RELAY_ENDPOINT`), and the app learns it from the pairing offer, so no constant needed forking. |
 
 ## Upstream services we build alongside rather than modify
 

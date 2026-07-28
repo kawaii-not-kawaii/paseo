@@ -1,15 +1,21 @@
+# Fork-owned. Upstream deploys this same worker to getpaseo's account as relay.paseo.sh; this fork
+# runs its own instance, so account_id and routes diverge deliberately. See docs/fork.md.
 name = "paseo-relay"
-account_id = "10ed39a1dbf316e30abd0c409bed40d6"
+account_id = "0ce31f7c29be79eafd5798e85e8c0c86"
 main = "src/cloudflare-adapter.ts"
 compatibility_date = "2024-12-01"
 
-routes = [{ pattern = "relay.paseo.sh", custom_domain = true }]
+routes = [{ pattern = "paseo.dneet.app", custom_domain = true }]
 
 [observability]
 enabled = true
 
-[vars]
-PASEO_RELAY_UPSTREAM = "https://paseo-relay-next.fly.dev"
+# No PASEO_RELAY_UPSTREAM here on purpose.
+#
+# When that var is set, cloudflare-adapter.ts short-circuits every request into the cutover proxy
+# and forwards to upstream's Fly deployment — the worker stops being a relay and becomes a tunnel to
+# getpaseo. Unset, the Durable Object serves /health and /ws itself, which is what a self-hosted
+# relay has to do. Do not re-add it.
 
 [[durable_objects.bindings]]
 name = "RELAY"
