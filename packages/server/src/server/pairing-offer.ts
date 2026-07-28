@@ -1,5 +1,6 @@
 import type { Logger } from "pino";
 
+import { shouldUseTlsForDefaultHostedRelay } from "@getpaseo/protocol/daemon-endpoints";
 import { createConnectionOfferV2, encodeOfferToFragmentUrl } from "./connection-offer.js";
 import { loadOrCreateDaemonKeyPair } from "./daemon-keypair.js";
 import { renderPairingQr } from "./pairing-qr.js";
@@ -33,7 +34,9 @@ export async function generateLocalPairingOffer(args: {
 
   const relayEndpoint = args.relayEndpoint ?? "relay.paseo.sh:443";
   const relayPublicEndpoint = args.relayPublicEndpoint ?? relayEndpoint;
-  const relayUseTls = args.relayUseTls ?? relayEndpoint === "relay.paseo.sh:443";
+  // Infer from the endpoint's port rather than string equality with the hosted default, or a
+  // self-hosted relay on :443 gets a pairing offer that tells the app to connect in plaintext.
+  const relayUseTls = args.relayUseTls ?? shouldUseTlsForDefaultHostedRelay(relayEndpoint);
   const relayPublicUseTls = args.relayPublicUseTls ?? relayUseTls;
   const appBaseUrl = args.appBaseUrl ?? "https://app.paseo.sh";
   const serverId = getOrCreateServerId(args.paseoHome, { logger: args.logger });

@@ -167,6 +167,7 @@ import { getOrCreateServerId } from "./server-id.js";
 import { resolveDaemonVersion } from "./daemon-version.js";
 import type { AgentClient, AgentProvider } from "./agent/agent-sdk-types.js";
 import type { FirstAgentContext, TerminalProfile } from "@getpaseo/protocol/messages";
+import { shouldUseTlsForDefaultHostedRelay } from "@getpaseo/protocol/daemon-endpoints";
 import type {
   AgentProviderRuntimeSettingsMap,
   ProviderOverride,
@@ -1486,7 +1487,10 @@ export async function createPaseoDaemon(
             const relayEnabled = config.relayEnabled ?? true;
             const relayEndpoint = config.relayEndpoint ?? "relay.paseo.sh:443";
             const relayPublicEndpoint = config.relayPublicEndpoint ?? relayEndpoint;
-            const relayUseTls = config.relayUseTls ?? relayEndpoint === "relay.paseo.sh:443";
+            // Infer from the endpoint's port rather than string equality with the hosted
+            // default; a self-hosted relay on :443 would otherwise connect in plaintext.
+            const relayUseTls =
+              config.relayUseTls ?? shouldUseTlsForDefaultHostedRelay(relayEndpoint);
             const relayPublicUseTls = config.relayPublicUseTls ?? relayUseTls;
             const appBaseUrl = config.appBaseUrl ?? "https://app.paseo.sh";
 

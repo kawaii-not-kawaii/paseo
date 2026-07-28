@@ -19,6 +19,7 @@ import type {
 } from "./agent/provider-launch-config.js";
 import { ProviderOverrideSchema } from "./agent/provider-launch-config.js";
 import { AgentProviderSchema } from "@getpaseo/protocol/provider-manifest";
+import { shouldUseTlsForDefaultHostedRelay } from "@getpaseo/protocol/daemon-endpoints";
 import { hashDaemonPassword } from "./auth.js";
 import { resolveSpeechConfig } from "./speech/speech-config-resolver.js";
 import { mergeHostnames, parseHostnamesEnv, type HostnamesConfig } from "./hostnames.js";
@@ -228,7 +229,11 @@ function resolveRelayConfig(input: ResolveRelayInput): ResolvedRelay {
     resolveTlsFromEnv(
       input.env.PASEO_RELAY_USE_TLS,
       input.persisted.daemon?.relay?.useTls,
-      endpoint === DEFAULT_RELAY_ENDPOINT,
+      // Infer from the endpoint's own port, not from string equality with the hosted default.
+      // Comparing against DEFAULT_RELAY_ENDPOINT meant every self-hosted relay defaulted to
+      // plaintext — including one on :443, which is what a Cloudflare custom domain always is.
+      // The CLI and the app already decide this the same way.
+      shouldUseTlsForDefaultHostedRelay(endpoint),
     );
   const publicUseTls = resolveTlsFromEnv(
     input.env.PASEO_RELAY_PUBLIC_USE_TLS,
