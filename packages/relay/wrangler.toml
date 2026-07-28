@@ -7,6 +7,11 @@ compatibility_date = "2024-12-01"
 
 routes = [{ pattern = "paseo.dneet.app", custom_domain = true }]
 
+# The relay is reachable on the custom domain only. Left on, Cloudflare also publishes it at
+# paseo-relay.<subdomain>.workers.dev — a second public endpoint onto the same Durable Object that
+# nothing points at and nobody would think to monitor.
+workers_dev = false
+
 [observability]
 enabled = true
 
