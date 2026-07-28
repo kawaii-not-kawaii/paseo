@@ -181,13 +181,15 @@ export function TaskDetailSheet({
           <>
             <Field label={t("team.tasks.detail.titleLabel")}>
               <FormTextInput
-                value={draft.title}
+                initialValue={draft.title}
+                resetKey={`${taskId}:title`}
                 onChangeText={(value) => setDraftField("title", value)}
               />
             </Field>
             <Field label={t("team.tasks.detail.description")}>
               <FormTextInput
-                value={draft.body}
+                initialValue={draft.body}
+                resetKey={`${taskId}:body`}
                 onChangeText={(value) => setDraftField("body", value)}
                 multiline
                 style={styles.multilineInput}
@@ -233,7 +235,8 @@ export function TaskDetailSheet({
             </View>
             <Field label={t("team.tasks.detail.acceptanceCriteria")}>
               <FormTextInput
-                value={draft.acceptanceCriteriaText}
+                initialValue={draft.acceptanceCriteriaText}
+                resetKey={`${taskId}:acceptance`}
                 onChangeText={(value) => setDraftField("acceptanceCriteriaText", value)}
                 multiline
                 style={styles.multilineInput}

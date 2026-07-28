@@ -90,16 +90,23 @@ export function openProjectSettingsForm(
     autoStartEnabled: snapshot.settings.autoStartEnabled,
   };
   recalculate(state);
+  // `getState` is a `useSyncExternalStore` getSnapshot. It must return the same reference until
+  // something actually changes: React compares snapshots with Object.is during render, so cloning
+  // per call makes every render look like a store change and the component loops until React
+  // throws "Maximum update depth exceeded". Rebuild the clone in publish() instead — every mutation
+  // routes through it.
+  let published = cloneState(state);
 
   function publish(): void {
     recalculate(state);
+    published = cloneState(state);
     for (const listener of listeners) {
       listener();
     }
   }
 
   return {
-    getState: () => cloneState(state),
+    getState: () => published,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {

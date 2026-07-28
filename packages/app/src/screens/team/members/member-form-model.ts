@@ -234,16 +234,20 @@ export function openMemberForm(snapshot: MemberFormSnapshot): MemberFormModel {
   };
   recalculateProviderState(state, snapshot.providerEntries);
   recalculateCanSubmit(state);
+  // See the note in project-settings-form-model.ts: this is a `useSyncExternalStore` getSnapshot,
+  // so it has to be reference-stable between publishes or the form loops until React throws.
+  let published = cloneState(state);
 
   const publish = () => {
     recalculateCanSubmit(state);
+    published = cloneState(state);
     for (const listener of listeners) {
       listener();
     }
   };
 
   return {
-    getState: () => cloneState(state),
+    getState: () => published,
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {

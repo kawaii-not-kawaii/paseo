@@ -87,8 +87,28 @@ Empty states are only typeable inside `loaded` — a fetch that "succeeded"
 before hosts connected is `connecting`, not empty. Query keys carry real fetch
 inputs (host set, connection statuses), never synthetic version counters.
 
+## Two gotchas that fail silently
+
+Both of these ship a form that renders, logs nothing useful, and is wrong.
+
+**`FormTextInput` ignores `value`.** `AdaptiveTextInput` destructures `value` away and feeds the
+input `defaultValue: initialValue ?? defaultValue`, deliberately — the rendered text is
+native-owned so RN cannot replay stale values and jump the cursor mid-typing
+([RN #44157](https://github.com/facebook/react-native/issues/44157)). Seed with **`initialValue`**
+and force a reseed with **`resetKey`**. Passing `value` type-checks, because `AdaptiveTextInputProps`
+extends `TextInputProps`, and silently renders an empty box.
+
+**A `useSyncExternalStore` getSnapshot must be reference-stable.** React compares snapshots with
+`Object.is` during render, so a `getState: () => cloneState(state)` makes every render look like a
+store change and the component loops until React throws "Maximum update depth exceeded" (error #185,
+minified in a packaged build). Build the clone in `publish()` and hand out the same reference until
+the next one. The same applies to anything the form model re-applies from props: an inline `?? []`
+mints a new array each render, which retriggers the apply effect, which publishes, which re-renders.
+
 ## Anti-patterns (reject in review on sight)
 
+- Passing `value` to `FormTextInput` instead of `initialValue`/`resetKey`.
+- A store `getState` that clones per call.
 - `useEffect` choreography impersonating construct/hydrate/resolve/destroy.
 - One mounted form instance serving create and edit.
 - `useMemo`-keyed model construction on live-data identity.

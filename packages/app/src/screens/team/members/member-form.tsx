@@ -104,6 +104,12 @@ function buildProjectOptions(
     .filter((project) => project !== null);
 }
 
+// `useMemberFormModel` re-applies the snapshot's arrays whenever their identity changes, and each
+// apply publishes to the form store. An inline `?? []` mints a fresh array every render, so the
+// effect fires every render and the form loops until React throws. Every other field on the
+// snapshot is passed by reference, so this fallback is the only one that needs pinning.
+const NO_PROVIDER_ENTRIES: NonNullable<ReturnType<typeof useProvidersSnapshot>["entries"]> = [];
+
 function buildSnapshot(input: {
   mode: "create" | "edit";
   currentProjectId: string;
@@ -320,7 +326,7 @@ function OpenMemberForm({
         projects: hostProjects,
         assignments: assignmentsState.assignments,
         templates: templatesState.templates,
-        providerEntries: providerSnapshot.entries ?? [],
+        providerEntries: providerSnapshot.entries ?? NO_PROVIDER_ENTRIES,
       })}
       providerSnapshot={providerSnapshot}
     />

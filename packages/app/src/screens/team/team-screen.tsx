@@ -535,7 +535,13 @@ function TeamSettingsSection({
           </Button>
         </View>
       ) : null}
+      {/*
+        The form model is opened once per mount and seeded from `settings`, so switching projects
+        while this section stays mounted would leave the previous project's values in the fields.
+        Keying on the project rebuilds the model with the settings that were just fetched.
+      */}
       <ProjectSettingsForm
+        key={projectId}
         client={client}
         projectId={projectId}
         settings={settings}

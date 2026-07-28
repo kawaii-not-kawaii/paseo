@@ -52,7 +52,8 @@ export function ProjectSettingsForm({
       <View style={styles.grid}>
         <Field label={t("team.settings.retentionCap")} testID="team-settings-retention-cap-field">
           <FormTextInput
-            value={state.messageRetentionCap}
+            initialValue={state.messageRetentionCap}
+            resetKey={`${projectId}:retentionCap`}
             onChangeText={model.setMessageRetentionCap}
             keyboardType="number-pad"
             size={controlSize}
@@ -60,7 +61,8 @@ export function ProjectSettingsForm({
         </Field>
         <Field label={t("team.settings.handbackLimit")} testID="team-settings-handback-limit-field">
           <FormTextInput
-            value={state.handbackLimit}
+            initialValue={state.handbackLimit}
+            resetKey={`${projectId}:handbackLimit`}
             onChangeText={model.setHandbackLimit}
             keyboardType="number-pad"
             size={controlSize}
@@ -71,7 +73,8 @@ export function ProjectSettingsForm({
           testID="team-settings-attempt-timeout-field"
         >
           <FormTextInput
-            value={state.attemptTimeoutMinutes}
+            initialValue={state.attemptTimeoutMinutes}
+            resetKey={`${projectId}:attemptTimeout`}
             onChangeText={model.setAttemptTimeoutMinutes}
             keyboardType="number-pad"
             size={controlSize}
@@ -82,7 +85,8 @@ export function ProjectSettingsForm({
           testID="team-settings-no-progress-limit-field"
         >
           <FormTextInput
-            value={state.noProgressLimit}
+            initialValue={state.noProgressLimit}
+            resetKey={`${projectId}:noProgressLimit`}
             onChangeText={model.setNoProgressLimit}
             keyboardType="number-pad"
             size={controlSize}
