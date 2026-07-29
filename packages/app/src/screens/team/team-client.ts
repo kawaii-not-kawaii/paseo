@@ -10,7 +10,9 @@ import type {
 } from "@getpaseo/protocol/team/types";
 import type {
   TeamChannelCreateResponse,
+  TeamChannelDeleteResponse,
   TeamChannelListResponse,
+  TeamChannelUpdateResponse,
   TeamMemberAssignResponse,
   TeamMemberCreateResponse,
   TeamMemberListResponse,
@@ -42,6 +44,20 @@ type TeamClientRequest =
       projectId: string;
       name: string;
       purpose?: string;
+    }
+  | {
+      type: "team.channel.update.request";
+      requestId: string;
+      projectId: string;
+      channelId: string;
+      name?: string;
+      purpose?: string | null;
+    }
+  | {
+      type: "team.channel.delete.request";
+      requestId: string;
+      projectId: string;
+      channelId: string;
     }
   | {
       type: "team.member.list.request";
@@ -154,7 +170,9 @@ type TeamClientRequest =
 
 type TeamClientResponse =
   | TeamChannelCreateResponse["payload"]
+  | TeamChannelDeleteResponse["payload"]
   | TeamChannelListResponse["payload"]
+  | TeamChannelUpdateResponse["payload"]
   | TeamMemberAssignResponse["payload"]
   | TeamMemberCreateResponse["payload"]
   | TeamMemberListResponse["payload"]
@@ -273,6 +291,52 @@ export async function createTeamChannel(input: {
   });
   throwTeamError(payload);
   return payload.channel;
+}
+
+export async function updateTeamChannel(input: {
+  client: DaemonClient;
+  projectId: string;
+  channelId: string;
+  name?: string;
+  purpose?: string | null;
+}): Promise<TeamChannel | null> {
+  const requestId = createRequestId("team-channel-update");
+  const payload = await sendTeamRequest<TeamChannelUpdateResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.channel.update.request",
+      requestId,
+      projectId: input.projectId,
+      channelId: input.channelId,
+      name: input.name,
+      purpose: input.purpose,
+    },
+    responseType: "team.channel.update.response",
+  });
+  throwTeamError(payload);
+  return payload.channel;
+}
+
+export async function deleteTeamChannel(input: {
+  client: DaemonClient;
+  projectId: string;
+  channelId: string;
+}): Promise<string | null> {
+  const requestId = createRequestId("team-channel-delete");
+  const payload = await sendTeamRequest<TeamChannelDeleteResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.channel.delete.request",
+      requestId,
+      projectId: input.projectId,
+      channelId: input.channelId,
+    },
+    responseType: "team.channel.delete.response",
+  });
+  throwTeamError(payload);
+  return payload.channelId;
 }
 
 export async function listTeamMembers(

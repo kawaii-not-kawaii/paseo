@@ -255,6 +255,16 @@ export const ar: TranslationResources = {
         name: "الاسم",
         purpose: "الغرض (اختياري)",
         create: "إنشاء قناة",
+        manage: "إدارة القناة",
+        edit: "تعديل القناة",
+        editTitle: "تعديل القناة",
+        delete: "حذف القناة",
+        deleteTitle: "حذف #{{name}}؟",
+        deleteMessage:
+          "سيؤدي حذف #{{name}} إلى حذف جميع رسائلها نهائيًا. لا يمكن التراجع عن هذا الإجراء.",
+        deleteConfirm: "حذف القناة",
+        unableToDelete: "تعذر حذف القناة.",
+        nameExists: "توجد قناة باسم «{{name}}» بالفعل.",
       },
     },
     members: {

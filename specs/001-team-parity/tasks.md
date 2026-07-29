@@ -133,8 +133,8 @@ a multi-turn agent-to-agent exchange completes with the human sending exactly on
 - [x] T048 [US1] Implement the capability gate in exactly one place — absent `features.team` hides the entry and renders "Update the host to use this" on deep link. No degraded view, no fallback to legacy `chat/*` RPCs (Constitution II)
 - [x] T049 [US1] [P] Implement the channel list in `packages/app/src/screens/team/chat/channel-list.tsx` using existing primitives from `packages/app/src/components/ui/` (`docs/design.md`)
 - [x] T049a [US1] Implement client-side channel creation using the existing `team.channel.create` RPC, a non-React form model, and a sheet reachable from the zero-channel state (FR-005)
-- [ ] T049b [US1] Implement channel rename, purpose editing, and confirmed deletion using the existing `team.channel.update/delete` RPCs, refreshing the list and preserving a valid active selection (FR-005)
-- [ ] T049c [US1] Drive channel management through the real browser UI and verify persistence through the checkout-local daemon
+- [x] T049b [US1] Implement channel rename, purpose editing, and confirmed deletion using the existing `team.channel.update/delete` RPCs, refreshing the list and preserving a valid active selection (FR-005)
+- [x] T049c [US1] Drive channel management through the real browser UI and verify persistence through the checkout-local daemon
 - [x] T050 [US1] Implement the message list in `packages/app/src/screens/team/chat/message-list.tsx` with incremental loading and stable ordering
 - [x] T051 [US1] Implement the composer in `packages/app/src/screens/team/chat/message-composer.tsx` with `@` mention autocomplete over the project roster
 - [x] T052 [US1] Render member activity in `packages/app/src/screens/team/chat/member-activity-strip.tsx` so working and idle members are distinguishable at a glance (FR-012, SC-011)

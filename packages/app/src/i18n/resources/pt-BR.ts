@@ -258,6 +258,16 @@ export const ptBR: TranslationResources = {
         name: "Nome",
         purpose: "Objetivo (opcional)",
         create: "Criar canal",
+        manage: "Gerenciar canal",
+        edit: "Editar canal",
+        editTitle: "Editar canal",
+        delete: "Excluir canal",
+        deleteTitle: "Excluir #{{name}}?",
+        deleteMessage:
+          "Excluir #{{name}} apaga permanentemente todas as mensagens do canal. Esta ação não pode ser desfeita.",
+        deleteConfirm: "Excluir canal",
+        unableToDelete: "Não foi possível excluir o canal.",
+        nameExists: "Já existe um canal chamado “{{name}}”.",
       },
     },
     members: {

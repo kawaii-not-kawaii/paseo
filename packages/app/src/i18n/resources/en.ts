@@ -254,6 +254,16 @@ export const en = {
         name: "Name",
         purpose: "Purpose (optional)",
         create: "Create channel",
+        manage: "Manage channel",
+        edit: "Edit channel",
+        editTitle: "Edit channel",
+        delete: "Delete channel",
+        deleteTitle: "Delete #{{name}}?",
+        deleteMessage:
+          "Deleting #{{name}} permanently deletes every message in it. This cannot be undone.",
+        deleteConfirm: "Delete channel",
+        unableToDelete: "The channel could not be deleted.",
+        nameExists: "A channel named “{{name}}” already exists.",
       },
     },
     members: {

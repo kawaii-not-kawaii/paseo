@@ -258,6 +258,16 @@ export const ja: TranslationResources = {
         name: "名前",
         purpose: "目的（任意）",
         create: "チャンネルを作成",
+        manage: "チャンネルを管理",
+        edit: "チャンネルを編集",
+        editTitle: "チャンネルを編集",
+        delete: "チャンネルを削除",
+        deleteTitle: "#{{name}} を削除しますか？",
+        deleteMessage:
+          "#{{name}} を削除すると、その中のすべてのメッセージが完全に削除されます。この操作は取り消せません。",
+        deleteConfirm: "チャンネルを削除",
+        unableToDelete: "チャンネルを削除できませんでした。",
+        nameExists: "「{{name}}」という名前のチャンネルはすでに存在します。",
       },
     },
     members: {

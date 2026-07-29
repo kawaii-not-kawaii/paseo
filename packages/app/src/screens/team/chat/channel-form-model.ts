@@ -1,3 +1,5 @@
+import type { TeamChannel } from "@getpaseo/protocol/team/types";
+
 export interface ChannelFormState {
   name: string;
   purpose: string;
@@ -11,14 +13,23 @@ export interface ChannelFormModel {
   setName: (value: string) => void;
   setPurpose: (value: string) => void;
   setSubmitError: (value: string | null) => void;
+  hasNameConflict: () => boolean;
   toCreateInput: () => { name: string; purpose?: string };
+  toUpdateInput: () => { name: string; purpose: string | null };
 }
 
-export function openChannelForm(): ChannelFormModel {
+export function openChannelForm(input: {
+  channel?: TeamChannel | null;
+  channels: TeamChannel[];
+}): ChannelFormModel {
   let listeners = new Set<() => void>();
+  const channel = input.channel ?? null;
+  const takenNames = new Set(
+    input.channels.filter((entry) => entry.id !== channel?.id).map((entry) => entry.name),
+  );
   let state: ChannelFormState = {
-    name: "",
-    purpose: "",
+    name: channel?.name ?? "",
+    purpose: channel?.purpose ?? "",
     submitError: null,
   };
   let published = { ...state };
@@ -53,11 +64,19 @@ export function openChannelForm(): ChannelFormModel {
       state = { ...state, submitError: value };
       publish();
     },
+    hasNameConflict: () => takenNames.has(state.name),
     toCreateInput: () => {
       const purpose = state.purpose.trim();
       return {
         name: state.name,
         purpose: purpose || undefined,
+      };
+    },
+    toUpdateInput: () => {
+      const purpose = state.purpose.trim();
+      return {
+        name: state.name,
+        purpose: purpose || null,
       };
     },
   };

@@ -257,6 +257,16 @@ export const ru: TranslationResources = {
         name: "Название",
         purpose: "Назначение (необязательно)",
         create: "Создать канал",
+        manage: "Управление каналом",
+        edit: "Изменить канал",
+        editTitle: "Изменить канал",
+        delete: "Удалить канал",
+        deleteTitle: "Удалить #{{name}}?",
+        deleteMessage:
+          "При удалении #{{name}} все сообщения в нём будут удалены безвозвратно. Это действие нельзя отменить.",
+        deleteConfirm: "Удалить канал",
+        unableToDelete: "Не удалось удалить канал.",
+        nameExists: "Канал с названием «{{name}}» уже существует.",
       },
     },
     members: {

@@ -9,21 +9,32 @@ import { Button } from "@/components/ui/button";
 import type { FieldControlSize } from "@/components/ui/control-geometry";
 import { Field, FormTextInput } from "@/components/ui/form-field";
 import { useIsCompactFormFactor } from "@/constants/layout";
-import { createTeamChannel } from "@/screens/team/team-client";
+import { createTeamChannel, updateTeamChannel } from "@/screens/team/team-client";
 import { openChannelForm } from "./channel-form-model";
 
 interface ChannelFormProps {
   visible: boolean;
+  mode: "create" | "edit";
   client: DaemonClient | null;
   projectId: string;
+  channel?: TeamChannel | null;
+  channels: TeamChannel[];
   onClose: () => void;
-  onCreated: (channel: TeamChannel) => void | Promise<void>;
+  onSaved: (channel: TeamChannel) => void | Promise<void>;
 }
 
-function OpenChannelForm({ client, projectId, onClose, onCreated }: ChannelFormProps) {
+function OpenChannelForm({
+  mode,
+  client,
+  projectId,
+  channel,
+  channels,
+  onClose,
+  onSaved,
+}: ChannelFormProps) {
   const { t } = useTranslation();
   const controlSize: FieldControlSize = useIsCompactFormFactor() ? "md" : "sm";
-  const [model] = useState(openChannelForm);
+  const [model] = useState(() => openChannelForm({ channel, channels }));
   const state = useSyncExternalStore(model.subscribe, model.getState, model.getState);
   const [isPending, setIsPending] = useState(false);
 
@@ -38,29 +49,48 @@ function OpenChannelForm({ client, projectId, onClose, onCreated }: ChannelFormP
     if (!client || isPending) {
       return;
     }
+    if (model.hasNameConflict()) {
+      model.setSubmitError(t("team.chat.channel.nameExists", { name: state.name }));
+      return;
+    }
     setIsPending(true);
     model.setSubmitError(null);
     try {
-      const created = await createTeamChannel({
-        client,
-        projectId,
-        ...model.toCreateInput(),
-      });
-      if (!created) {
+      const saved =
+        mode === "create"
+          ? await createTeamChannel({
+              client,
+              projectId,
+              ...model.toCreateInput(),
+            })
+          : await updateTeamChannel({
+              client,
+              projectId,
+              channelId: channel?.id ?? "",
+              ...model.toUpdateInput(),
+            });
+      if (!saved) {
         throw new Error(t("common.errors.unableToSave"));
       }
-      await onCreated(created);
+      await onSaved(saved);
       onClose();
     } catch (error) {
-      model.setSubmitError(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      model.setSubmitError(
+        /UNIQUE constraint failed: channels\.name/i.test(message)
+          ? t("team.chat.channel.nameExists", { name: state.name })
+          : message,
+      );
     } finally {
       setIsPending(false);
     }
-  }, [client, isPending, model, onClose, onCreated, projectId, t]);
+  }, [channel?.id, client, isPending, mode, model, onClose, onSaved, projectId, state.name, t]);
 
   const sheetHeader = useMemo<SheetHeader>(
-    () => ({ title: t("team.chat.channel.createTitle") }),
-    [t],
+    () => ({
+      title: t(mode === "create" ? "team.chat.channel.createTitle" : "team.chat.channel.editTitle"),
+    }),
+    [mode, t],
   );
 
   return (
@@ -75,7 +105,7 @@ function OpenChannelForm({ client, projectId, onClose, onCreated }: ChannelFormP
         <Field label={t("team.chat.channel.name")} testID="team-channel-name-field">
           <FormTextInput
             initialValue={state.name}
-            resetKey={`${projectId}:create:name`}
+            resetKey={`${projectId}:${mode}:${channel?.id ?? "new"}:name`}
             onChangeText={model.setName}
             size={controlSize}
             editable={!isPending}
@@ -87,7 +117,7 @@ function OpenChannelForm({ client, projectId, onClose, onCreated }: ChannelFormP
         <Field label={t("team.chat.channel.purpose")} testID="team-channel-purpose-field">
           <FormTextInput
             initialValue={state.purpose}
-            resetKey={`${projectId}:create:purpose`}
+            resetKey={`${projectId}:${mode}:${channel?.id ?? "new"}:purpose`}
             onChangeText={model.setPurpose}
             size={controlSize}
             editable={!isPending}
@@ -118,7 +148,7 @@ function OpenChannelForm({ client, projectId, onClose, onCreated }: ChannelFormP
             disabled={!client || isPending}
             testID="team-channel-form-submit"
           >
-            {t("team.chat.channel.create")}
+            {t(mode === "create" ? "team.chat.channel.create" : "common.actions.save")}
           </Button>
         </View>
       </View>
@@ -127,10 +157,15 @@ function OpenChannelForm({ client, projectId, onClose, onCreated }: ChannelFormP
 }
 
 export function ChannelForm(props: ChannelFormProps) {
-  if (!props.visible) {
+  if (!props.visible || (props.mode === "edit" && !props.channel)) {
     return null;
   }
-  return <OpenChannelForm key={props.projectId} {...props} />;
+  return (
+    <OpenChannelForm
+      key={`${props.projectId}:${props.mode}:${props.channel?.id ?? "new"}`}
+      {...props}
+    />
+  );
 }
 
 const styles = StyleSheet.create((theme) => ({

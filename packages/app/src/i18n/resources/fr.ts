@@ -259,6 +259,16 @@ export const fr: TranslationResources = {
         name: "Nom",
         purpose: "Objectif (facultatif)",
         create: "Créer un canal",
+        manage: "Gérer le canal",
+        edit: "Modifier le canal",
+        editTitle: "Modifier le canal",
+        delete: "Supprimer le canal",
+        deleteTitle: "Supprimer #{{name}} ?",
+        deleteMessage:
+          "La suppression de #{{name}} efface définitivement tous ses messages. Cette action est irréversible.",
+        deleteConfirm: "Supprimer le canal",
+        unableToDelete: "Le canal n’a pas pu être supprimé.",
+        nameExists: "Un canal nommé « {{name}} » existe déjà.",
       },
     },
     members: {
