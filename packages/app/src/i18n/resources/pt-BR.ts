@@ -252,6 +252,13 @@ export const ptBR: TranslationResources = {
       sent: "Enviado",
       sending: "Enviando...",
       noMentions: "Nenhum membro corresponde a esta menção",
+      channel: {
+        new: "Novo canal",
+        createTitle: "Criar canal",
+        name: "Nome",
+        purpose: "Objetivo (opcional)",
+        create: "Criar canal",
+      },
     },
     members: {
       idle: "Ocioso",

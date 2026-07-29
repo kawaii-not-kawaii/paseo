@@ -251,6 +251,13 @@ export const ru: TranslationResources = {
       sent: "Отправлено",
       sending: "Отправка...",
       noMentions: "Нет участников для этого упоминания",
+      channel: {
+        new: "Новый канал",
+        createTitle: "Создать канал",
+        name: "Название",
+        purpose: "Назначение (необязательно)",
+        create: "Создать канал",
+      },
     },
     members: {
       idle: "Ожидает",

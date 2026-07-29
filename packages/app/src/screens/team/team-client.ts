@@ -9,6 +9,7 @@ import type {
   TeamRoleTemplate,
 } from "@getpaseo/protocol/team/types";
 import type {
+  TeamChannelCreateResponse,
   TeamChannelListResponse,
   TeamMemberAssignResponse,
   TeamMemberCreateResponse,
@@ -34,6 +35,13 @@ type TeamClientRequest =
       type: "team.channel.list.request";
       requestId: string;
       projectId: string;
+    }
+  | {
+      type: "team.channel.create.request";
+      requestId: string;
+      projectId: string;
+      name: string;
+      purpose?: string;
     }
   | {
       type: "team.member.list.request";
@@ -145,6 +153,7 @@ type TeamClientRequest =
     };
 
 type TeamClientResponse =
+  | TeamChannelCreateResponse["payload"]
   | TeamChannelListResponse["payload"]
   | TeamMemberAssignResponse["payload"]
   | TeamMemberCreateResponse["payload"]
@@ -241,6 +250,29 @@ export async function listTeamChannels(
   });
   throwTeamError(payload);
   return payload.channels;
+}
+
+export async function createTeamChannel(input: {
+  client: DaemonClient;
+  projectId: string;
+  name: string;
+  purpose?: string;
+}): Promise<TeamChannel | null> {
+  const requestId = createRequestId("team-channel-create");
+  const payload = await sendTeamRequest<TeamChannelCreateResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.channel.create.request",
+      requestId,
+      projectId: input.projectId,
+      name: input.name,
+      purpose: input.purpose,
+    },
+    responseType: "team.channel.create.response",
+  });
+  throwTeamError(payload);
+  return payload.channel;
 }
 
 export async function listTeamMembers(

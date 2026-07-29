@@ -255,6 +255,7 @@ export function TeamScreen() {
       error={error}
       memberLabels={memberLabels}
       onSelectChannel={setActiveChannelId}
+      onChannelsChanged={refreshRosterAndChannels}
       onMembersChanged={handleMembersChanged}
     />
   );
@@ -348,6 +349,7 @@ function TeamSectionBody({
   error,
   memberLabels,
   onSelectChannel,
+  onChannelsChanged,
   onMembersChanged,
 }: {
   section: TeamSection;
@@ -366,6 +368,7 @@ function TeamSectionBody({
     unavailable: string;
   };
   onSelectChannel: (channelId: string) => void;
+  onChannelsChanged: () => void | Promise<void>;
   onMembersChanged: () => void;
 }) {
   const { t } = useTranslation();
@@ -412,6 +415,7 @@ function TeamSectionBody({
         error={error}
         memberLabels={memberLabels}
         onSelectChannel={onSelectChannel}
+        onChannelsChanged={onChannelsChanged}
       />
     );
   }
@@ -560,6 +564,7 @@ function TeamChatSection({
   error,
   memberLabels,
   onSelectChannel,
+  onChannelsChanged,
 }: {
   client: DaemonClient | null;
   projectId: string;
@@ -574,6 +579,7 @@ function TeamChatSection({
     unavailable: string;
   };
   onSelectChannel: (channelId: string) => void;
+  onChannelsChanged: () => void | Promise<void>;
 }) {
   const { t } = useTranslation();
 
@@ -582,10 +588,13 @@ function TeamChatSection({
       <View style={styles.sidebarColumn}>
         <Text style={styles.sectionLabel}>{t("team.chat.channels")}</Text>
         <ChannelList
+          client={client}
+          projectId={projectId}
           channels={channels}
           activeChannelId={channelId}
           emptyLabel={t("team.chat.emptyChannels")}
           onSelect={onSelectChannel}
+          onChannelsChanged={onChannelsChanged}
         />
       </View>
       <View style={styles.mainColumn}>

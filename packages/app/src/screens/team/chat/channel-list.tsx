@@ -1,24 +1,47 @@
-import { memo, useCallback, useMemo } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { TeamChannel } from "@getpaseo/protocol/team/types";
+import { Plus } from "lucide-react-native";
+import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
+import { Button } from "@/components/ui/button";
 import { settingsStyles } from "@/styles/settings";
+import { ChannelForm } from "./channel-form";
 
 interface ChannelListProps {
+  client: DaemonClient | null;
+  projectId: string;
   channels: TeamChannel[];
   activeChannelId: string | null;
   emptyLabel: string;
   onSelect: (channelId: string) => void;
+  onChannelsChanged: () => void | Promise<void>;
 }
 
 export const ChannelList = memo(function ChannelList({
+  client,
+  projectId,
   channels,
   activeChannelId,
   emptyLabel,
   onSelect,
+  onChannelsChanged,
 }: ChannelListProps) {
-  if (channels.length === 0) {
-    return (
+  const { t } = useTranslation();
+  const [createVisible, setCreateVisible] = useState(false);
+  const handleOpenCreate = useCallback(() => setCreateVisible(true), []);
+  const handleCloseCreate = useCallback(() => setCreateVisible(false), []);
+  const handleCreated = useCallback(
+    async (channel: TeamChannel) => {
+      onSelect(channel.id);
+      await onChannelsChanged();
+    },
+    [onChannelsChanged, onSelect],
+  );
+
+  const channelRows =
+    channels.length === 0 ? (
       <View style={settingsStyles.card}>
         <View style={settingsStyles.row}>
           <View style={settingsStyles.rowContent}>
@@ -26,23 +49,45 @@ export const ChannelList = memo(function ChannelList({
           </View>
         </View>
       </View>
+    ) : (
+      <View style={settingsStyles.card}>
+        {channels.map((channel, index) => {
+          const isActive = channel.id === activeChannelId;
+          return (
+            <ChannelRow
+              key={channel.id}
+              channel={channel}
+              bordered={index > 0}
+              isActive={isActive}
+              onSelect={onSelect}
+            />
+          );
+        })}
+      </View>
     );
-  }
 
   return (
-    <View style={settingsStyles.card}>
-      {channels.map((channel, index) => {
-        const isActive = channel.id === activeChannelId;
-        return (
-          <ChannelRow
-            key={channel.id}
-            channel={channel}
-            bordered={index > 0}
-            isActive={isActive}
-            onSelect={onSelect}
-          />
-        );
-      })}
+    <View style={styles.container}>
+      <View style={styles.actionsRow}>
+        <Button
+          size="sm"
+          variant="secondary"
+          leftIcon={Plus}
+          onPress={handleOpenCreate}
+          disabled={!client}
+          testID="team-channel-create-button"
+        >
+          {t("team.chat.channel.new")}
+        </Button>
+      </View>
+      {channelRows}
+      <ChannelForm
+        visible={createVisible}
+        client={client}
+        projectId={projectId}
+        onClose={handleCloseCreate}
+        onCreated={handleCreated}
+      />
     </View>
   );
 });
@@ -90,6 +135,13 @@ const ChannelRow = memo(function ChannelRow({
 });
 
 const styles = StyleSheet.create((theme) => ({
+  container: {
+    gap: theme.spacing[2],
+  },
+  actionsRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
   activeRow: {
     backgroundColor: theme.colors.surface2,
   },

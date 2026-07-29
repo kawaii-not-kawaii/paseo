@@ -248,6 +248,13 @@ export const en = {
       sent: "Sent",
       sending: "Sending...",
       noMentions: "No members match this mention",
+      channel: {
+        new: "New channel",
+        createTitle: "Create channel",
+        name: "Name",
+        purpose: "Purpose (optional)",
+        create: "Create channel",
+      },
     },
     members: {
       idle: "Idle",

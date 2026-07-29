@@ -252,6 +252,13 @@ export const ja: TranslationResources = {
       sent: "送信済み",
       sending: "送信中...",
       noMentions: "一致するメンバーがいません",
+      channel: {
+        new: "新しいチャンネル",
+        createTitle: "チャンネルを作成",
+        name: "名前",
+        purpose: "目的（任意）",
+        create: "チャンネルを作成",
+      },
     },
     members: {
       idle: "待機中",

@@ -252,6 +252,13 @@ export const es: TranslationResources = {
       sent: "Enviado",
       sending: "Enviando...",
       noMentions: "Ningún miembro coincide con esta mención",
+      channel: {
+        new: "Nuevo canal",
+        createTitle: "Crear canal",
+        name: "Nombre",
+        purpose: "Propósito (opcional)",
+        create: "Crear canal",
+      },
     },
     members: {
       idle: "Inactivo",

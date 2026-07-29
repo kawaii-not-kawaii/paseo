@@ -249,6 +249,13 @@ export const ar: TranslationResources = {
       sent: "تم الإرسال",
       sending: "جارٍ الإرسال...",
       noMentions: "لا يوجد أعضاء يطابقون هذه الإشارة",
+      channel: {
+        new: "قناة جديدة",
+        createTitle: "إنشاء قناة",
+        name: "الاسم",
+        purpose: "الغرض (اختياري)",
+        create: "إنشاء قناة",
+      },
     },
     members: {
       idle: "خامل",

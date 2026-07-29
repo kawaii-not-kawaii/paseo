@@ -249,6 +249,13 @@ export const zhCN: TranslationResources = {
       sent: "已发送",
       sending: "发送中...",
       noMentions: "没有匹配此提及的成员",
+      channel: {
+        new: "新建频道",
+        createTitle: "创建频道",
+        name: "名称",
+        purpose: "用途（可选）",
+        create: "创建频道",
+      },
     },
     members: {
       idle: "空闲",
