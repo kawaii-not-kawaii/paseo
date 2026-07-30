@@ -409,3 +409,8 @@ The July 30 Team design completion pass evaluates four intentionally omitted ele
   bell waits for that product capability rather than inventing a local-only preference.
 - **Header panel-right** — not built. Team is a host route with no right panel to reveal. A toggle
   without a target is not a feature.
+
+Browser verification on 2026-07-30 used the isolated 6768 daemon and the real Expo web UI. A seeded
+second channel showed one unread message, cleared after viewing, and remained clear after a full
+reload. A claimed task dragged from Todo to In Progress and remained there after reload. The check
+reported no Team page errors, no new console errors, and removed its seeded rows and scratch files.

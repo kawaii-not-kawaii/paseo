@@ -167,10 +167,10 @@ export function TeamScreen() {
   );
 
   useEffect(() => {
-    if (activeChannelId) {
+    if (section === "chat" && activeChannelId) {
       void markViewedChannel(activeChannelId);
     }
-  }, [activeChannelId, markViewedChannel]);
+  }, [activeChannelId, markViewedChannel, section]);
 
   useEffect(() => {
     if (!channelReadsEnabled || !client || !projectId) {
@@ -181,13 +181,13 @@ export function TeamScreen() {
         return;
       }
       const messageChannelId = event.payload.message.channelId;
-      if (messageChannelId === activeChannelId) {
+      if (section === "chat" && messageChannelId === activeChannelId) {
         void markViewedChannel(messageChannelId);
         return;
       }
       setChannels((current) => incrementChannelUnread(current, messageChannelId));
     });
-  }, [activeChannelId, channelReadsEnabled, client, markViewedChannel, projectId]);
+  }, [activeChannelId, channelReadsEnabled, client, markViewedChannel, projectId, section]);
 
   const handleMembersChanged = useCallback(() => {
     void refreshRosterAndChannels();

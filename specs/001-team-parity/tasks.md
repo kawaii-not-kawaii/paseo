@@ -279,9 +279,9 @@ acknowledged message or task change is lost (SC-006).
 - [x] T127 Implement one board-owned dnd-kit context on web, with each status column droppable and
       moves delegated to the existing task update path; retain the native explicit move menu
       (FR-025a).
-- [ ] T128 Triage the system-note pill, composer attachments, channel bell, and panel-right
+- [x] T128 Triage the system-note pill, composer attachments, channel bell, and panel-right
       control. Implement only elements with durable backing and document every omission.
-- [ ] T129 Run targeted Team app/server tests, typecheck, lint, format, and real browser
+- [x] T129 Run targeted Team app/server tests, typecheck, lint, format, and real browser
       verification including full-reload persistence for unread and task moves.
 
 ---
