@@ -121,7 +121,10 @@ export function MemberDetail({
         editable: true,
         title: t("team.members.form.homeWorkspace"),
         help: t("team.members.detail.homeWorkspaceHelp"),
-        value: workspaceName ?? member.homeWorkspaceId ?? t("team.members.list.workspaceMissing"),
+        // Never the raw `wks_…` id. An id that resolves to no name means the
+        // workspace is gone or no longer in this project, which is the same
+        // problem as having none — say that instead of printing an opaque key.
+        value: workspaceName ?? t("team.members.list.workspaceMissing"),
       },
       {
         key: "runtime",
@@ -150,7 +153,7 @@ export function MemberDetail({
         editable: false,
       },
     ],
-    [member.homeWorkspaceId, member.model, member.provider, t, workspaceName],
+    [member.model, member.provider, t, workspaceName],
   );
 
   return (

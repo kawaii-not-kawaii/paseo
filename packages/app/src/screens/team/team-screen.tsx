@@ -115,6 +115,25 @@ export function TeamScreen() {
     [hostProjects, projectId],
   );
 
+  /**
+   * Workspace ids to human names. Without this the member roster and detail
+   * fall back to showing the raw `wks_…` id, which tells the reader nothing.
+   */
+  const workspaceNamesById = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const project of hostProjects) {
+      for (const host of project.hosts) {
+        if (host.serverId !== serverId) {
+          continue;
+        }
+        for (const workspace of host.workspaces) {
+          names[workspace.id] = workspace.title ?? workspace.name;
+        }
+      }
+    }
+    return names;
+  }, [hostProjects, serverId]);
+
   const refreshRosterAndChannels = useCallback(async () => {
     if (!client || !projectId) {
       setChannels([]);
@@ -361,6 +380,7 @@ export function TeamScreen() {
           handbackLimit={handbackLimit}
           onSelectChannel={setActiveChannelId}
           onChannelsChanged={refreshRosterAndChannels}
+          workspaceNamesById={workspaceNamesById}
           onMembersChanged={handleMembersChanged}
           onEditMember={openEditMember}
           onOpenTasks={goToTasks}
@@ -404,6 +424,7 @@ function TeamSectionBody({
   handbackLimit,
   onSelectChannel,
   onChannelsChanged,
+  workspaceNamesById,
   onMembersChanged,
   onEditMember,
   onOpenTasks,
@@ -423,6 +444,7 @@ function TeamSectionBody({
   onSelectChannel: (channelId: string) => void;
   onChannelsChanged: () => void | Promise<void>;
   onMembersChanged: () => void;
+  workspaceNamesById: Record<string, string>;
   onEditMember: (member: TeamMember) => void;
   onOpenTasks: () => void;
   onEscalationResolved: () => void;
@@ -445,6 +467,7 @@ function TeamSectionBody({
         client={client}
         projectId={selectedProject.projectKey}
         members={members}
+        workspaceNamesById={workspaceNamesById}
         onMembersChanged={onMembersChanged}
         onEditMember={onEditMember}
       />
