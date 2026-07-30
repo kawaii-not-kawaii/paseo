@@ -359,7 +359,6 @@ export function TeamScreen() {
           error={error}
           escalatedTask={escalatedTask}
           handbackLimit={handbackLimit}
-          channelReadsEnabled={channelReadsEnabled}
           onSelectChannel={setActiveChannelId}
           onChannelsChanged={refreshRosterAndChannels}
           onMembersChanged={handleMembersChanged}
@@ -403,7 +402,6 @@ function TeamSectionBody({
   error,
   escalatedTask,
   handbackLimit,
-  channelReadsEnabled,
   onSelectChannel,
   onChannelsChanged,
   onMembersChanged,
@@ -422,7 +420,6 @@ function TeamSectionBody({
   error: string | null;
   escalatedTask: TeamTask | null;
   handbackLimit: number | null;
-  channelReadsEnabled: boolean;
   onSelectChannel: (channelId: string) => void;
   onChannelsChanged: () => void | Promise<void>;
   onMembersChanged: () => void;
@@ -480,7 +477,6 @@ function TeamSectionBody({
       error={error}
       escalatedTask={escalatedTask}
       handbackLimit={handbackLimit}
-      channelReadsEnabled={channelReadsEnabled}
       onSelectChannel={onSelectChannel}
       onChannelsChanged={onChannelsChanged}
       onOpenTasks={onOpenTasks}

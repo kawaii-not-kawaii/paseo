@@ -36,7 +36,6 @@ export function ChatRail({
   activeChannelId,
   memberLabels,
   canCreateChannel,
-  unreadEnabled,
   onSelectChannel,
   onCreateChannel,
 }: {
@@ -45,7 +44,6 @@ export function ChatRail({
   activeChannelId: string | null;
   memberLabels: TeamMemberStatusLabels;
   canCreateChannel: boolean;
-  unreadEnabled: boolean;
   onSelectChannel: (channelId: string) => void;
   onCreateChannel: () => void;
 }) {
@@ -83,10 +81,14 @@ export function ChatRail({
             testID="team-channel-create-button"
           />
         </View>
+        {/*
+          No capability notice here on a daemon without `teamChannelReads`. An
+          old daemon simply never sends `unreadCount`, so the badge is absent
+          rather than broken, and "Update the host to use this." is for a
+          feature someone went looking for and could not find — not for an
+          ambient badge whose absence reads as "nothing unread".
+        */}
         <View style={styles.rows}>
-          {!unreadEnabled ? (
-            <Text style={styles.capabilityHint}>{t("team.needsHostUpgrade")}</Text>
-          ) : null}
           {channels.length === 0 ? (
             <Text style={styles.empty}>{t("team.chat.emptyChannels")}</Text>
           ) : (
@@ -282,12 +284,6 @@ const styles = StyleSheet.create((theme) => ({
   unreadCount: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.xs,
-  },
-  capabilityHint: {
-    color: theme.colors.foregroundExtraMuted,
-    fontSize: theme.fontSize.xs,
-    paddingHorizontal: theme.spacing[2],
-    paddingVertical: theme.spacing[1],
   },
   memberName: {
     flex: 1,

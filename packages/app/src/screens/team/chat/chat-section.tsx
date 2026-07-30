@@ -47,7 +47,6 @@ export function TeamChatSection({
   error,
   escalatedTask,
   handbackLimit,
-  channelReadsEnabled,
   onSelectChannel,
   onChannelsChanged,
   onOpenTasks,
@@ -62,7 +61,6 @@ export function TeamChatSection({
   error: string | null;
   escalatedTask: TeamTask | null;
   handbackLimit: number | null;
-  channelReadsEnabled: boolean;
   onSelectChannel: (channelId: string) => void;
   onChannelsChanged: () => void | Promise<void>;
   onOpenTasks: () => void;
@@ -165,7 +163,6 @@ export function TeamChatSection({
         activeChannelId={channelId}
         memberLabels={memberLabels}
         canCreateChannel={Boolean(client)}
-        unreadEnabled={channelReadsEnabled}
         onSelectChannel={onSelectChannel}
         onCreateChannel={handleOpenCreate}
       />
