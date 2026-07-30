@@ -1,107 +1,119 @@
-import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { TeamChannel, TeamMember } from "@getpaseo/protocol/team/types";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
-import { Button } from "@/components/ui/button";
-import { MemberActions } from "./member-actions";
+import { useTeamMemberStatusLabels } from "@/screens/team/use-member-status-labels";
 import { MemberDetail } from "./member-detail";
-import { MemberForm } from "./member-form";
 import { MemberList } from "./member-list";
 
 /**
- * The Members section: roster, detail, lifecycle actions, and the create/edit form.
+ * The Members section: 320px roster on the left, detail pane on the right.
  *
- * Composition only — every piece it arranges owns its own behaviour.
+ * Composition only. The create/edit form lives at shell level, because the
+ * "Add member" button sits in the section switcher above every section.
  */
 export function TeamMembersSection({
   client,
-  serverId,
   projectId,
   members,
   channels,
+  workspaceNamesById,
   onMembersChanged,
+  onEditMember,
 }: {
   client: DaemonClient | null;
-  serverId: string | null;
   projectId: string;
   members: TeamMember[];
   channels: TeamChannel[];
+  workspaceNamesById?: Record<string, string>;
   onMembersChanged: () => void;
+  onEditMember: (member: TeamMember) => void;
 }) {
   const { t } = useTranslation();
+  const labels = useTeamMemberStatusLabels();
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const [form, setForm] = useState<{ mode: "create" | "edit"; member: TeamMember | null } | null>(
-    null,
-  );
 
-  const selected = members.find((member) => member.id === selectedMemberId) ?? null;
+  // Falling back keeps the detail pane populated on arrival, but it has to land
+  // on the same row the roster shows first — an agent, not the human identity,
+  // whose detail is a name and one line. `members` arrives unsorted, so picking
+  // `members[0]` here would open whichever row the daemon happened to return.
+  const selected = useMemo(() => {
+    const match = members.find((member) => member.id === selectedMemberId);
+    if (match) {
+      return match;
+    }
+    const agents = members.filter((member) => member.kind !== "human");
+    const firstAgent = [...agents].sort((left, right) => left.name.localeCompare(right.name))[0];
+    return firstAgent ?? members[0] ?? null;
+  }, [members, selectedMemberId]);
 
-  const closeForm = useCallback(() => setForm(null), []);
-  const openCreate = useCallback(() => setForm({ mode: "create", member: null }), []);
-  const openEdit = useCallback((member: TeamMember) => setForm({ mode: "edit", member }), []);
-
-  const handleSaved = useCallback(() => {
-    setForm(null);
-    onMembersChanged();
-  }, [onMembersChanged]);
-
+  const handleSelect = useCallback((member: TeamMember) => setSelectedMemberId(member.id), []);
   const handleRemoved = useCallback(() => {
     setSelectedMemberId(null);
     onMembersChanged();
   }, [onMembersChanged]);
+  const handleMemberChanged = useCallback(() => onMembersChanged(), [onMembersChanged]);
 
-  const handleSelect = useCallback((member: TeamMember) => setSelectedMemberId(member.id), []);
+  const workspaceName = useMemo(() => {
+    if (!selected?.homeWorkspaceId) {
+      return null;
+    }
+    return workspaceNamesById?.[selected.homeWorkspaceId] ?? null;
+  }, [selected?.homeWorkspaceId, workspaceNamesById]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.toolbar}>
-        <Button onPress={openCreate} testID="team-member-create-button">
-          {t("team.members.actions.create")}
-        </Button>
-      </View>
+    <View style={styles.section}>
       <MemberList
         members={members}
-        channels={channels}
-        selectedMemberId={selectedMemberId}
+        selectedMemberId={selected?.id ?? null}
+        workspaceNamesById={workspaceNamesById}
+        labels={labels}
         onSelect={handleSelect}
       />
-      {selected ? (
-        <View style={styles.detail}>
-          <MemberActions
+      <View style={styles.detail}>
+        {selected ? (
+          <MemberDetail
+            key={selected.id}
             client={client}
-            projectId={projectId}
             member={selected}
-            onMemberChanged={onMembersChanged}
+            channels={channels}
+            labels={labels}
+            workspaceName={workspaceName}
+            projectId={projectId}
+            onMemberChanged={handleMemberChanged}
             onRemoved={handleRemoved}
-            onRepoint={openEdit}
+            onEditMember={onEditMember}
           />
-          <MemberDetail client={client} member={selected} onMemberChanged={onMembersChanged} />
-        </View>
-      ) : null}
-      <MemberForm
-        visible={form !== null}
-        mode={form?.mode ?? "create"}
-        client={client}
-        serverId={serverId}
-        currentProjectId={projectId}
-        member={form?.member ?? null}
-        onClose={closeForm}
-        onSaved={handleSaved}
-      />
+        ) : (
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>{t("team.members.list.empty")}</Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create((theme) => ({
-  container: {
-    gap: theme.spacing[4],
-  },
-  toolbar: {
-    alignItems: "flex-end",
+  section: {
+    flex: 1,
+    minHeight: 0,
+    flexDirection: "row",
   },
   detail: {
-    gap: theme.spacing[4],
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+  },
+  empty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyText: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
   },
 }));

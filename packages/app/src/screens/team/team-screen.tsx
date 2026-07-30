@@ -1,56 +1,36 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronDown, Hash, Settings, SquareKanban, Users } from "lucide-react-native";
-import { ScrollView, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { TeamChannel, TeamMember, TeamProjectSettings } from "@getpaseo/protocol/team/types";
-import { MenuHeader } from "@/components/headers/menu-header";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { SegmentedControl } from "@/components/ui/segmented-control";
-import { StatusBadge } from "@/components/ui/status-badge";
+import type { TeamChannel, TeamMember, TeamTask } from "@getpaseo/protocol/team/types";
 import { useTranslation } from "react-i18next";
+import { StyleSheet } from "react-native-unistyles";
+import { MenuHeader } from "@/components/headers/menu-header";
 import { useHostRouteServerId } from "@/navigation/host-route-context";
 import { useProjects } from "@/hooks/use-projects";
 import { useHosts } from "@/runtime/host-runtime";
 import { useSessionStore } from "@/stores/session-store";
-import { ChannelList } from "@/screens/team/chat/channel-list";
-import { MemberActivityStrip } from "@/screens/team/chat/member-activity-strip";
-import { MessageComposer } from "@/screens/team/chat/message-composer";
-import { MessageList } from "@/screens/team/chat/message-list";
+import { confirmDialog } from "@/utils/confirm-dialog";
+import { TeamChatSection } from "@/screens/team/chat/chat-section";
+import { MemberForm } from "@/screens/team/members/member-form";
 import { TeamMembersSection } from "@/screens/team/members/member-section";
 import { TeamTasksSection } from "@/screens/team/tasks/task-section";
+import { TeamSettingsSection } from "@/screens/team/settings/settings-section";
 import { useTeamCapability } from "@/screens/team/team-capability";
-import { ProjectSettingsForm } from "@/screens/team/settings/project-settings-form";
-import { TeamRecovery } from "@/screens/team/team-recovery";
+import { TeamHeader } from "@/screens/team/team-header";
 import {
-  adoptLegacyTeamChat,
-  getTeamProjectSettingsState,
+  isTeamSection,
+  TeamSectionSwitcher,
+  type TeamSection,
+} from "@/screens/team/team-section-switcher";
+import {
+  getTeamProjectSettings,
   listTeamChannels,
   listTeamMembers,
-  restoreTeamProjectSnapshot,
-  type TeamLegacyChatAdoptionState,
+  stopAllTeamActivity,
 } from "@/screens/team/team-client";
+import { listTeamTasks } from "@/screens/team/tasks/team-tasks-client";
 import { buildHostTeamRoute } from "@/utils/host-routes";
-import { StyleSheet, withUnistyles } from "react-native-unistyles";
-import type { Theme } from "@/styles/theme";
-import { settingsStyles } from "@/styles/settings";
-import type { TeamProjectMaintenance } from "@getpaseo/protocol/team/types";
-
-const TEAM_SECTION_VALUES = ["chat", "members", "tasks", "settings"] as const;
-type TeamSection = (typeof TEAM_SECTION_VALUES)[number];
-
-const ThemedChevronDown = withUnistyles(ChevronDown);
-const mutedChevron = (theme: Theme) => ({ color: theme.colors.foregroundMuted });
-
-function isTeamSection(value: string): value is TeamSection {
-  return (TEAM_SECTION_VALUES as readonly string[]).includes(value);
-}
 
 function mergeMembersByName(current: TeamMember[], member: TeamMember): TeamMember[] {
   const next = new Map(current.map((entry) => [entry.id, entry] as const));
@@ -58,6 +38,15 @@ function mergeMembersByName(current: TeamMember[], member: TeamMember): TeamMemb
   return Array.from(next.values()).sort((left, right) => left.name.localeCompare(right.name));
 }
 
+/**
+ * The Team surface.
+ *
+ * The frame is fixed rather than scrolled: a 48px header, a 36px section
+ * switcher, then a section body at `flex: 1` with `minHeight: 0`. Each section
+ * owns its own scrolling, which is what lets Chat keep a pinned composer and
+ * Tasks scroll its board horizontally. Scrolling the whole screen instead —
+ * which is what this did before — makes both impossible.
+ */
 export function TeamScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -86,6 +75,13 @@ export function TeamScreen() {
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isStoppingAll, setIsStoppingAll] = useState(false);
+  const [escalatedTask, setEscalatedTask] = useState<TeamTask | null>(null);
+  const [handbackLimit, setHandbackLimit] = useState<number | null>(null);
+  const [memberForm, setMemberForm] = useState<{
+    mode: "create" | "edit";
+    member: TeamMember | null;
+  } | null>(null);
 
   useEffect(() => {
     if (isTeamSection(routeSection) || !serverId) {
@@ -145,6 +141,48 @@ export function TeamScreen() {
     void refreshRosterAndChannels();
   }, [refreshRosterAndChannels]);
 
+  /**
+   * The design shows one escalation at a time, in the channel and on the board.
+   * The daemon marks an escalated task with `escalatedAt`, so the banner is a
+   * read of task state — there is no separate escalation record to fetch.
+   */
+  const refreshEscalation = useCallback(async () => {
+    if (!client || !projectId) {
+      setEscalatedTask(null);
+      setHandbackLimit(null);
+      return;
+    }
+    try {
+      const [tasks, settings] = await Promise.all([
+        listTeamTasks({ client, projectId }),
+        getTeamProjectSettings(client, projectId),
+      ]);
+      const escalated = tasks
+        .filter((task) => task.escalatedAt !== null)
+        .sort((left, right) => (left.escalatedAt ?? "").localeCompare(right.escalatedAt ?? ""));
+      setEscalatedTask(escalated.at(-1) ?? null);
+      setHandbackLimit(settings?.handbackLimit ?? null);
+    } catch {
+      // An escalation banner is additive — failing to read it must not take the
+      // channel down with it.
+    }
+  }, [client, projectId]);
+
+  useEffect(() => {
+    void refreshEscalation();
+  }, [refreshEscalation]);
+
+  useEffect(() => {
+    if (!client || !projectId) {
+      return;
+    }
+    return client.on("team.task.changed", (event) => {
+      if (event.payload.projectId === projectId) {
+        void refreshEscalation();
+      }
+    });
+  }, [client, projectId, refreshEscalation]);
+
   useEffect(() => {
     if (!client || !projectId) {
       return;
@@ -160,53 +198,9 @@ export function TeamScreen() {
     };
   }, [client, projectId]);
 
-  const sectionOptions = useMemo(
-    () => [
-      {
-        value: "chat",
-        label: t("team.sections.chat"),
-        icon: ({ color, size }: { color: string; size: number }) => (
-          <Hash color={color} size={size} />
-        ),
-      },
-      {
-        value: "members",
-        label: t("team.sections.members"),
-        icon: ({ color, size }: { color: string; size: number }) => (
-          <Users color={color} size={size} />
-        ),
-      },
-      {
-        value: "tasks",
-        label: t("team.sections.tasks"),
-        icon: ({ color, size }: { color: string; size: number }) => (
-          <SquareKanban color={color} size={size} />
-        ),
-      },
-      {
-        value: "settings",
-        label: t("team.sections.settings"),
-        icon: ({ color, size }: { color: string; size: number }) => (
-          <Settings color={color} size={size} />
-        ),
-      },
-    ],
-    [t],
-  );
-
-  const memberLabels = useMemo(
-    () => ({
-      idle: t("team.members.idle"),
-      working: t("team.members.working"),
-      stopped: t("team.members.stopped"),
-      unavailable: t("team.members.unavailable"),
-    }),
-    [t],
-  );
-
   const switchSection = useCallback(
-    (nextSection: string) => {
-      if (!serverId || !isTeamSection(nextSection)) {
+    (nextSection: TeamSection) => {
+      if (!serverId) {
         return;
       }
       router.replace(buildHostTeamRoute(serverId, nextSection));
@@ -214,18 +208,59 @@ export function TeamScreen() {
     [router, serverId],
   );
 
-  const renderProjectMenuItem = useCallback(
-    (projectKey: string, projectName: string, selected: boolean) => (
-      <TeamProjectMenuItem
-        key={projectKey}
-        projectKey={projectKey}
-        projectName={projectName}
-        selected={selected}
-        onSelectProject={setProjectId}
-      />
-    ),
-    [],
+  const goToTasks = useCallback(() => {
+    switchSection("tasks");
+  }, [switchSection]);
+
+  const openCreateMember = useCallback(() => {
+    setMemberForm({ mode: "create", member: null });
+  }, []);
+  const openEditMember = useCallback((member: TeamMember) => {
+    setMemberForm({ mode: "edit", member });
+  }, []);
+  const closeMemberForm = useCallback(() => setMemberForm(null), []);
+  const handleMemberFormSaved = useCallback(() => {
+    setMemberForm(null);
+    handleMembersChanged();
+  }, [handleMembersChanged]);
+
+  const handleStopAll = useCallback(async () => {
+    if (!client || !projectId || isStoppingAll) {
+      return;
+    }
+    const confirmed = await confirmDialog({
+      title: t("team.header.stopAllTitle"),
+      message: t("team.header.stopAllMessage"),
+      confirmLabel: t("team.header.stopAllConfirm"),
+      cancelLabel: t("common.actions.cancel"),
+      destructive: true,
+    });
+    if (!confirmed) {
+      return;
+    }
+    setIsStoppingAll(true);
+    setError(null);
+    try {
+      await stopAllTeamActivity({ client, projectId });
+      await refreshRosterAndChannels();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    } finally {
+      setIsStoppingAll(false);
+    }
+  }, [client, isStoppingAll, projectId, refreshRosterAndChannels, t]);
+
+  const agentMemberCount = useMemo(
+    () => members.filter((member) => member.kind !== "human").length,
+    [members],
   );
+
+  const contextLabel = useMemo(() => {
+    if (!selectedProject) {
+      return null;
+    }
+    return t("team.header.context", { daemon: hostLabel, count: agentMemberCount });
+  }, [agentMemberCount, hostLabel, selectedProject, t]);
 
   if (!serverId) {
     return null;
@@ -242,100 +277,66 @@ export function TeamScreen() {
     );
   }
 
-  const routeBody = (
-    <TeamSectionBody
-      section={section}
-      selectedProject={selectedProject}
-      isLoading={projectsResult.isLoading || isLoading}
-      client={client}
-      serverId={serverId}
-      members={members}
-      channels={channels}
-      activeChannelId={activeChannelId}
-      error={error}
-      memberLabels={memberLabels}
-      onSelectChannel={setActiveChannelId}
-      onChannelsChanged={refreshRosterAndChannels}
-      onMembersChanged={handleMembersChanged}
-    />
-  );
-
   return (
     <View style={styles.screen} testID="team-screen">
-      <MenuHeader title={t("team.title")} />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <View style={styles.topCard}>
-          <View style={styles.topRow}>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                style={styles.projectTrigger}
-                testID="team-project-picker-trigger"
-              >
-                <Text style={styles.projectTriggerText} numberOfLines={1}>
-                  {selectedProject?.projectName ?? t("team.project.none")}
-                </Text>
-                <ThemedChevronDown size={16} uniProps={mutedChevron} />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent side="bottom" align="start" width={260}>
-                {hostProjects.map((project) =>
-                  renderProjectMenuItem(
-                    project.projectKey,
-                    project.projectName,
-                    project.projectKey === projectId,
-                  ),
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <StatusBadge label={`${t("team.daemon")}: ${hostLabel}`} />
-          </View>
-          <SegmentedControl
-            options={sectionOptions}
-            value={section}
-            onValueChange={switchSection}
-            size="sm"
-            testID="team-section-switcher"
-          />
-          {selectedProject ? (
-            <Text style={styles.projectHint}>
-              {selectedProject.hosts.find((host) => host.serverId === serverId)?.repoRoot ??
-                selectedProject.projectKey}
-            </Text>
-          ) : null}
-        </View>
-
-        {routeBody}
-      </ScrollView>
+      <TeamHeader
+        title={t("team.title")}
+        projects={hostProjects}
+        selectedProjectKey={projectId}
+        contextLabel={contextLabel}
+        onSelectProject={setProjectId}
+        onStopAll={handleStopAll}
+        isStoppingAll={isStoppingAll}
+      />
+      <TeamSectionSwitcher
+        section={section}
+        onSectionChange={switchSection}
+        onAddMember={openCreateMember}
+        canAddMember={Boolean(selectedProject)}
+      />
+      <View style={styles.body}>
+        <TeamSectionBody
+          section={section}
+          selectedProject={selectedProject}
+          isLoading={projectsResult.isLoading || isLoading}
+          client={client}
+          serverId={serverId}
+          members={members}
+          channels={channels}
+          activeChannelId={activeChannelId}
+          error={error}
+          escalatedTask={escalatedTask}
+          handbackLimit={handbackLimit}
+          onSelectChannel={setActiveChannelId}
+          onChannelsChanged={refreshRosterAndChannels}
+          onMembersChanged={handleMembersChanged}
+          onEditMember={openEditMember}
+          onOpenTasks={goToTasks}
+          onEscalationResolved={refreshEscalation}
+        />
+      </View>
+      {/*
+        The member form lives at shell level because "Add member" sits in the
+        section switcher, which is above the sections — it must open from any
+        section, not just Members.
+      */}
+      <MemberForm
+        visible={memberForm !== null}
+        mode={memberForm?.mode ?? "create"}
+        client={client}
+        serverId={serverId}
+        currentProjectId={selectedProject?.projectKey ?? ""}
+        member={memberForm?.member ?? null}
+        onClose={closeMemberForm}
+        onSaved={handleMemberFormSaved}
+      />
     </View>
   );
 }
 
-function TeamProjectMenuItem({
-  projectKey,
-  projectName,
-  selected,
-  onSelectProject,
-}: {
-  projectKey: string;
-  projectName: string;
-  selected: boolean;
-  onSelectProject: (projectId: string) => void;
-}) {
-  const handleSelect = useCallback(() => {
-    onSelectProject(projectKey);
-  }, [onSelectProject, projectKey]);
-
-  return (
-    <DropdownMenuItem selected={selected} onSelect={handleSelect}>
-      {projectName}
-    </DropdownMenuItem>
-  );
-}
-
 /**
- * Which section the Team route is showing.
- *
- * Extracted from TeamScreen so that adding a section does not push that component past the
- * complexity limit — the switcher grows, this stays a flat dispatch.
+ * Flat dispatch to the active section. Extracted so adding a section grows the
+ * switcher, not this component.
  */
 function TeamSectionBody({
   section,
@@ -347,13 +348,17 @@ function TeamSectionBody({
   channels,
   activeChannelId,
   error,
-  memberLabels,
+  escalatedTask,
+  handbackLimit,
   onSelectChannel,
   onChannelsChanged,
   onMembersChanged,
+  onEditMember,
+  onOpenTasks,
+  onEscalationResolved,
 }: {
   section: TeamSection;
-  selectedProject: { projectKey: string } | null;
+  selectedProject: { projectKey: string; projectName: string } | null;
   isLoading: boolean;
   client: DaemonClient | null;
   serverId: string | null;
@@ -361,15 +366,14 @@ function TeamSectionBody({
   channels: TeamChannel[];
   activeChannelId: string | null;
   error: string | null;
-  memberLabels: {
-    idle: string;
-    working: string;
-    stopped: string;
-    unavailable: string;
-  };
+  escalatedTask: TeamTask | null;
+  handbackLimit: number | null;
   onSelectChannel: (channelId: string) => void;
   onChannelsChanged: () => void | Promise<void>;
   onMembersChanged: () => void;
+  onEditMember: (member: TeamMember) => void;
+  onOpenTasks: () => void;
+  onEscalationResolved: () => void;
 }) {
   const { t } = useTranslation();
 
@@ -387,11 +391,11 @@ function TeamSectionBody({
     return (
       <TeamMembersSection
         client={client}
-        serverId={serverId}
         projectId={selectedProject.projectKey}
         members={members}
         channels={channels}
         onMembersChanged={onMembersChanged}
+        onEditMember={onEditMember}
       />
     );
   }
@@ -401,245 +405,31 @@ function TeamSectionBody({
   }
 
   if (section === "settings") {
-    return <TeamSettingsSection client={client} projectId={selectedProject.projectKey} />;
-  }
-
-  if (section === "chat") {
     return (
-      <TeamChatSection
+      <TeamSettingsSection
         client={client}
         projectId={selectedProject.projectKey}
-        channelId={activeChannelId}
-        channels={channels}
-        members={members}
-        error={error}
-        memberLabels={memberLabels}
-        onSelectChannel={onSelectChannel}
-        onChannelsChanged={onChannelsChanged}
+        projectName={selectedProject.projectName}
       />
     );
   }
 
   return (
-    <View style={styles.sectionCard}>
-      <Text style={styles.muted}>{t("team.sections.pending")}</Text>
-    </View>
-  );
-}
-
-function TeamSettingsSection({
-  client,
-  projectId,
-}: {
-  client: DaemonClient | null;
-  projectId: string;
-}) {
-  const { t } = useTranslation();
-  const [settings, setSettings] = useState<TeamProjectSettings | null>(null);
-  const [adoption, setAdoption] = useState<TeamLegacyChatAdoptionState | null>(null);
-  const [maintenance, setMaintenance] = useState<TeamProjectMaintenance | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [restoreError, setRestoreError] = useState<string | null>(null);
-  const [isRestoring, setIsRestoring] = useState(false);
-
-  const refresh = useCallback(async () => {
-    if (!client) {
-      setSettings(null);
-      setAdoption(null);
-      return;
-    }
-    try {
-      const nextState = await getTeamProjectSettingsState(client, projectId);
-      setSettings(nextState.settings);
-      setAdoption(nextState.legacyChatAdoption);
-      setMaintenance(nextState.maintenance);
-      setError(null);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : String(nextError));
-    }
-  }, [client, projectId]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  const handleAdoptLegacyChat = useCallback(async () => {
-    if (!client) {
-      return;
-    }
-    try {
-      const nextAdoption = await adoptLegacyTeamChat({ client, projectId });
-      setAdoption(nextAdoption);
-      setError(null);
-      await refresh();
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : String(nextError));
-    }
-  }, [client, projectId, refresh]);
-
-  const handleRestoreSnapshot = useCallback(async () => {
-    if (!client) {
-      return;
-    }
-    setIsRestoring(true);
-    setRestoreError(null);
-    try {
-      const nextMaintenance = await restoreTeamProjectSnapshot({ client, projectId });
-      setMaintenance(nextMaintenance);
-      await refresh();
-    } catch (nextError) {
-      setRestoreError(nextError instanceof Error ? nextError.message : String(nextError));
-    } finally {
-      setIsRestoring(false);
-    }
-  }, [client, projectId, refresh]);
-
-  if (!settings && !error && !maintenance?.recovery?.isCorrupt) {
-    return (
-      <View style={styles.sectionCard}>
-        <Text style={styles.muted}>{t("common.states.loading")}</Text>
-      </View>
-    );
-  }
-
-  if (!settings) {
-    return (
-      <View style={styles.sectionCard}>
-        <Text style={settingsStyles.rowError}>{error ?? t("team.needsHostUpgrade")}</Text>
-        <TeamRecovery
-          maintenance={maintenance}
-          isRestoring={isRestoring}
-          restoreError={restoreError}
-          onRestore={handleRestoreSnapshot}
-        />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.sectionCard}>
-      <Text style={styles.sectionLabel}>{t("team.sections.settings")}</Text>
-      <TeamRecovery
-        maintenance={maintenance}
-        isRestoring={isRestoring}
-        restoreError={restoreError}
-        onRestore={handleRestoreSnapshot}
-      />
-      {adoption?.status === "pending" ? (
-        <View style={styles.adoptionCard}>
-          <Text style={styles.adoptionTitle}>{t("team.settings.adoption.title")}</Text>
-          <Text style={styles.muted}>
-            {t("team.settings.adoption.body", {
-              roomCount: adoption.roomCount,
-              messageCount: adoption.messageCount,
-            })}
-          </Text>
-          <Button onPress={handleAdoptLegacyChat} testID="team-adopt-legacy-chat-button">
-            {t("team.settings.adoption.action")}
-          </Button>
-        </View>
-      ) : null}
-      {/*
-        The form model is opened once per mount and seeded from `settings`, so switching projects
-        while this section stays mounted would leave the previous project's values in the fields.
-        Keying on the project rebuilds the model with the settings that were just fetched.
-      */}
-      <ProjectSettingsForm
-        key={projectId}
-        client={client}
-        projectId={projectId}
-        settings={settings}
-        onSaved={setSettings}
-      />
-    </View>
-  );
-}
-
-function TeamChatSection({
-  client,
-  projectId,
-  channelId,
-  channels,
-  members,
-  error,
-  memberLabels,
-  onSelectChannel,
-  onChannelsChanged,
-}: {
-  client: DaemonClient | null;
-  projectId: string;
-  channelId: string | null;
-  channels: TeamChannel[];
-  members: TeamMember[];
-  error: string | null;
-  memberLabels: {
-    idle: string;
-    working: string;
-    stopped: string;
-    unavailable: string;
-  };
-  onSelectChannel: (channelId: string) => void;
-  onChannelsChanged: () => void | Promise<void>;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <View style={styles.chatLayout}>
-      <View style={styles.sidebarColumn}>
-        <Text style={styles.sectionLabel}>{t("team.chat.channels")}</Text>
-        <ChannelList
-          client={client}
-          projectId={projectId}
-          channels={channels}
-          activeChannelId={channelId}
-          emptyLabel={t("team.chat.emptyChannels")}
-          onSelect={onSelectChannel}
-          onChannelsChanged={onChannelsChanged}
-        />
-      </View>
-      <View style={styles.mainColumn}>
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>{t("team.chat.activity")}</Text>
-          <MemberActivityStrip members={members} labels={memberLabels} />
-        </View>
-        {error ? (
-          <View style={styles.sectionCard}>
-            <Text style={settingsStyles.rowError}>{error}</Text>
-          </View>
-        ) : null}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>{t("team.chat.messages")}</Text>
-          <View style={styles.messageListWrap}>
-            <MessageList
-              client={client}
-              projectId={projectId}
-              channelId={channelId}
-              emptyLabel={t("team.chat.emptyMessages")}
-              loadOlderLabel={t("team.chat.loadOlder")}
-              loadingLabel={t("common.states.loading")}
-              retryLabel={t("common.actions.retry")}
-            />
-          </View>
-        </View>
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>{t("team.chat.compose")}</Text>
-          <MessageComposer
-            client={client}
-            projectId={projectId}
-            channelId={channelId}
-            members={members}
-            placeholder={t("team.chat.placeholder")}
-            submitLabel={t("team.chat.send")}
-            sentLabel={t("team.chat.sent")}
-            sendingLabel={t("team.chat.sending")}
-            retryLabel={t("common.actions.retry")}
-            dismissLabel={t("common.actions.dismiss")}
-            mentionEmptyLabel={t("team.chat.noMentions")}
-            mentionLoadingLabel={t("common.states.loading")}
-          />
-        </View>
-      </View>
-    </View>
+    <TeamChatSection
+      client={client}
+      serverId={serverId}
+      projectId={selectedProject.projectKey}
+      channelId={activeChannelId}
+      channels={channels}
+      members={members}
+      error={error}
+      escalatedTask={escalatedTask}
+      handbackLimit={handbackLimit}
+      onSelectChannel={onSelectChannel}
+      onChannelsChanged={onChannelsChanged}
+      onOpenTasks={onOpenTasks}
+      onEscalationResolved={onEscalationResolved}
+    />
   );
 }
 
@@ -648,98 +438,14 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     backgroundColor: theme.colors.surface0,
   },
-  scroll: {
+  body: {
     flex: 1,
-  },
-  content: {
-    padding: theme.spacing[4],
-    gap: theme.spacing[4],
-  },
-  topCard: {
-    gap: theme.spacing[3],
-    borderRadius: theme.borderRadius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface1,
-    padding: theme.spacing[4],
-  },
-  topRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: theme.spacing[3],
-    flexWrap: "wrap",
-  },
-  projectTrigger: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[2],
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface0,
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[2],
-    maxWidth: 360,
-  },
-  projectTriggerText: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.sm,
-    fontWeight: theme.fontWeight.medium,
-  },
-  projectHint: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.xs,
-  },
-  chatLayout: {
-    gap: theme.spacing[4],
-    flexDirection: {
-      xs: "column",
-      md: "row",
-    },
-  },
-  sidebarColumn: {
-    width: {
-      xs: "100%",
-      md: 280,
-    },
-    gap: theme.spacing[3],
-  },
-  mainColumn: {
-    flex: 1,
-    gap: theme.spacing[4],
-  },
-  sectionCard: {
-    gap: theme.spacing[3],
-    borderRadius: theme.borderRadius.xl,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface1,
-    padding: theme.spacing[4],
-  },
-  adoptionCard: {
-    gap: theme.spacing[3],
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface0,
-    padding: theme.spacing[4],
-  },
-  adoptionTitle: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-    fontWeight: theme.fontWeight.medium,
-  },
-  sectionLabel: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.xs,
-    fontWeight: theme.fontWeight.medium,
-  },
-  messageListWrap: {
-    minHeight: 320,
+    // Without this, a flex child with its own scroller grows to its content
+    // height instead of scrolling inside the remaining space.
+    minHeight: 0,
   },
   centered: {
-    minHeight: 280,
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },

@@ -227,6 +227,21 @@ export const fr: TranslationResources = {
     },
   },
   team: {
+    header: {
+      context: "sur {{daemon}} · {{count}} membres",
+      stopAll: "Arrêter toute l'activité",
+      stopAllTitle: "Arrêter toute l'activité ?",
+      stopAllMessage:
+        "Tous les membres actifs de ce projet sont arrêtés. Les revendications sont conservées, le travail reprend donc où il en était.",
+      stopAllConfirm: "Tout arrêter",
+    },
+    escalation: {
+      bannerTitle: "Le travail sur #{{ref}} est arrêté — limite de renvois atteinte",
+      bannerBody:
+        "{{count}} tentatives sur {{limit}} ont échoué sur le même critère. Chaque tentative est consultable sur la tâche. Les autres membres travaillent toujours.",
+      readAttempts: "Voir les tentatives",
+      resume: "Reprendre",
+    },
     title: "Équipe",
     daemon: "Daemon",
     needsHostUpgrade: "Mettez l'hôte à jour pour utiliser ceci.",
@@ -241,6 +256,9 @@ export const fr: TranslationResources = {
       pending: "Cette section arrivera dans une tâche Team Parity ultérieure.",
     },
     chat: {
+      composerPlaceholder: "Message pour #{{channel}}",
+      enterToSend: "Entrée pour envoyer",
+      insertMention: "Mentionner un membre",
       channels: "Canaux",
       activity: "Activité des membres",
       messages: "Messages",
@@ -272,11 +290,14 @@ export const fr: TranslationResources = {
       },
     },
     members: {
+      count: "Membres ({{count}})",
+      builtInIdentity: "identité intégrée",
       idle: "Inactif",
       working: "En cours",
       stopped: "Arrêté",
       unavailable: "Indisponible",
       list: {
+        workspaceRemoved: "Son worktree a été supprimé à la fusion",
         empty: "Aucun membre pour le moment",
         noChannels: "Aucun canal",
         workspaceMissing: "A besoin d’un nouvel espace de travail",
@@ -284,6 +305,12 @@ export const fr: TranslationResources = {
         channels: "Canaux : {{channels}}",
       },
       detail: {
+        configuration: "Configuration",
+        homeWorkspaceHelp: "Où son travail s'exécute — jamais partagé avec un autre membre",
+        rolePromptHelp: "À vous de le modifier — s'applique à chaque session de ce membre",
+        memoryLabel: "Mémoire",
+        memoryMeta: "Appartient au membre · {{size}}",
+        noMemory: "Pas encore de MEMORY.md",
         rolePrompt: "Prompt de rôle",
         memory: "MEMORY.md et fichiers du dossier membre",
         path: "Chemin : {{path}}",
@@ -335,6 +362,16 @@ export const fr: TranslationResources = {
       },
     },
     tasks: {
+      count_one: "{{count}} tâche",
+      count_other: "{{count}} tâches",
+      newTask: "Nouvelle tâche",
+      untitled: "Tâche sans titre",
+      dropTarget: "Déposez une tâche ici",
+      claimedBy: "Revendiquée par {{member}}",
+      forMember: "pour {{member}}",
+      unclaimed: "non revendiquée",
+      byMember: "par {{member}}",
+      handedBack: "Renvoyée {{count}} sur {{limit}} — vous êtes attendu",
       empty: "Aucune tâche pour le moment",
       emptyColumn: "Aucune tâche dans cette colonne",
       drag: "Faire glisser la tâche",
@@ -386,6 +423,8 @@ export const fr: TranslationResources = {
       },
     },
     settings: {
+      pageTitle: "Paramètres d'équipe du projet",
+      pageSubtitle: "Ne concerne que {{project}} sur ce daemon",
       retentionCap: "Limite de rétention des messages",
       handbackLimit: "Limite de renvois",
       attemptTimeout: "Délai d'une tentative (minutes)",

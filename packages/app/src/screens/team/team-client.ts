@@ -28,6 +28,8 @@ import type {
   TeamProjectAdoptLegacyChatResponse,
   TeamProjectGetSettingsResponse,
   TeamProjectRestoreSnapshotResponse,
+  TeamProjectResumeResponse,
+  TeamProjectStopAllResponse,
   TeamProjectUpdateSettingsResponse,
 } from "@getpaseo/protocol/team/rpc-schemas";
 import type { AgentProvider } from "@getpaseo/protocol/agent-types";
@@ -166,6 +168,17 @@ type TeamClientRequest =
       type: "team.project.restore_snapshot.request";
       requestId: string;
       projectId: string;
+    }
+  | {
+      type: "team.project.stop_all.request";
+      requestId: string;
+      projectId: string;
+    }
+  | {
+      type: "team.project.resume.request";
+      requestId: string;
+      projectId: string;
+      taskId?: string;
     };
 
 type TeamClientResponse =
@@ -188,7 +201,9 @@ type TeamClientResponse =
   | TeamProjectAdoptLegacyChatResponse["payload"]
   | TeamProjectRestoreSnapshotResponse["payload"]
   | TeamProjectGetSettingsResponse["payload"]
-  | TeamProjectUpdateSettingsResponse["payload"];
+  | TeamProjectUpdateSettingsResponse["payload"]
+  | TeamProjectStopAllResponse["payload"]
+  | TeamProjectResumeResponse["payload"];
 
 interface TeamResponsePayload {
   error?: string | null;
@@ -710,6 +725,58 @@ export async function adoptLegacyTeamChat(input: {
       }
     ).legacyChatAdoption ?? null
   );
+}
+
+/**
+ * Stops every running member in the project. Backs the header's "Stop all
+ * activity" action.
+ *
+ * Stopping never releases a member's claims — that is deliberate, see
+ * `member-lifecycle.ts` and research R1.
+ */
+export async function stopAllTeamActivity(input: {
+  client: DaemonClient;
+  projectId: string;
+}): Promise<void> {
+  const requestId = createRequestId("team-project-stop-all");
+  const payload = await sendTeamRequest<TeamProjectStopAllResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.project.stop_all.request",
+      requestId,
+      projectId: input.projectId,
+    },
+    responseType: "team.project.stop_all.response",
+  });
+  throwTeamError(payload);
+}
+
+/**
+ * Clears an escalation and resumes work. Backs "Resume" on the in-channel
+ * escalation banner and on an escalated task card.
+ *
+ * Omitting `taskId` resumes the project as a whole; passing one resumes just
+ * that task, which is what both escalation surfaces do.
+ */
+export async function resumeTeamProject(input: {
+  client: DaemonClient;
+  projectId: string;
+  taskId?: string;
+}): Promise<void> {
+  const requestId = createRequestId("team-project-resume");
+  const payload = await sendTeamRequest<TeamProjectResumeResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.project.resume.request",
+      requestId,
+      projectId: input.projectId,
+      ...(input.taskId ? { taskId: input.taskId } : {}),
+    },
+    responseType: "team.project.resume.response",
+  });
+  throwTeamError(payload);
 }
 
 export async function restoreTeamProjectSnapshot(input: {

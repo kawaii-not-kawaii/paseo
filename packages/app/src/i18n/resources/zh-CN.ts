@@ -223,6 +223,21 @@ export const zhCN: TranslationResources = {
     },
   },
   team: {
+    header: {
+      context: "位于 {{daemon}} · {{count}} 名成员",
+      stopAll: "停止全部活动",
+      stopAllTitle: "停止全部活动？",
+      stopAllMessage:
+        "该项目中所有正在运行的成员都会停止。认领会被保留，因此工作可以从中断处继续。",
+      stopAllConfirm: "全部停止",
+    },
+    escalation: {
+      bannerTitle: "#{{ref}} 的工作已停止 — 已达退回上限",
+      bannerBody:
+        "{{limit}} 次尝试中有 {{count}} 次未通过同一条标准。每次尝试都可在任务中查看。其他成员仍在工作。",
+      readAttempts: "查看尝试",
+      resume: "恢复",
+    },
     title: "团队",
     daemon: "守护进程",
     needsHostUpgrade: "请更新主机以使用此功能。",
@@ -237,6 +252,9 @@ export const zhCN: TranslationResources = {
       pending: "此部分会在后续的 Team Parity 任务中完成。",
     },
     chat: {
+      composerPlaceholder: "发送到 #{{channel}}",
+      enterToSend: "按 Enter 发送",
+      insertMention: "提及成员",
       channels: "频道",
       activity: "成员活动",
       messages: "消息",
@@ -267,11 +285,14 @@ export const zhCN: TranslationResources = {
       },
     },
     members: {
+      count: "成员 ({{count}})",
+      builtInIdentity: "内置身份",
       idle: "空闲",
       working: "工作中",
       stopped: "已停止",
       unavailable: "不可用",
       list: {
+        workspaceRemoved: "其 worktree 已在合并时移除",
         empty: "还没有成员",
         noChannels: "没有频道",
         workspaceMissing: "需要新的工作区",
@@ -279,6 +300,12 @@ export const zhCN: TranslationResources = {
         channels: "频道：{{channels}}",
       },
       detail: {
+        configuration: "配置",
+        homeWorkspaceHelp: "其工作运行的位置 — 绝不与其他成员共享",
+        rolePromptHelp: "可由你编辑 — 适用于该成员的每一次会话",
+        memoryLabel: "记忆",
+        memoryMeta: "由该成员拥有 · {{size}}",
+        noMemory: "尚无 MEMORY.md",
         rolePrompt: "角色提示词",
         memory: "MEMORY.md 和主目录文件",
         path: "路径：{{path}}",
@@ -328,6 +355,16 @@ export const zhCN: TranslationResources = {
       },
     },
     tasks: {
+      count_one: "{{count}} 个任务",
+      count_other: "{{count}} 个任务",
+      newTask: "新建任务",
+      untitled: "未命名任务",
+      dropTarget: "将任务拖放到此处",
+      claimedBy: "由 {{member}} 认领",
+      forMember: "指派给 {{member}}",
+      unclaimed: "未认领",
+      byMember: "由 {{member}} 创建",
+      handedBack: "已退回 {{count}}/{{limit}} — 需要你处理",
       empty: "还没有任务",
       emptyColumn: "此列还没有任务",
       drag: "拖动任务",
@@ -379,6 +416,8 @@ export const zhCN: TranslationResources = {
       },
     },
     settings: {
+      pageTitle: "项目团队设置",
+      pageSubtitle: "仅适用于此守护进程上的 {{project}}",
       retentionCap: "消息保留上限",
       handbackLimit: "退回上限",
       attemptTimeout: "尝试超时（分钟）",

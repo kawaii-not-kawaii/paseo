@@ -223,6 +223,21 @@ export const ar: TranslationResources = {
     },
   },
   team: {
+    header: {
+      context: "على {{daemon}} · {{count}} أعضاء",
+      stopAll: "إيقاف كل النشاط",
+      stopAllTitle: "إيقاف كل النشاط؟",
+      stopAllMessage:
+        "سيتوقف كل عضو قيد التشغيل في هذا المشروع. تُحفظ المطالبات، لذا يستأنف العمل من حيث توقف.",
+      stopAllConfirm: "إيقاف الكل",
+    },
+    escalation: {
+      bannerTitle: "توقف العمل على #{{ref}} — بلغ حد الإعادات",
+      bannerBody:
+        "فشلت {{count}} من {{limit}} محاولات في المعيار نفسه. كل محاولة قابلة للقراءة في المهمة. لا يزال بقية الأعضاء يعملون.",
+      readAttempts: "عرض المحاولات",
+      resume: "استئناف",
+    },
     title: "الفريق",
     daemon: "الخادم",
     needsHostUpgrade: "حدّث المضيف لاستخدام هذا.",
@@ -237,6 +252,9 @@ export const ar: TranslationResources = {
       pending: "سيصل هذا القسم في مهمة لاحقة من Team Parity.",
     },
     chat: {
+      composerPlaceholder: "رسالة إلى #{{channel}}",
+      enterToSend: "Enter للإرسال",
+      insertMention: "أشر إلى عضو",
       channels: "القنوات",
       activity: "نشاط الأعضاء",
       messages: "الرسائل",
@@ -268,11 +286,14 @@ export const ar: TranslationResources = {
       },
     },
     members: {
+      count: "الأعضاء ({{count}})",
+      builtInIdentity: "هوية مدمجة",
       idle: "خامل",
       working: "يعمل",
       stopped: "متوقف",
       unavailable: "غير متاح",
       list: {
+        workspaceRemoved: "أُزيل worktree الخاص به عند الدمج",
         empty: "لا يوجد أعضاء بعد",
         noChannels: "لا توجد قنوات",
         workspaceMissing: "يحتاج إلى مساحة عمل جديدة",
@@ -280,6 +301,12 @@ export const ar: TranslationResources = {
         channels: "القنوات: {{channels}}",
       },
       detail: {
+        configuration: "الإعداد",
+        homeWorkspaceHelp: "حيث يُنفَّذ عمله — لا يُشارَك أبدًا مع عضو آخر",
+        rolePromptHelp: "لك أن تحرره — ينطبق على كل جلسة يشغّلها هذا العضو",
+        memoryLabel: "الذاكرة",
+        memoryMeta: "مملوك للعضو · {{size}}",
+        noMemory: "لا يوجد MEMORY.md بعد",
         rolePrompt: "موجّه الدور",
         memory: "MEMORY.md وملفات المنزل",
         path: "المسار: {{path}}",
@@ -331,6 +358,16 @@ export const ar: TranslationResources = {
       },
     },
     tasks: {
+      count_one: "{{count}} مهمة",
+      count_other: "{{count}} مهمة",
+      newTask: "مهمة جديدة",
+      untitled: "مهمة بلا عنوان",
+      dropTarget: "أفلت مهمة هنا",
+      claimedBy: "مطالَب بها من {{member}}",
+      forMember: "لـ {{member}}",
+      unclaimed: "غير مطالَب بها",
+      byMember: "بواسطة {{member}}",
+      handedBack: "أُعيدت {{count}} من {{limit}} — تحتاج إليك",
       empty: "لا توجد مهام بعد",
       emptyColumn: "لا توجد مهام في هذا العمود",
       drag: "سحب المهمة",
@@ -382,6 +419,8 @@ export const ar: TranslationResources = {
       },
     },
     settings: {
+      pageTitle: "إعدادات فريق المشروع",
+      pageSubtitle: "ينطبق على {{project}} في هذا الخادم فقط",
       retentionCap: "حد الاحتفاظ بالرسائل",
       handbackLimit: "حد الإرجاعات",
       attemptTimeout: "مهلة المحاولة (بالدقائق)",

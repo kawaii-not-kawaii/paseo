@@ -4,7 +4,10 @@ import { Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { TeamMember, TeamTask } from "@getpaseo/protocol/team/types";
 import type { TeamMemberChanged, TeamTaskChanged } from "@getpaseo/protocol/team/rpc-schemas";
-import { listTeamMembers } from "@/screens/team/team-client";
+import { Plus } from "lucide-react-native";
+import { listTeamMembers, resumeTeamProject } from "@/screens/team/team-client";
+import { Button } from "@/components/ui/button";
+import { TEAM_SUBHEADER_HEIGHT } from "@/screens/team/team-layout";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { TaskBoard } from "./task-board";
@@ -12,15 +15,17 @@ import { TaskDetailSheet } from "./task-detail";
 import { TaskFilters } from "./task-filters-bar";
 import { applyTaskFilters, type TaskFilterState } from "./task-filters";
 import { TaskList, TaskViewToggle, type TaskViewMode } from "./task-list";
-import { listTeamTasks, updateTeamTask } from "./team-tasks-client";
+import { createTeamTask, listTeamTasks, updateTeamTask } from "./team-tasks-client";
 import { type TeamTaskStatusValue } from "./task-status";
 
 export function TeamTasksSection({
   client,
   projectId,
+  handbackLimit = null,
 }: {
   client: DaemonClient | null;
   projectId: string | null;
+  handbackLimit?: number | null;
 }) {
   const { t } = useTranslation();
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -109,19 +114,76 @@ export function TeamTasksSection({
     [client, projectId],
   );
 
+  /**
+   * "New task" creates the task and immediately opens it in the detail sheet.
+   *
+   * ponytail: no separate create form — the detail sheet already edits title,
+   * body, assignee, status and acceptance criteria, so a second form would
+   * duplicate all of it. The cost is that abandoning the sheet leaves an
+   * untitled task on the board. Add a real create form if that shows up in use.
+   */
+  const handleCreateTask = useCallback(async () => {
+    if (!client || !projectId) {
+      return;
+    }
+    try {
+      const created = await createTeamTask({
+        client,
+        projectId,
+        title: t("team.tasks.untitled"),
+      });
+      if (created) {
+        setTasks((current) => upsertTask(current, created));
+        setSelectedTaskId(created.id);
+      }
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError));
+    }
+  }, [client, projectId, t]);
+
+  const handleResumeTask = useCallback(
+    async (taskId: string) => {
+      if (!client || !projectId) {
+        return;
+      }
+      try {
+        await resumeTeamProject({ client, projectId, taskId });
+        await refresh();
+      } catch (nextError) {
+        setError(nextError instanceof Error ? nextError.message : String(nextError));
+      }
+    },
+    [client, projectId, refresh],
+  );
+
   return (
     <View style={styles.container}>
-      <View style={styles.controls}>
+      {/* 36px toolbar: view switcher, filters, count, then the primary action. */}
+      <View style={styles.toolbar}>
         <TaskViewToggle value={viewMode} onChange={setViewMode} />
         <TaskFilters filters={filters} members={members} onChange={setFilters} />
+        <Text style={styles.count}>{t("team.tasks.count", { count: filteredTasks.length })}</Text>
+        <View style={styles.toolbarSpacer} />
+        <Button
+          variant="default"
+          size="xs"
+          leftIcon={Plus}
+          onPress={handleCreateTask}
+          disabled={!client || !projectId}
+          testID="team-task-create-button"
+        >
+          {t("team.tasks.newTask")}
+        </Button>
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {viewMode === "board" ? (
         <TaskBoard
           tasks={filteredTasks}
           members={members}
+          handbackLimit={handbackLimit}
           onOpenTask={setSelectedTaskId}
           onMoveTask={handleMoveTask}
+          onResumeTask={handleResumeTask}
         />
       ) : (
         <TaskList
@@ -143,7 +205,12 @@ export function TeamTasksSection({
           setTasks((current) => upsertTask(current, task));
         }}
       />
-      {filteredTasks.length === 0 && !error ? (
+      {/*
+        Board mode says "empty" with a drop target in every column, so the
+        message would be a second, stranded copy of the same fact. Only the list
+        needs it.
+      */}
+      {viewMode === "list" && filteredTasks.length === 0 && !error ? (
         <Text style={styles.empty}>{t("team.tasks.empty")}</Text>
       ) : null}
     </View>
@@ -164,17 +231,35 @@ function upsertMember(current: TeamMember[], member: TeamMember): TeamMember[] {
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    gap: theme.spacing[4],
+    flex: 1,
+    minHeight: 0,
   },
-  controls: {
-    gap: theme.spacing[3],
+  toolbar: {
+    height: TEAM_SUBHEADER_HEIGHT,
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[4],
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  toolbarSpacer: {
+    flex: 1,
+  },
+  count: {
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: theme.fontSize.xs,
   },
   error: {
     color: theme.colors.statusDanger,
     fontSize: theme.fontSize.xs,
+    paddingHorizontal: theme.spacing[4],
+    paddingTop: theme.spacing[2],
   },
   empty: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.sm,
+    paddingHorizontal: theme.spacing[4],
   },
 }));

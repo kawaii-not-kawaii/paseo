@@ -11,6 +11,8 @@ import type {
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { listTeamChannels, listTeamMembers, listTeamMessages } from "@/screens/team/team-client";
+import { memberHandle } from "@/screens/team/member-status";
+import { TEAM_MESSAGE_MAX_WIDTH, TEAM_SPACE } from "@/screens/team/team-layout";
 import { InlineReferenceText } from "@/screens/team/tasks/inline-reference-text";
 import { ReferenceSheet } from "@/screens/team/tasks/reference-sheet";
 import { TaskDetailSheet } from "@/screens/team/tasks/task-detail";
@@ -252,19 +254,25 @@ export function MessageList({
       <>
         {nextCursor ? (
           <View style={styles.loadOlderRow}>
-            <Button variant="ghost" onPress={handleLoadOlderPress} loading={isLoadingOlder}>
+            <Button
+              variant="ghost"
+              size="xs"
+              onPress={handleLoadOlderPress}
+              loading={isLoadingOlder}
+            >
               {loadOlderLabel}
             </Button>
           </View>
         ) : null}
         {messages.map((message) => (
-          <View key={message.id} style={styles.messageCard}>
+          <View key={message.id} style={styles.message}>
+            {/*
+              Author and time share a baseline, so the 12px timestamp sits on the
+              same line as the 14px author rather than centering against it.
+            */}
             <View style={styles.messageMetaRow}>
-              <Text style={styles.author}>
-                {members.find((member) => member.id === message.authorMemberId)?.name ??
-                  message.authorMemberId}
-              </Text>
-              <Text style={styles.timestamp}>{new Date(message.createdAt).toLocaleString()}</Text>
+              <Text style={styles.author}>{formatAuthor(members, message.authorMemberId)}</Text>
+              <Text style={styles.timestamp}>{formatMessageTime(message.createdAt)}</Text>
             </View>
             <InlineReferenceText
               text={message.body}
@@ -323,6 +331,28 @@ export function MessageList({
   );
 }
 
+/** Members render as `@handle` throughout the Team surface. */
+function formatAuthor(members: TeamMember[], authorMemberId: string): string {
+  const member = members.find((entry) => entry.id === authorMemberId);
+  if (!member) {
+    return authorMemberId;
+  }
+  return memberHandle(member);
+}
+
+/**
+ * The design shows a bare wall-clock time ("11:01") beside the author, not a
+ * full timestamp — messages are grouped by channel, not by day, so the date
+ * adds noise to every row.
+ */
+function formatMessageTime(createdAt: string): string {
+  const parsed = new Date(createdAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  return parsed.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+}
+
 function upsertTask(current: TeamTask[], task: TeamTask): TeamTask[] {
   const next = new Map(current.map((entry) => [entry.id, entry] as const));
   next.set(task.id, task);
@@ -344,8 +374,9 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
   },
   content: {
-    gap: theme.spacing[3],
-    paddingBottom: theme.spacing[4],
+    gap: TEAM_SPACE.message,
+    paddingVertical: TEAM_SPACE.list,
+    paddingHorizontal: theme.spacing[6],
   },
   centered: {
     alignItems: "center",
@@ -360,18 +391,14 @@ const styles = StyleSheet.create((theme) => ({
   loadOlderRow: {
     alignItems: "center",
   },
-  messageCard: {
-    borderRadius: theme.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface1,
-    padding: theme.spacing[4],
-    gap: theme.spacing[2],
+  message: {
+    maxWidth: TEAM_MESSAGE_MAX_WIDTH,
+    gap: 5,
   },
   messageMetaRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: theme.spacing[3],
+    alignItems: "baseline",
+    gap: theme.spacing[2],
   },
   author: {
     color: theme.colors.foreground,
@@ -379,13 +406,8 @@ const styles = StyleSheet.create((theme) => ({
     fontWeight: theme.fontWeight.medium,
   },
   timestamp: {
-    color: theme.colors.foregroundMuted,
+    color: theme.colors.foregroundExtraMuted,
     fontSize: theme.fontSize.xs,
-  },
-  body: {
-    color: theme.colors.foreground,
-    fontSize: theme.fontSize.base,
-    lineHeight: 22,
   },
 }));
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { TeamMember } from "@getpaseo/protocol/team/types";
@@ -15,7 +15,6 @@ interface MemberActionsProps {
   member: TeamMember;
   onMemberChanged?: (member: TeamMember | null) => void;
   onRemoved?: (memberId: string) => void;
-  onRepoint?: (member: TeamMember) => void;
 }
 
 export function MemberActions({
@@ -24,20 +23,10 @@ export function MemberActions({
   member,
   onMemberChanged,
   onRemoved,
-  onRepoint,
 }: MemberActionsProps) {
   const { t } = useTranslation();
   const [isPending, setIsPending] = useState<"start" | "stop" | "remove" | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const unavailableReason = useMemo(() => {
-    if (member.status !== "unavailable") {
-      return null;
-    }
-    return member.homeWorkspaceId
-      ? t("team.members.actions.workspaceUnavailable", { workspace: member.homeWorkspaceId })
-      : t("team.members.actions.workspaceMissingReason");
-  }, [member.homeWorkspaceId, member.status, t]);
 
   const handleStart = useCallback(async () => {
     if (!client || isPending) {
@@ -99,57 +88,35 @@ export function MemberActions({
     }
   }, [client, isPending, member.id, member.name, onRemoved, projectId, t]);
 
-  const handleRepoint = useCallback(() => {
-    onRepoint?.(member);
-  }, [member, onRepoint]);
+  const isRunning = member.status === "running";
 
   return (
-    <View style={styles.container}>
-      {unavailableReason ? (
-        <View style={styles.warningCard}>
-          <Text style={styles.warningTitle}>{t("team.members.actions.unavailableTitle")}</Text>
-          <Text style={settingsStyles.rowHint}>{unavailableReason}</Text>
-          <Button
-            variant="secondary"
-            size="sm"
-            onPress={handleRepoint}
-            testID="team-member-repoint-button"
-          >
-            {t("team.members.actions.repoint")}
-          </Button>
-        </View>
-      ) : null}
-
+    <View style={styles.actions}>
       <View style={styles.actionsRow}>
+        {/*
+          One lifecycle button, not two. The design shows "Stop" beside a working
+          member; offering Start and Stop at once makes the reader work out which
+          one is live.
+        */}
         <Button
-          variant="default"
-          style={styles.actionButton}
-          onPress={handleStart}
-          loading={isPending === "start"}
-          testID="team-member-start-button"
+          variant="outline"
+          size="sm"
+          onPress={isRunning ? handleStop : handleStart}
+          loading={isPending === "start" || isPending === "stop"}
+          testID={isRunning ? "team-member-stop-button" : "team-member-start-button"}
         >
-          {t("team.members.actions.start")}
+          {isRunning ? t("team.members.actions.stop") : t("team.members.actions.start")}
         </Button>
         <Button
-          variant="secondary"
-          style={styles.actionButton}
-          onPress={handleStop}
-          loading={isPending === "stop"}
-          testID="team-member-stop-button"
+          variant="outline"
+          size="sm"
+          onPress={handleRemove}
+          loading={isPending === "remove"}
+          testID="team-member-remove-button"
         >
-          {t("team.members.actions.stop")}
+          {t("team.members.actions.remove")}
         </Button>
       </View>
-
-      <Button
-        variant="outline"
-        onPress={handleRemove}
-        loading={isPending === "remove"}
-        testID="team-member-remove-button"
-      >
-        {t("team.members.actions.remove")}
-      </Button>
-
       {error ? (
         <Text style={styles.errorText} testID="team-member-actions-error">
           {error}
@@ -159,16 +126,52 @@ export function MemberActions({
   );
 }
 
+/**
+ * The "this member cannot run" callout, shown under the detail sub-line rather
+ * than in the title row so a long reason does not push the actions around.
+ */
+export function MemberUnavailableNotice({
+  member,
+  onRepoint,
+}: {
+  member: TeamMember;
+  onRepoint?: (member: TeamMember) => void;
+}) {
+  const { t } = useTranslation();
+  const handleRepoint = useCallback(() => onRepoint?.(member), [member, onRepoint]);
+
+  if (member.status !== "unavailable") {
+    return null;
+  }
+
+  const reason = member.homeWorkspaceId
+    ? t("team.members.actions.workspaceUnavailable", { workspace: member.homeWorkspaceId })
+    : t("team.members.actions.workspaceMissingReason");
+
+  return (
+    <View style={styles.warningCard}>
+      <Text style={styles.warningTitle}>{t("team.members.actions.unavailableTitle")}</Text>
+      <Text style={settingsStyles.rowHint}>{reason}</Text>
+      <Button
+        variant="secondary"
+        size="sm"
+        onPress={handleRepoint}
+        testID="team-member-repoint-button"
+      >
+        {t("team.members.actions.repoint")}
+      </Button>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create((theme) => ({
-  container: {
-    gap: theme.spacing[3],
+  actions: {
+    alignItems: "flex-end",
+    gap: theme.spacing[1],
   },
   actionsRow: {
     flexDirection: "row",
     gap: theme.spacing[2],
-  },
-  actionButton: {
-    flex: 1,
   },
   warningCard: {
     gap: theme.spacing[2],

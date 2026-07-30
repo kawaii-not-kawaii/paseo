@@ -1,286 +1,389 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import { Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { TeamHomeFileEntry, TeamMember } from "@getpaseo/protocol/team/types";
+import type { TeamChannel, TeamMember } from "@getpaseo/protocol/team/types";
+import { ChevronRight } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
-import { StyleSheet } from "react-native-unistyles";
-import { Button } from "@/components/ui/button";
-import { Field, FormTextInput } from "@/components/ui/form-field";
-import { ScrollableCodeSurface } from "@/components/ui/scrollable-code-surface";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { settingsStyles } from "@/styles/settings";
+import { listTeamMemberHomeFiles, readTeamMemberHomeFile } from "@/screens/team/team-client";
 import {
-  listTeamMemberHomeFiles,
-  readTeamMemberHomeFile,
-  updateTeamMember,
-} from "@/screens/team/team-client";
+  memberHandle,
+  memberStatusLabel,
+  memberStatusTone,
+  type TeamMemberStatusLabels,
+} from "@/screens/team/member-status";
+import {
+  TEAM_CONTENT_MAX_WIDTH,
+  TEAM_LINE_HEIGHT,
+  TEAM_SPACE,
+  TEAM_TITLE_WEIGHT,
+} from "@/screens/team/team-layout";
+import { TeamStatusPill } from "@/screens/team/ui/status-pill";
+import { MemberActions, MemberUnavailableNotice } from "./member-actions";
+import type { Theme } from "@/styles/theme";
 
-interface MemberDetailProps {
+const ThemedChevronRight = withUnistyles(ChevronRight);
+const faintChevron = (theme: Theme) => ({ color: theme.colors.foregroundExtraMuted });
+
+const MEMORY_FILE = "MEMORY.md";
+
+/**
+ * The member detail pane: 720px of title, configuration, and memory.
+ *
+ * Every Configuration row opens the member edit form. The design draws a
+ * chevron on each one but never designs a destination for them, and the edit
+ * form already owns all four fields — so the chevron leads there rather than to
+ * four new screens that would duplicate it.
+ */
+export function MemberDetail({
+  client,
+  member,
+  channels,
+  labels,
+  workspaceName,
+  projectId,
+  onMemberChanged,
+  onRemoved,
+  onEditMember,
+}: {
   client: DaemonClient | null;
   member: TeamMember;
+  channels: TeamChannel[];
+  labels: TeamMemberStatusLabels;
+  workspaceName: string | null;
+  projectId: string;
   onMemberChanged?: (member: TeamMember | null) => void;
-}
-
-export function MemberDetail({ client, member, onMemberChanged }: MemberDetailProps) {
+  onRemoved?: (memberId: string) => void;
+  onEditMember: (member: TeamMember) => void;
+}) {
   const { t } = useTranslation();
-  const [rolePrompt, setRolePrompt] = useState(member.rolePrompt ?? "");
-  const [promptError, setPromptError] = useState<string | null>(null);
-  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
-  const [currentPath, setCurrentPath] = useState(".");
-  const [entries, setEntries] = useState<TeamHomeFileEntry[]>([]);
-  const [selectedFilePath, setSelectedFilePath] = useState<string>("MEMORY.md");
-  const [fileContent, setFileContent] = useState<string | null>(null);
-  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
-  const [isLoadingContent, setIsLoadingContent] = useState(false);
-  const [fileError, setFileError] = useState<string | null>(null);
+  const [memory, setMemory] = useState<string | null>(null);
+  const [memoryBytes, setMemoryBytes] = useState<number | null>(null);
+  const [memoryError, setMemoryError] = useState<string | null>(null);
+  const [isLoadingMemory, setIsLoadingMemory] = useState(false);
 
+  const tone = memberStatusTone(member);
+  const handle = memberHandle(member);
+
+  const handleEdit = useCallback(() => onEditMember(member), [member, onEditMember]);
+
+  // MEMORY.md is the one home file the design surfaces. The rest of the home
+  // directory stays reachable through the member's workspace, not here.
   useEffect(() => {
-    setRolePrompt(member.rolePrompt ?? "");
-    setPromptError(null);
-  }, [member.id, member.rolePrompt]);
-
-  const loadDirectory = useCallback(
-    async (path: string) => {
-      if (!client) {
-        return;
-      }
-      setIsLoadingFiles(true);
-      setFileError(null);
+    let cancelled = false;
+    if (!client || member.kind === "human") {
+      setMemory(null);
+      setMemoryBytes(null);
+      return;
+    }
+    setIsLoadingMemory(true);
+    setMemoryError(null);
+    void (async () => {
       try {
-        const result = await listTeamMemberHomeFiles({ client, memberId: member.id, path });
-        setCurrentPath(result.path);
-        setEntries(result.entries);
-        const memoryEntry = result.entries.find((entry) => entry.path.endsWith("MEMORY.md"));
-        const nextSelection =
-          memoryEntry?.path ?? result.entries.find((entry) => entry.kind === "file")?.path;
-        if (nextSelection) {
-          setSelectedFilePath(nextSelection);
-        } else {
-          setSelectedFilePath("");
-          setFileContent(null);
+        const listing = await listTeamMemberHomeFiles({ client, memberId: member.id, path: "." });
+        const entry = listing.entries.find((candidate) => candidate.path.endsWith(MEMORY_FILE));
+        if (!entry) {
+          if (!cancelled) {
+            setMemory(null);
+            setMemoryBytes(null);
+          }
+          return;
+        }
+        const file = await readTeamMemberHomeFile({
+          client,
+          memberId: member.id,
+          path: entry.path,
+        });
+        if (!cancelled) {
+          setMemory(file.content ?? null);
+          // The home-file listing carries no size, so measure the content we
+          // already fetched rather than adding a field to the wire format.
+          setMemoryBytes(file.content === null ? null : byteLength(file.content));
         }
       } catch (error) {
-        setFileError(error instanceof Error ? error.message : String(error));
+        if (!cancelled) {
+          setMemoryError(error instanceof Error ? error.message : String(error));
+        }
       } finally {
-        setIsLoadingFiles(false);
+        if (!cancelled) {
+          setIsLoadingMemory(false);
+        }
       }
-    },
-    [client, member.id],
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [client, member.id, member.kind]);
+
+  const channelNames = useMemo(() => {
+    if (!member.channelIds || member.channelIds.length === 0) {
+      return t("team.members.list.noChannels");
+    }
+    const byId = new Map(channels.map((channel) => [channel.id, channel.name] as const));
+    return member.channelIds
+      .map((id) => {
+        const name = byId.get(id);
+        return name ? `#${name}` : null;
+      })
+      .filter((name): name is string => name !== null)
+      .join(", ");
+  }, [channels, member.channelIds, t]);
+
+  const configRows = useMemo(
+    () => [
+      {
+        key: "homeWorkspace",
+        title: t("team.members.form.homeWorkspace"),
+        help: t("team.members.detail.homeWorkspaceHelp"),
+        value: workspaceName ?? member.homeWorkspaceId ?? t("team.members.list.workspaceMissing"),
+      },
+      {
+        key: "runtime",
+        title: t("team.members.form.runtimeAndModel"),
+        help: null,
+        value: [member.provider, member.model].filter(Boolean).join(" · "),
+      },
+      {
+        key: "rolePrompt",
+        title: t("team.members.detail.rolePrompt"),
+        help: t("team.members.detail.rolePromptHelp"),
+        value: null,
+      },
+      {
+        key: "channels",
+        title: t("team.sections.chat"),
+        help: null,
+        value: channelNames,
+      },
+    ],
+    [channelNames, member.homeWorkspaceId, member.model, member.provider, t, workspaceName],
   );
-
-  const loadFile = useCallback(
-    async (path: string) => {
-      if (!client || !path) {
-        return;
-      }
-      setIsLoadingContent(true);
-      setFileError(null);
-      try {
-        const result = await readTeamMemberHomeFile({ client, memberId: member.id, path });
-        setSelectedFilePath(result.path);
-        setFileContent(result.content);
-      } catch (error) {
-        setFileError(error instanceof Error ? error.message : String(error));
-      } finally {
-        setIsLoadingContent(false);
-      }
-    },
-    [client, member.id],
-  );
-
-  useEffect(() => {
-    void loadDirectory(".");
-  }, [loadDirectory, member.id]);
-
-  useEffect(() => {
-    if (!selectedFilePath) {
-      return;
-    }
-    void loadFile(selectedFilePath);
-  }, [loadFile, selectedFilePath]);
-
-  const handleSavePrompt = useCallback(async () => {
-    if (!client || isSavingPrompt) {
-      return;
-    }
-    setIsSavingPrompt(true);
-    setPromptError(null);
-    try {
-      const nextMember = await updateTeamMember({
-        client,
-        memberId: member.id,
-        rolePrompt,
-      });
-      onMemberChanged?.(nextMember);
-    } catch (error) {
-      setPromptError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setIsSavingPrompt(false);
-    }
-  }, [client, isSavingPrompt, member.id, onMemberChanged, rolePrompt]);
-
-  const handleOpenEntry = useCallback(
-    (entry: TeamHomeFileEntry) => {
-      if (entry.kind === "directory") {
-        void loadDirectory(entry.path);
-        return;
-      }
-      setSelectedFilePath(entry.path);
-    },
-    [loadDirectory],
-  );
-
-  const handleUp = useCallback(() => {
-    if (currentPath === "." || currentPath.length === 0) {
-      return;
-    }
-    const nextPath = currentPath.includes("/")
-      ? currentPath.slice(0, currentPath.lastIndexOf("/"))
-      : ".";
-    void loadDirectory(nextPath.length > 0 ? nextPath : ".");
-  }, [currentPath, loadDirectory]);
-
-  const promptDirty = useMemo(
-    () => rolePrompt !== (member.rolePrompt ?? ""),
-    [member.rolePrompt, rolePrompt],
-  );
-  const contentLabel = useMemo(() => {
-    if (fileError) {
-      return fileError;
-    }
-    if (isLoadingFiles || isLoadingContent) {
-      return t("common.states.loading");
-    }
-    return fileContent ?? t("team.members.detail.emptyFile");
-  }, [fileContent, fileError, isLoadingContent, isLoadingFiles, t]);
 
   return (
-    <View style={styles.container}>
-      <View style={settingsStyles.section}>
-        <Text style={settingsStyles.sectionTitle}>{t("team.members.detail.rolePrompt")}</Text>
-        <Field
-          label={t("team.members.detail.rolePrompt")}
-          error={promptError}
-          testID="team-member-role-prompt-field"
-        >
-          <FormTextInput
-            initialValue={member.rolePrompt ?? ""}
-            resetKey={`${member.id}:${member.rolePrompt ?? ""}`}
-            onChangeText={setRolePrompt}
-            editable={!isSavingPrompt}
-            multiline
-            style={styles.promptInput}
-            textAlignVertical="top"
-            testID="team-member-role-prompt-input"
-          />
-        </Field>
-        <Button
-          variant="default"
-          onPress={handleSavePrompt}
-          disabled={!promptDirty || isSavingPrompt}
-          loading={isSavingPrompt}
-          testID="team-member-role-prompt-save"
-        >
-          {t("common.actions.save")}
-        </Button>
-      </View>
-
-      <View style={settingsStyles.section}>
-        <Text style={settingsStyles.sectionTitle}>{t("team.members.detail.memory")}</Text>
-        <View style={styles.browserHeader}>
-          <Text style={settingsStyles.rowHint}>
-            {t("team.members.detail.path", { path: currentPath })}
+    <ScrollView style={styles.scroll}>
+      <View style={styles.body}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title} numberOfLines={1}>
+            {handle}
           </Text>
-          <Button
-            variant="ghost"
-            size="sm"
-            onPress={handleUp}
-            disabled={currentPath === "."}
-            testID="team-member-home-up"
-          >
-            {t("team.members.detail.up")}
-          </Button>
-        </View>
-        <View style={settingsStyles.card}>
-          {entries.map((entry, index) => (
-            <MemberFileEntryButton
-              key={entry.path}
-              entry={entry}
-              bordered={index > 0}
-              label={
-                entry.kind === "directory"
-                  ? t("team.members.detail.directoryLabel", { name: entry.name })
-                  : entry.name
-              }
-              onOpenEntry={handleOpenEntry}
+          <TeamStatusPill tone={tone} label={memberStatusLabel(member, labels)} />
+          <View style={styles.titleSpacer} />
+          {member.kind === "human" ? null : (
+            <MemberActions
+              client={client}
+              projectId={projectId}
+              member={member}
+              onMemberChanged={onMemberChanged}
+              onRemoved={onRemoved}
             />
-          ))}
-          {entries.length === 0 && !isLoadingFiles ? (
-            <View style={settingsStyles.row}>
-              <View style={settingsStyles.rowContent}>
-                <Text style={settingsStyles.rowHint}>{t("team.members.detail.noFiles")}</Text>
-              </View>
-            </View>
-          ) : null}
+          )}
         </View>
-        <ScrollableCodeSurface
-          horizontal={false}
-          maxHeight={360}
-          testID="team-member-memory-content"
-        >
-          {contentLabel}
-        </ScrollableCodeSurface>
+
+        {member.description ? <Text style={styles.subline}>{member.description}</Text> : null}
+
+        <MemberUnavailableNotice member={member} onRepoint={onEditMember} />
+
+        {member.kind === "human" ? null : (
+          <>
+            <Text style={styles.groupLabel}>{t("team.members.detail.configuration")}</Text>
+            <View style={settingsStyles.card}>
+              {configRows.map((row, index) => (
+                <MemberConfigRow
+                  key={row.key}
+                  title={row.title}
+                  help={row.help}
+                  value={row.value}
+                  bordered={index > 0}
+                  onPress={handleEdit}
+                />
+              ))}
+            </View>
+
+            <View style={styles.memoryHeader}>
+              <Text style={styles.groupLabelInline}>{t("team.members.detail.memoryLabel")}</Text>
+              <Text style={styles.memoryMeta} numberOfLines={1}>
+                {t("team.members.detail.memoryMeta", {
+                  size: formatBytes(memoryBytes),
+                })}
+              </Text>
+            </View>
+            <View style={styles.memoryCard}>
+              <Text style={styles.memoryFilename}>{MEMORY_FILE}</Text>
+              <Text style={styles.memoryBody}>
+                {memoryError ??
+                  (isLoadingMemory
+                    ? t("common.states.loading")
+                    : (memory ?? t("team.members.detail.noMemory")))}
+              </Text>
+            </View>
+          </>
+        )}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
-const MemberFileEntryButton = memo(function MemberFileEntryButton({
-  entry,
+function MemberConfigRow({
+  title,
+  help,
+  value,
   bordered,
-  label,
-  onOpenEntry,
+  onPress,
 }: {
-  entry: TeamHomeFileEntry;
+  title: string;
+  help: string | null;
+  value: string | null;
   bordered: boolean;
-  label: string;
-  onOpenEntry: (entry: TeamHomeFileEntry) => void;
+  onPress: () => void;
 }) {
-  const handlePress = useCallback(() => {
-    onOpenEntry(entry);
-  }, [entry, onOpenEntry]);
+  const rowStyle = useCallback(
+    ({ hovered }: { hovered?: boolean }) => [
+      styles.configRow,
+      bordered && styles.configRowBordered,
+      Boolean(hovered) && styles.configRowHovered,
+    ],
+    [bordered],
+  );
 
   return (
-    <Button
-      variant="ghost"
-      onPress={handlePress}
-      style={[styles.fileRow, bordered ? styles.fileRowBorder : null]}
-      testID={`team-member-home-entry-${entry.path}`}
-    >
-      {label}
-    </Button>
+    <Pressable accessibilityRole="button" onPress={onPress} style={rowStyle}>
+      <View style={styles.configRowText}>
+        <Text style={styles.configTitle}>{title}</Text>
+        {help ? <Text style={styles.configHelp}>{help}</Text> : null}
+      </View>
+      {value ? (
+        <Text style={styles.configValue} numberOfLines={1}>
+          {value}
+        </Text>
+      ) : null}
+      <ThemedChevronRight size={14} uniProps={faintChevron} />
+    </Pressable>
   );
-});
+}
+
+/** UTF-8 byte length, so a file of multibyte characters is not undercounted. */
+function byteLength(content: string): number {
+  if (typeof TextEncoder !== "undefined") {
+    return new TextEncoder().encode(content).length;
+  }
+  return content.length;
+}
+
+/** The design shows MEMORY.md's size beside it; an unknown size just drops out. */
+function formatBytes(bytes: number | null): string {
+  if (bytes === null) {
+    return "—";
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  return `${(bytes / 1024).toFixed(1)} KB`;
+}
 
 const styles = StyleSheet.create((theme) => ({
-  container: {
-    gap: theme.spacing[6],
+  scroll: {
+    flex: 1,
   },
-  promptInput: {
-    minHeight: 180,
+  body: {
+    maxWidth: TEAM_CONTENT_MAX_WIDTH,
+    paddingTop: TEAM_SPACE.page,
+    paddingHorizontal: theme.spacing[8],
+    paddingBottom: 40,
+    gap: theme.spacing[2],
   },
-  browserHeader: {
+  titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: TEAM_SPACE.snug,
+  },
+  title: {
+    fontSize: theme.fontSize["2xl"],
+    fontWeight: TEAM_TITLE_WEIGHT,
+    color: theme.colors.foreground,
+    flexShrink: 1,
+  },
+  titleSpacer: {
+    flex: 1,
+  },
+  subline: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
+  },
+  groupLabel: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundMuted,
+    marginTop: TEAM_SPACE.message,
+    marginLeft: theme.spacing[1],
+  },
+  groupLabelInline: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundMuted,
+  },
+  memoryHeader: {
+    flexDirection: "row",
+    alignItems: "baseline",
     justifyContent: "space-between",
     gap: theme.spacing[3],
-    marginBottom: theme.spacing[3],
+    marginTop: TEAM_SPACE.group,
+    marginLeft: theme.spacing[1],
   },
-  fileRow: {
-    justifyContent: "flex-start",
-    borderRadius: 0,
+  memoryMeta: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundExtraMuted,
+    flexShrink: 1,
   },
-  fileRowBorder: {
+  memoryCard: {
+    backgroundColor: theme.colors.surface1,
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing[4],
+    gap: theme.spacing[1],
+  },
+  memoryFilename: {
+    fontFamily: theme.fontFamily.mono,
+    fontSize: theme.fontSize.code,
+    lineHeight: theme.fontSize.code * TEAM_LINE_HEIGHT.mono,
+    color: theme.colors.foreground,
+  },
+  memoryBody: {
+    fontFamily: theme.fontFamily.mono,
+    fontSize: theme.fontSize.code,
+    lineHeight: theme.fontSize.code * TEAM_LINE_HEIGHT.mono,
+    color: theme.colors.foregroundMuted,
+  },
+  configRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+    padding: theme.spacing[4],
+  },
+  configRowBordered: {
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
+  },
+  configRowHovered: {
+    backgroundColor: theme.colors.surface2,
+  },
+  configRowText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  configTitle: {
+    fontSize: theme.fontSize.base,
+    color: theme.colors.foreground,
+  },
+  configHelp: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundMuted,
+    marginTop: theme.spacing[1],
+    lineHeight: theme.fontSize.xs * TEAM_LINE_HEIGHT.help,
+  },
+  configValue: {
+    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
+    flexShrink: 1,
+    textAlign: "right",
   },
 }));

@@ -226,6 +226,21 @@ export const ja: TranslationResources = {
     },
   },
   team: {
+    header: {
+      context: "{{daemon}} 上 · メンバー {{count}} 人",
+      stopAll: "すべての活動を停止",
+      stopAllTitle: "すべての活動を停止しますか？",
+      stopAllMessage:
+        "このプロジェクトで実行中のメンバーがすべて停止します。クレームは保持されるため、作業は中断した所から再開できます。",
+      stopAllConfirm: "すべて停止",
+    },
+    escalation: {
+      bannerTitle: "#{{ref}} の作業が停止しました — 差し戻し上限に達しました",
+      bannerBody:
+        "{{limit}} 回中 {{count}} 回の試行が同じ基準で失敗しました。各試行はタスクで確認できます。他のメンバーは作業を続けています。",
+      readAttempts: "試行を見る",
+      resume: "再開",
+    },
     title: "チーム",
     daemon: "デーモン",
     needsHostUpgrade: "これを使用するにはホストを更新してください。",
@@ -240,6 +255,9 @@ export const ja: TranslationResources = {
       pending: "このセクションは後続の Team Parity タスクで追加されます。",
     },
     chat: {
+      composerPlaceholder: "#{{channel}} へのメッセージ",
+      enterToSend: "Enter で送信",
+      insertMention: "メンバーをメンション",
       channels: "チャンネル",
       activity: "メンバーの稼働状況",
       messages: "メッセージ",
@@ -271,11 +289,14 @@ export const ja: TranslationResources = {
       },
     },
     members: {
+      count: "メンバー ({{count}})",
+      builtInIdentity: "組み込みの ID",
       idle: "待機中",
       working: "作業中",
       stopped: "停止",
       unavailable: "利用不可",
       list: {
+        workspaceRemoved: "マージ時に worktree が削除されました",
         empty: "メンバーはまだいません",
         noChannels: "チャンネルなし",
         workspaceMissing: "新しいワークスペースが必要です",
@@ -283,6 +304,12 @@ export const ja: TranslationResources = {
         channels: "チャンネル: {{channels}}",
       },
       detail: {
+        configuration: "構成",
+        homeWorkspaceHelp: "作業が実行される場所 — 他のメンバーと共有されることはありません",
+        rolePromptHelp: "編集できます — このメンバーの全セッションに適用されます",
+        memoryLabel: "メモリ",
+        memoryMeta: "メンバーが所有 · {{size}}",
+        noMemory: "MEMORY.md はまだありません",
         rolePrompt: "ロールプロンプト",
         memory: "MEMORY.md とホームファイル",
         path: "パス: {{path}}",
@@ -334,6 +361,16 @@ export const ja: TranslationResources = {
       },
     },
     tasks: {
+      count_one: "{{count}} 件のタスク",
+      count_other: "{{count}} 件のタスク",
+      newTask: "新しいタスク",
+      untitled: "無題のタスク",
+      dropTarget: "ここにタスクをドロップ",
+      claimedBy: "{{member}} が担当",
+      forMember: "{{member}} 宛",
+      unclaimed: "未担当",
+      byMember: "{{member}}",
+      handedBack: "{{limit}} 回中 {{count}} 回差し戻し — 対応が必要",
       empty: "タスクはまだありません",
       emptyColumn: "この列にタスクはありません",
       drag: "タスクをドラッグ",
@@ -385,6 +422,8 @@ export const ja: TranslationResources = {
       },
     },
     settings: {
+      pageTitle: "プロジェクトのチーム設定",
+      pageSubtitle: "このデーモンの {{project}} にのみ適用されます",
       retentionCap: "メッセージ保持上限",
       handbackLimit: "差し戻し上限",
       attemptTimeout: "試行タイムアウト（分）",

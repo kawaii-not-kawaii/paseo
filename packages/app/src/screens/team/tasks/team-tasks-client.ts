@@ -1,6 +1,7 @@
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { TeamTask } from "@getpaseo/protocol/team/types";
 import type {
+  TeamTaskCreateResponse,
   TeamTaskGetResponse,
   TeamTaskListResponse,
   TeamTaskSetClaimResponse,
@@ -40,6 +41,15 @@ type TeamTaskClientRequest =
       projectId: string;
       taskId: string;
       claimantMemberId: string | null;
+    }
+  | {
+      type: "team.task.create.request";
+      requestId: string;
+      projectId: string;
+      title: string;
+      body?: string;
+      assigneeMemberId?: string;
+      dependsOn?: string[];
     };
 
 interface TeamResponsePayload {
@@ -88,6 +98,31 @@ function throwTeamError(payload: TeamResponsePayload): void {
   if (payload.error) {
     throw new Error(payload.error);
   }
+}
+
+export async function createTeamTask(input: {
+  client: DaemonClient;
+  projectId: string;
+  title: string;
+  body?: string;
+  assigneeMemberId?: string;
+}): Promise<TeamTask | null> {
+  const requestId = createRequestId("team-task-create");
+  const payload = await sendTeamTaskRequest<TeamTaskCreateResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.task.create.request",
+      requestId,
+      projectId: input.projectId,
+      title: input.title,
+      ...(input.body ? { body: input.body } : {}),
+      ...(input.assigneeMemberId ? { assigneeMemberId: input.assigneeMemberId } : {}),
+    },
+    responseType: "team.task.create.response",
+  });
+  throwTeamError(payload);
+  return payload.task;
 }
 
 export async function listTeamTasks(input: {

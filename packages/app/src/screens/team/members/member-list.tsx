@@ -1,176 +1,236 @@
 import { memo, useCallback, useMemo } from "react";
-import { Pressable, Text, View } from "react-native";
-import type { TeamChannel, TeamMember } from "@getpaseo/protocol/team/types";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import type { TeamMember } from "@getpaseo/protocol/team/types";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { settingsStyles } from "@/styles/settings";
+import {
+  memberHandle,
+  memberStatusLabel,
+  memberStatusTone,
+  type TeamMemberStatusLabels,
+} from "@/screens/team/member-status";
+import { teamColors } from "@/screens/team/team-colors";
+import { TEAM_LINE_HEIGHT, TEAM_ROSTER_WIDTH } from "@/screens/team/team-layout";
+import { TeamStatusDot } from "@/screens/team/ui/status-dot";
+import { TeamStatusPill } from "@/screens/team/ui/status-pill";
 
 const EMPTY_WORKSPACE_NAMES: Record<string, string> = {};
 
-interface MemberListProps {
-  members: TeamMember[];
-  channels: TeamChannel[];
-  selectedMemberId?: string | null;
-  workspaceNamesById?: Record<string, string>;
-  onSelect: (member: TeamMember) => void;
-  emptyLabel?: string;
-}
-
-export const MemberList = memo(function MemberList({
+/**
+ * The Members roster: a 320px scrolling rail of three-line rows.
+ *
+ * Each row is dot + handle + status pill, then the member's role, then a meta
+ * line of `workspace · runtime · model`. A member that has lost its home
+ * workspace shows that in the meta slot in danger tone instead — it is the one
+ * thing that stops a member running, so it outranks its own configuration.
+ */
+export function MemberList({
   members,
-  channels,
   selectedMemberId = null,
   workspaceNamesById = EMPTY_WORKSPACE_NAMES,
+  labels,
   onSelect,
   emptyLabel,
-}: MemberListProps) {
+}: {
+  members: TeamMember[];
+  selectedMemberId?: string | null;
+  workspaceNamesById?: Record<string, string>;
+  labels: TeamMemberStatusLabels;
+  onSelect: (member: TeamMember) => void;
+  emptyLabel?: string;
+}) {
   const { t } = useTranslation();
-  const channelNameById = useMemo(
-    () => Object.fromEntries(channels.map((channel) => [channel.id, `#${channel.name}`])),
-    [channels],
+
+  // The human identity sorts last — the roster reads as the agent team.
+  const sortedMembers = useMemo(
+    () =>
+      [...members].sort((left, right) => {
+        if (left.kind !== right.kind) {
+          return left.kind === "human" ? 1 : -1;
+        }
+        return left.name.localeCompare(right.name);
+      }),
+    [members],
   );
 
-  if (members.length === 0) {
-    return (
-      <View style={settingsStyles.card}>
-        <View style={settingsStyles.row}>
-          <View style={settingsStyles.rowContent}>
-            <Text style={settingsStyles.rowHint}>{emptyLabel ?? t("team.members.list.empty")}</Text>
-          </View>
-        </View>
-      </View>
-    );
-  }
+  const agentCount = useMemo(
+    () => members.filter((member) => member.kind !== "human").length,
+    [members],
+  );
 
   return (
-    <View style={settingsStyles.card}>
-      {members.map((member, index) => (
-        <MemberRow
-          key={member.id}
-          member={member}
-          bordered={index > 0}
-          selected={member.id === selectedMemberId}
-          workspaceNameById={workspaceNamesById}
-          channelNameById={channelNameById}
-          onSelect={onSelect}
-        />
-      ))}
+    <View style={styles.rail}>
+      <ScrollView style={styles.scroll}>
+        <Text style={styles.countLabel}>{t("team.members.count", { count: agentCount })}</Text>
+        {sortedMembers.length === 0 ? (
+          <Text style={styles.empty}>{emptyLabel ?? t("team.members.list.empty")}</Text>
+        ) : (
+          sortedMembers.map((member) => (
+            <MemberRow
+              key={member.id}
+              member={member}
+              selected={member.id === selectedMemberId}
+              workspaceName={
+                member.homeWorkspaceId ? workspaceNamesById[member.homeWorkspaceId] : undefined
+              }
+              labels={labels}
+              onSelect={onSelect}
+            />
+          ))
+        )}
+      </ScrollView>
     </View>
   );
-});
+}
 
-function MemberRow({
+const MemberRow = memo(function MemberRow({
   member,
-  bordered,
   selected,
-  workspaceNameById,
-  channelNameById,
+  workspaceName,
+  labels,
   onSelect,
 }: {
   member: TeamMember;
-  bordered: boolean;
   selected: boolean;
-  workspaceNameById: Record<string, string>;
-  channelNameById: Record<string, string>;
+  workspaceName: string | undefined;
+  labels: TeamMemberStatusLabels;
   onSelect: (member: TeamMember) => void;
 }) {
   const { t } = useTranslation();
-  const handlePress = useCallback(() => {
-    onSelect(member);
-  }, [member, onSelect]);
+  const handlePress = useCallback(() => onSelect(member), [member, onSelect]);
   const accessibilityState = useMemo(() => ({ selected }), [selected]);
+  const tone = memberStatusTone(member);
+
   const rowStyle = useCallback(
-    ({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
-      settingsStyles.row,
-      bordered ? settingsStyles.rowBorder : null,
-      selected ? styles.rowSelected : null,
-      !selected && hovered ? styles.rowHovered : null,
-      !selected && pressed ? styles.rowPressed : null,
+    ({ hovered }: { hovered?: boolean }) => [
+      styles.row,
+      (selected || Boolean(hovered)) && styles.rowActive,
     ],
-    [bordered, selected],
+    [selected],
   );
 
-  const channelsLabel = useMemo(() => {
-    const names = (member.channelIds ?? [])
-      .map((channelId) => channelNameById[channelId] ?? channelId)
-      .filter((value) => value.trim().length > 0);
-    if (names.length === 0) {
-      return t("team.members.list.noChannels");
-    }
-    return names.join(", ");
-  }, [channelNameById, member.channelIds, t]);
-
-  const workspaceLabel = useMemo(() => {
-    if (!member.homeWorkspaceId) {
-      return t("team.members.list.workspaceMissing");
-    }
-    return workspaceNameById[member.homeWorkspaceId] ?? member.homeWorkspaceId;
-  }, [member.homeWorkspaceId, t, workspaceNameById]);
-
-  const badge = getStatusBadge(member.status, t);
+  const lostWorkspace = member.kind !== "human" && !member.homeWorkspaceId;
+  const meta = [workspaceName, member.provider, member.model].filter(Boolean).join(" · ");
 
   return (
     <Pressable
-      onPress={handlePress}
-      style={rowStyle}
       accessibilityRole="button"
       accessibilityState={accessibilityState}
-      testID={`team-member-row-${member.id}`}
+      onPress={handlePress}
+      style={rowStyle}
+      testID={`team-member-${member.id}`}
     >
-      <View style={styles.content}>
-        <View style={styles.headerRow}>
-          <Text style={settingsStyles.rowTitle}>{member.name}</Text>
-          <StatusBadge label={badge.label} variant={badge.variant} />
+      <View style={styles.rowTop}>
+        <TeamStatusDot tone={tone} />
+        <Text style={styles.handle} numberOfLines={1}>
+          {memberHandle(member)}
+        </Text>
+        <View style={styles.pillSlot}>
+          <TeamStatusPill tone={tone} label={memberStatusLabel(member, labels)} />
         </View>
-        {member.description ? (
-          <Text style={settingsStyles.rowHint}>{member.description}</Text>
-        ) : null}
-        <Text style={settingsStyles.rowHint}>
-          {t("team.members.list.homeWorkspace", { workspace: workspaceLabel })}
-        </Text>
-        <Text style={settingsStyles.rowHint}>
-          {t("team.members.list.channels", { channels: channelsLabel })}
-        </Text>
       </View>
+      {member.description ? (
+        <Text style={styles.role} numberOfLines={2}>
+          {member.description}
+        </Text>
+      ) : null}
+      <MemberRowMeta
+        lostWorkspace={lostWorkspace}
+        lostWorkspaceLabel={t("team.members.list.workspaceRemoved")}
+        meta={meta}
+      />
     </Pressable>
+  );
+});
+
+/**
+ * The row's third line. A missing home workspace replaces the meta line rather
+ * than joining it — it is the one thing that stops a member running.
+ */
+function MemberRowMeta({
+  lostWorkspace,
+  lostWorkspaceLabel,
+  meta,
+}: {
+  lostWorkspace: boolean;
+  lostWorkspaceLabel: string;
+  meta: string;
+}) {
+  if (lostWorkspace) {
+    return (
+      <Text style={styles.metaDanger} numberOfLines={1}>
+        {lostWorkspaceLabel}
+      </Text>
+    );
+  }
+  if (meta.length === 0) {
+    return null;
+  }
+  return (
+    <Text style={styles.meta} numberOfLines={1}>
+      {meta}
+    </Text>
   );
 }
 
-function getStatusBadge(
-  status: TeamMember["status"] | undefined,
-  t: ReturnType<typeof useTranslation>["t"],
-): { label: string; variant: "success" | "error" | "muted" } {
-  if (status === "running") {
-    return { label: t("team.members.working"), variant: "success" };
-  }
-  if (status === "unavailable") {
-    return { label: t("team.members.unavailable"), variant: "error" };
-  }
-  if (status === "stopped") {
-    return { label: t("team.members.stopped"), variant: "muted" };
-  }
-  return { label: t("team.members.idle"), variant: "muted" };
-}
-
 const styles = StyleSheet.create((theme) => ({
-  content: {
-    flex: 1,
-    gap: theme.spacing[1],
+  rail: {
+    width: TEAM_ROSTER_WIDTH,
+    flexShrink: 0,
+    backgroundColor: theme.colors.surfaceSidebar,
+    borderRightWidth: 1,
+    borderRightColor: theme.colors.border,
   },
-  headerRow: {
+  scroll: {
+    flex: 1,
+  },
+  countLabel: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundMuted,
+    paddingTop: theme.spacing[3],
+    paddingHorizontal: theme.spacing[4],
+    paddingBottom: theme.spacing[2],
+  },
+  row: {
+    gap: theme.spacing[1],
+    paddingVertical: 14,
+    paddingHorizontal: theme.spacing[4],
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  rowActive: {
+    backgroundColor: theme.colors.surfaceSidebarHover,
+  },
+  rowTop: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing[3],
+    gap: theme.spacing[2],
   },
-  rowSelected: {
-    backgroundColor: theme.colors.surface2,
+  handle: {
+    fontSize: theme.fontSize.base,
+    color: theme.colors.foreground,
+    flexShrink: 1,
   },
-  rowHovered: {
-    backgroundColor: theme.colors.surface2,
+  pillSlot: {
+    marginLeft: "auto",
+    flexShrink: 0,
   },
-  rowPressed: {
-    backgroundColor: theme.colors.surface3,
+  role: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundMuted,
+    lineHeight: theme.fontSize.xs * TEAM_LINE_HEIGHT.help,
+  },
+  meta: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundExtraMuted,
+  },
+  metaDanger: {
+    fontSize: theme.fontSize.xs,
+    color: teamColors.dangerText,
+  },
+  empty: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundExtraMuted,
+    padding: theme.spacing[4],
   },
 }));

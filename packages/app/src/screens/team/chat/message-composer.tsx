@@ -1,5 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  type NativeSyntheticEvent,
+  type TextInputKeyPressEventData,
+} from "react-native";
+import { ArrowUp, AtSign } from "lucide-react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { TeamMember, TeamMessage } from "@getpaseo/protocol/team/types";
 import type { AutocompleteOption } from "@/components/ui/autocomplete";
@@ -7,8 +15,52 @@ import { AutocompletePopover } from "@/components/ui/autocomplete-popover";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { postTeamMessage } from "@/screens/team/team-client";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import { settingsStyles } from "@/styles/settings";
+import { teamColors } from "@/screens/team/team-colors";
+import { TEAM_MESSAGE_MAX_WIDTH, TEAM_SPACE } from "@/screens/team/team-layout";
+import { TeamIconButton } from "@/screens/team/ui/icon-button";
+import type { Theme } from "@/styles/theme";
+
+const renderAtSign = ({ color, size }: { color: string; size: number }) => (
+  <AtSign color={color} size={size} />
+);
+
+const ThemedArrowUp = withUnistyles(ArrowUp);
+const sendIconColor = (theme: Theme) => ({ color: theme.colors.accentForeground });
+
+/** 32x32 accent square with an arrow — the design's send affordance. */
+function SendButton({
+  onPress,
+  disabled,
+  accessibilityLabel,
+}: {
+  onPress: () => void;
+  disabled: boolean;
+  accessibilityLabel: string;
+}) {
+  const buttonStyle = useCallback(
+    ({ hovered }: { hovered?: boolean }) => [
+      styles.send,
+      Boolean(hovered) && !disabled && styles.sendHovered,
+      disabled && styles.sendDisabled,
+    ],
+    [disabled],
+  );
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      disabled={disabled}
+      onPress={onPress}
+      style={buttonStyle}
+      testID="team-message-composer-send"
+    >
+      <ThemedArrowUp size={16} uniProps={sendIconColor} />
+    </Pressable>
+  );
+}
 
 type ComposerStatus =
   | { kind: "idle" }
@@ -29,6 +81,8 @@ interface MessageComposerProps {
   dismissLabel: string;
   mentionEmptyLabel: string;
   mentionLoadingLabel: string;
+  enterToSendLabel: string;
+  mentionActionLabel: string;
   onPosted?: (message: TeamMessage) => void;
 }
 
@@ -72,6 +126,8 @@ export function MessageComposer({
   dismissLabel,
   mentionEmptyLabel,
   mentionLoadingLabel,
+  enterToSendLabel,
+  mentionActionLabel,
   onPosted,
 }: MessageComposerProps) {
   const anchorRef = useRef<View | null>(null);
@@ -181,39 +237,72 @@ export function MessageComposer({
     setStatus({ kind: "idle" });
   }, []);
 
+  /**
+   * Enter sends, Shift+Enter breaks the line — the behaviour the composer's own
+   * "Enter to send" hint promises. `key` is only present on web; on native the
+   * TextInput keeps its newline and the send button is the only path.
+   */
+  const handleKeyPress = useCallback(
+    (event: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+      const nativeEvent = event.nativeEvent as TextInputKeyPressEventData & {
+        shiftKey?: boolean;
+        preventDefault?: () => void;
+      };
+      if (nativeEvent.key !== "Enter" || nativeEvent.shiftKey) {
+        return;
+      }
+      nativeEvent.preventDefault?.();
+      void handlePost(text);
+    },
+    [handlePost, text],
+  );
+
+  /** Types the `@` that opens the mention autocomplete. */
+  const handleInsertMention = useCallback(() => {
+    setText((current) => {
+      const needsSpace = current.length > 0 && !/\s$/.test(current);
+      return `${current}${needsSpace ? " " : ""}@`;
+    });
+    setSelectionStart((current) => current + 1);
+    inputRef.current?.focus();
+  }, []);
+
   const disabled =
     !client || !projectId || !channelId || text.trim().length === 0 || status.kind === "pending";
 
   return (
     <View style={styles.container}>
-      <View ref={anchorRef} collapsable={false} style={styles.inputWrap}>
+      <View ref={anchorRef} collapsable={false} style={styles.box}>
         <TextInput
           ref={inputRef}
           multiline
           value={text}
           onChangeText={handleChangeText}
           onSelectionChange={handleSelectionChange}
+          onKeyPress={handleKeyPress}
           placeholder={placeholder}
+          placeholderTextColor={undefined}
           style={styles.input}
           testID="team-message-composer-input"
         />
-      </View>
-      <View style={styles.footerRow}>
-        <View style={styles.statusRow}>
-          {status.kind === "pending" ? <StatusBadge label={sendingLabel} /> : null}
-          {status.kind === "success" ? (
-            <StatusBadge label={status.label} variant="success" />
-          ) : null}
+        <View style={styles.toolbar}>
+          <TeamIconButton
+            icon={renderAtSign}
+            size={28}
+            onPress={handleInsertMention}
+            accessibilityLabel={mentionActionLabel}
+            testID="team-message-composer-mention"
+          />
+          <View style={styles.toolbarSpacer} />
+          <View style={styles.statusRow}>
+            {status.kind === "pending" ? <StatusBadge label={sendingLabel} /> : null}
+            {status.kind === "success" ? (
+              <StatusBadge label={status.label} variant="success" />
+            ) : null}
+          </View>
+          <Text style={styles.hint}>{enterToSendLabel}</Text>
+          <SendButton onPress={handleSubmit} disabled={disabled} accessibilityLabel={submitLabel} />
         </View>
-        <Button
-          variant="default"
-          onPress={handleSubmit}
-          disabled={disabled}
-          loading={status.kind === "pending"}
-          testID="team-message-composer-send"
-        >
-          {submitLabel}
-        </Button>
       </View>
       {status.kind === "failure" ? (
         <View style={styles.errorCard} testID="team-message-post-error">
@@ -243,33 +332,64 @@ export function MessageComposer({
 
 const styles = StyleSheet.create((theme) => ({
   container: {
-    gap: theme.spacing[3],
+    flexShrink: 0,
+    paddingTop: theme.spacing[3],
+    paddingHorizontal: theme.spacing[6],
+    paddingBottom: TEAM_SPACE.list,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
   },
-  inputWrap: {
-    borderRadius: theme.borderRadius.lg,
+  box: {
+    maxWidth: TEAM_MESSAGE_MAX_WIDTH,
+    borderRadius: theme.borderRadius.xl,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.borderAccent,
     backgroundColor: theme.colors.surface1,
-    minHeight: 120,
-    padding: theme.spacing[3],
   },
   input: {
-    minHeight: 96,
+    minHeight: 44,
+    maxHeight: 200,
     color: theme.colors.foreground,
     fontSize: theme.fontSize.base,
+    paddingTop: 14,
+    paddingHorizontal: theme.spacing[4],
+    paddingBottom: theme.spacing[1.5],
     textAlignVertical: "top",
   },
-  footerRow: {
+  toolbar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing[3],
+    gap: theme.spacing[2],
+    paddingTop: theme.spacing[1.5],
+    paddingRight: TEAM_SPACE.snug,
+    paddingBottom: TEAM_SPACE.snug,
+    paddingLeft: theme.spacing[3],
+  },
+  toolbarSpacer: {
+    flex: 1,
+  },
+  hint: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundExtraMuted,
+  },
+  send: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.accent,
+  },
+  sendHovered: {
+    backgroundColor: teamColors.accentHover,
+  },
+  sendDisabled: {
+    opacity: theme.opacity[50],
   },
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing[2],
-    minHeight: 28,
   },
   errorCard: {
     borderRadius: theme.borderRadius.md,

@@ -1,32 +1,43 @@
 /* eslint-disable react-perf/jsx-no-jsx-as-prop, react-perf/jsx-no-new-function-as-prop */
 import { useCallback, useMemo } from "react";
-import { GripVertical, MoreVertical } from "lucide-react-native";
+import { GripVertical, Lock, MoreVertical, TriangleAlert } from "lucide-react-native";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import type { TeamMember, TeamTask } from "@getpaseo/protocol/team/types";
 import { DraggableList, type DraggableRenderItemInfo } from "@/components/draggable-list";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { useIsCompactFormFactor } from "@/constants/layout";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
-import { settingsStyles } from "@/styles/settings";
+import { memberHandle } from "@/screens/team/member-status";
+import { teamColors } from "@/screens/team/team-colors";
+import {
+  TEAM_LINE_HEIGHT,
+  TEAM_SPACE,
+  TEAM_STATUS_DOT_SIZE,
+  TEAM_TASK_COLUMN_WIDTH,
+} from "@/screens/team/team-layout";
 import { TEAM_TASK_STATUS_VALUES, sortTasksBySeq, type TeamTaskStatusValue } from "./task-status";
 
 export function TaskBoard({
   tasks,
   members,
+  handbackLimit,
   onOpenTask,
   onMoveTask,
+  onResumeTask,
 }: {
   tasks: TeamTask[];
   members: TeamMember[];
+  handbackLimit: number | null;
   onOpenTask: (taskId: string) => void;
   onMoveTask: (taskId: string, status: TeamTaskStatusValue) => void;
+  onResumeTask: (taskId: string) => void;
 }) {
   const { t } = useTranslation();
   const isCompact = useIsCompactFormFactor();
@@ -48,13 +59,16 @@ export function TaskBoard({
     <ScrollView
       horizontal={!isCompact}
       showsHorizontalScrollIndicator={false}
+      style={styles.board}
       contentContainerStyle={styles.boardContent}
     >
       {columns.map((column) => (
         <View key={column.status} style={styles.column}>
           <View style={styles.columnHeader}>
             <Text style={styles.columnTitle}>{column.title}</Text>
-            <StatusBadge label={String(column.tasks.length)} variant="muted" />
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{column.tasks.length}</Text>
+            </View>
           </View>
           <DraggableList
             data={column.tasks}
@@ -63,8 +77,11 @@ export function TaskBoard({
               <TaskBoardCard
                 info={info}
                 members={members}
+                handbackLimit={handbackLimit}
+                isDone={column.status === "done"}
                 onOpenTask={onOpenTask}
                 onMoveTask={onMoveTask}
+                onResumeTask={onResumeTask}
               />
             )}
             onDragEnd={() => undefined}
@@ -73,8 +90,8 @@ export function TaskBoard({
             nestable
             containerStyle={styles.columnList}
             ListEmptyComponent={
-              <View style={styles.emptyCard}>
-                <Text style={settingsStyles.rowHint}>{t("team.tasks.emptyColumn")}</Text>
+              <View style={styles.dropTarget}>
+                <Text style={styles.dropTargetText}>{t("team.tasks.dropTarget")}</Text>
               </View>
             }
           />
@@ -87,116 +104,250 @@ export function TaskBoard({
 function TaskBoardCard({
   info,
   members,
+  handbackLimit,
+  isDone,
   onOpenTask,
   onMoveTask,
+  onResumeTask,
 }: {
   info: DraggableRenderItemInfo<TeamTask>;
   members: TeamMember[];
+  handbackLimit: number | null;
+  isDone: boolean;
   onOpenTask: (taskId: string) => void;
   onMoveTask: (taskId: string, status: TeamTaskStatusValue) => void;
+  onResumeTask: (taskId: string) => void;
 }) {
   const { t } = useTranslation();
   const task = info.item;
-  const assignee =
-    getMemberName(members, task.assigneeMemberId) ?? t("team.tasks.claim.unassigned");
-  const claimant = getMemberName(members, task.claimantMemberId) ?? t("team.tasks.claim.none");
-  const handleOpen = useCallback(() => {
-    onOpenTask(task.id);
-  }, [onOpenTask, task.id]);
-  const handleDrag = useCallback(() => {
-    info.drag();
-  }, [info]);
+  const assigneeHandle = getMemberHandle(members, task.assigneeMemberId);
+  const claimantHandle = getMemberHandle(members, task.claimantMemberId);
+  const creatorHandle = getMemberHandle(members, task.creatorMemberId);
+  const isEscalated = task.escalatedAt !== null;
+  const isBlocked = (task.dependsOnTaskIds?.length ?? 0) > 0;
+
+  const handleOpen = useCallback(() => onOpenTask(task.id), [onOpenTask, task.id]);
+  const handleDrag = useCallback(() => info.drag(), [info]);
+  const handleResume = useCallback(() => onResumeTask(task.id), [onResumeTask, task.id]);
 
   return (
     <Pressable
       onPress={handleOpen}
-      style={({ hovered, pressed }) => [
+      style={({ hovered }) => [
         styles.card,
-        info.isActive ? styles.activeCard : null,
-        hovered ? styles.hoverCard : null,
-        pressed ? styles.pressedCard : null,
+        isEscalated && styles.cardEscalated,
+        (info.isActive || Boolean(hovered)) && styles.cardHovered,
       ]}
+      testID={`team-task-card-${task.id}`}
     >
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{`#${task.seq} ${task.title}`}</Text>
-        <View style={styles.cardActions}>
-          <Pressable
-            onLongPress={handleDrag}
-            style={styles.dragHandle}
-            accessibilityRole="button"
-            accessibilityLabel={t("team.tasks.drag")}
-            {...(info.dragHandleProps?.attributes ?? {})}
-            {...(info.dragHandleProps?.listeners ?? {})}
-            ref={info.dragHandleProps?.setActivatorNodeRef as never}
-          >
-            <GripVertical size={14} color={stylesTheme.icon.color} />
-          </Pressable>
-          <DropdownMenu>
-            <DropdownMenuTrigger style={styles.menuTrigger}>
-              <MoreVertical size={14} color={stylesTheme.icon.color} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="bottom" align="end" width={220}>
-              {TEAM_TASK_STATUS_VALUES.filter((status) => status !== task.status).map((status) => (
-                <DropdownMenuItem key={status} onSelect={() => onMoveTask(task.id, status)}>
-                  {t("team.tasks.moveTo", { status: t(`team.tasks.status.${status}`) })}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </View>
-      </View>
-      <Text style={styles.metaText}>
-        {t("team.tasks.detail.assignee")}: {assignee}
-      </Text>
-      <Text style={styles.metaText}>
-        {t("team.tasks.detail.claimant")}: {claimant}
-      </Text>
-      {(task.dependsOnTaskIds?.length ?? 0) > 0 ? (
-        <Text style={styles.metaText}>
-          {t("team.tasks.detail.dependencies")}: {task.dependsOnTaskIds?.length}
+        <Text style={isDone ? styles.cardTitleDone : styles.cardTitle}>
+          {`#${task.seq} ${task.title}`}
         </Text>
+        <TaskCardHandle
+          task={task}
+          info={info}
+          isDone={isDone}
+          onMoveTask={onMoveTask}
+          onDrag={handleDrag}
+        />
+      </View>
+
+      <TaskCardMeta
+        isDone={isDone}
+        creatorHandle={creatorHandle}
+        assigneeHandle={assigneeHandle}
+        isClaimed={task.claimantMemberId !== null}
+      />
+
+      {claimantHandle ? (
+        <View style={styles.metaRow}>
+          <View style={styles.claimDot} />
+          <Text style={styles.claimText}>
+            {t("team.tasks.claimedBy", { member: claimantHandle })}
+          </Text>
+        </View>
+      ) : null}
+
+      {isBlocked ? (
+        <View style={styles.metaRow}>
+          <Lock size={12} color={iconStyles.warning.color} />
+          <Text style={styles.blockedText}>
+            {t("team.tasks.blockedBy", { refs: task.dependsOnTaskIds?.length ?? 0 })}
+          </Text>
+        </View>
+      ) : null}
+
+      {isEscalated ? (
+        <>
+          <View style={styles.metaRow}>
+            <TriangleAlert size={12} color={iconStyles.danger.color} />
+            <Text style={styles.escalatedText}>
+              {t("team.tasks.handedBack", {
+                count: task.handbackCount,
+                limit: handbackLimit ?? task.handbackCount,
+              })}
+            </Text>
+          </View>
+          <View style={styles.escalationActions}>
+            <Button variant="outline" size="xs" onPress={handleOpen}>
+              {t("team.escalation.readAttempts")}
+            </Button>
+            <Button variant="default" size="xs" onPress={handleResume}>
+              {t("team.escalation.resume")}
+            </Button>
+          </View>
+        </>
       ) : null}
     </Pressable>
   );
 }
 
-function getMemberName(members: TeamMember[], memberId: string | null): string | null {
-  return members.find((member) => member.id === memberId)?.name ?? null;
+/**
+ * A claimed card is the one the design marks as draggable, so it gets the grip;
+ * an unclaimed one gets the overflow menu. A done card gets neither.
+ */
+function TaskCardHandle({
+  task,
+  info,
+  isDone,
+  onMoveTask,
+  onDrag,
+}: {
+  task: TeamTask;
+  info: DraggableRenderItemInfo<TeamTask>;
+  isDone: boolean;
+  onMoveTask: (taskId: string, status: TeamTaskStatusValue) => void;
+  onDrag: () => void;
+}) {
+  const { t } = useTranslation();
+
+  if (isDone) {
+    return null;
+  }
+
+  if (task.claimantMemberId) {
+    return (
+      <Pressable
+        onLongPress={onDrag}
+        style={styles.handle}
+        accessibilityRole="button"
+        accessibilityLabel={t("team.tasks.drag")}
+        {...(info.dragHandleProps?.attributes ?? {})}
+        {...(info.dragHandleProps?.listeners ?? {})}
+        ref={info.dragHandleProps?.setActivatorNodeRef as never}
+      >
+        <GripVertical size={14} color={iconStyles.faint.color} />
+      </Pressable>
+    );
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger style={styles.handle}>
+        <MoreVertical size={14} color={iconStyles.faint.color} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="bottom" align="end" width={220}>
+        {TEAM_TASK_STATUS_VALUES.filter((status) => status !== task.status).map((status) => (
+          <DropdownMenuItem key={status} onSelect={() => onMoveTask(task.id, status)}>
+            {t("team.tasks.moveTo", { status: t(`team.tasks.status.${status}`) })}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** Done cards credit their creator; live cards name the assignee and claim state. */
+function TaskCardMeta({
+  isDone,
+  creatorHandle,
+  assigneeHandle,
+  isClaimed,
+}: {
+  isDone: boolean;
+  creatorHandle: string | null;
+  assigneeHandle: string | null;
+  isClaimed: boolean;
+}) {
+  const { t } = useTranslation();
+
+  if (isDone) {
+    if (!creatorHandle) {
+      return null;
+    }
+    return (
+      <Text style={styles.metaFaint}>{t("team.tasks.byMember", { member: creatorHandle })}</Text>
+    );
+  }
+
+  const target = assigneeHandle
+    ? t("team.tasks.forMember", { member: assigneeHandle })
+    : t("team.tasks.claim.unassigned");
+
+  return (
+    <Text style={styles.meta}>
+      {isClaimed ? target : `${target} · ${t("team.tasks.unclaimed")}`}
+    </Text>
+  );
+}
+
+function getMemberHandle(members: TeamMember[], memberId: string | null): string | null {
+  const member = members.find((entry) => entry.id === memberId);
+  return member ? memberHandle(member) : null;
 }
 
 const styles = StyleSheet.create((theme) => ({
+  board: {
+    flex: 1,
+  },
   boardContent: {
     gap: theme.spacing[4],
-    paddingBottom: theme.spacing[2],
+    padding: theme.spacing[4],
   },
   column: {
     width: {
       xs: "100%",
       sm: "100%",
-      md: 280,
+      md: TEAM_TASK_COLUMN_WIDTH,
     },
-    gap: theme.spacing[3],
+    gap: TEAM_SPACE.snug,
   },
   columnHeader: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: theme.spacing[2],
+    paddingHorizontal: theme.spacing[1],
   },
   columnTitle: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.xs,
-    fontWeight: theme.fontWeight.medium,
+  },
+  countBadge: {
+    height: 18,
+    justifyContent: "center",
+    paddingHorizontal: 7,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.surface2,
+  },
+  countBadgeText: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundMuted,
   },
   columnList: {
-    gap: theme.spacing[3],
+    gap: TEAM_SPACE.snug,
   },
-  emptyCard: {
+  dropTarget: {
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface1,
-    padding: theme.spacing[4],
+    borderStyle: "dashed",
+    borderColor: theme.colors.borderAccent,
+    padding: 18,
+    alignItems: "center",
+  },
+  dropTargetText: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.foregroundExtraMuted,
   },
   card: {
     borderRadius: theme.borderRadius.lg,
@@ -206,47 +357,80 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing[3],
     gap: theme.spacing[2],
   },
-  activeCard: {
-    backgroundColor: theme.colors.surface2,
+  cardEscalated: {
+    borderColor: teamColors.dangerBorder,
   },
-  hoverCard: {
+  cardHovered: {
     backgroundColor: theme.colors.surface2,
-  },
-  pressedCard: {
-    backgroundColor: theme.colors.surface3,
   },
   cardHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
-    justifyContent: "space-between",
     gap: theme.spacing[2],
   },
   cardTitle: {
     color: theme.colors.foreground,
     flex: 1,
     fontSize: theme.fontSize.sm,
+    lineHeight: theme.fontSize.sm * TEAM_LINE_HEIGHT.cardTitle,
   },
-  cardActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing[1],
+  cardTitleDone: {
+    color: theme.colors.foregroundMuted,
+    flex: 1,
+    fontSize: theme.fontSize.sm,
+    lineHeight: theme.fontSize.sm * TEAM_LINE_HEIGHT.cardTitle,
   },
-  dragHandle: {
+  handle: {
+    flexShrink: 0,
     padding: theme.spacing[1],
     borderRadius: theme.borderRadius.sm,
   },
-  menuTrigger: {
-    padding: theme.spacing[1],
-    borderRadius: theme.borderRadius.sm,
-  },
-  metaText: {
+  meta: {
     color: theme.colors.foregroundMuted,
     fontSize: theme.fontSize.xs,
   },
+  metaFaint: {
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: theme.fontSize.xs,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1.5],
+  },
+  claimDot: {
+    width: TEAM_STATUS_DOT_SIZE,
+    height: TEAM_STATUS_DOT_SIZE,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.accent,
+  },
+  claimText: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.accentBright,
+  },
+  blockedText: {
+    fontSize: theme.fontSize.xs,
+    color: theme.colors.statusWarning,
+  },
+  escalatedText: {
+    fontSize: theme.fontSize.xs,
+    color: teamColors.dangerText,
+  },
+  escalationActions: {
+    flexDirection: "row",
+    gap: theme.spacing[2],
+    marginTop: 2,
+  },
 }));
 
-const stylesTheme = StyleSheet.create((theme) => ({
-  icon: {
-    color: theme.colors.foregroundMuted,
+const iconStyles = StyleSheet.create((theme) => ({
+  faint: {
+    color: theme.colors.foregroundExtraMuted,
+  },
+  warning: {
+    color: theme.colors.statusWarning,
+  },
+  danger: {
+    color: theme.colors.destructive,
   },
 }));

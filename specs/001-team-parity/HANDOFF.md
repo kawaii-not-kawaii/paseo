@@ -128,7 +128,25 @@ Read scope from `spec.md`. Treat `tasks.md` as a rough guide:
 | T074 | Open. Worktree removal, memory survival, merge does not strand.                                    |
 | T122 | Open. Large-history perf, compact parity, back-compat both directions. Needs a device.             |
 
-### Agreed UI integration (designed, not built)
+### The UI was rebuilt to the design handoff — this section is superseded
+
+A hi-fi design handoff (`design_handoff_paseo_team_tab/`) is now the source of truth for how Team
+looks. It **supersedes the channel-tabs plan below**: Chat stays a full-height section with its own
+240px channel rail, and no upstream `workspace-tabs` files are touched. Read the design's README
+before changing any Team layout.
+
+Every color in that design is already a Paseo dark-theme token — `#181B1A` is `surface0`, `#141716`
+is `surfaceSidebar`, `#20744A` is `accent`. So it was a structure rebuild, not a palette one. The
+five values with no token live in `screens/team/team-colors.ts`; the fixed measurements live in
+`screens/team/team-layout.ts`.
+
+What that rebuild changed: the shell stopped being a `ScrollView` of settings cards and became a
+fixed frame (48px header, 36px switcher, section body at `flex:1` + `minHeight:0`), which is what
+lets Chat pin its composer and Tasks scroll its board. `settingsStyles` is still correct for the
+Members configuration card and the Settings groups — those really are settings surfaces, and the
+shared card already matches the design exactly. It is Chat and Tasks that had to leave it.
+
+### The original channel-tabs plan (NOT the current direction — kept for context)
 
 The Team surface looks wrong because it was assembled from the **settings** idiom — `settingsStyles`
 appears in 13 Team files, and Paseo's real chat uses none of it. `packages/app/src/composer/` and
@@ -358,17 +376,17 @@ Two ids pointing at the same directory is fine, and is what lets qa read what im
 Everything from the original handoff holds: lease-based claims, progress-based guards, role prompt
 vs MEMORY.md, per-project-per-daemon scope.
 
-| Decision                                                    | Where                                         |
-| ----------------------------------------------------------- | --------------------------------------------- |
-| The human identity appears in every project roster          | `team-service.ts` `listMembers`               |
-| Member create carries role prompt, mode and template        | `rpc-schemas.ts`, optional fields             |
-| Members are told to use the channel, not spawn agents       | `member-home.ts` `TEAM_COLLABORATION_PROMPT`  |
-| Message retention cap defaults to 50,000                    | User-chosen placeholder, not research-derived |
-| Starting a member by hand does not prompt it                | `member-lifecycle.ts` `start`                 |
-| Stopping a member never releases its claims                 | `member-lifecycle.ts` `stop`, research R1     |
-| Channels move to top tabs; the sidebar lists them           | This session — supersedes "Team as a route"   |
-| Channel membership defaults to every project member         | This session — "everyone in, opt out"         |
-| `APP_SCHEME` stays `paseo`; only the OS association differs | Privileged renderer origin + daemon CORS      |
+| Decision                                                    | Where                                          |
+| ----------------------------------------------------------- | ---------------------------------------------- |
+| The human identity appears in every project roster          | `team-service.ts` `listMembers`                |
+| Member create carries role prompt, mode and template        | `rpc-schemas.ts`, optional fields              |
+| Members are told to use the channel, not spawn agents       | `member-home.ts` `TEAM_COLLABORATION_PROMPT`   |
+| Message retention cap defaults to 50,000                    | User-chosen placeholder, not research-derived  |
+| Starting a member by hand does not prompt it                | `member-lifecycle.ts` `start`                  |
+| Stopping a member never releases its claims                 | `member-lifecycle.ts` `stop`, research R1      |
+| Chat stays a full-height section with its own channel rail  | Design handoff — supersedes "channels as tabs" |
+| Channel membership defaults to every project member         | This session — "everyone in, opt out"          |
+| `APP_SCHEME` stays `paseo`; only the OS association differs | Privileged renderer origin + daemon CORS       |
 
 ## Uncommitted, deliberately
 

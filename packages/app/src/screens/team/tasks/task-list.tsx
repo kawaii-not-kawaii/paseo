@@ -2,7 +2,7 @@
 import { useCallback, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import type { TeamMember, TeamTask } from "@getpaseo/protocol/team/types";
-import { SegmentedControl } from "@/components/ui/segmented-control";
+import { SegmentedShell } from "@/screens/team/ui/segmented-shell";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
@@ -27,7 +27,7 @@ export function TaskViewToggle({
     [t],
   );
 
-  return <SegmentedControl options={options} value={value} onValueChange={onChange} size="sm" />;
+  return <SegmentedShell options={options} value={value} onValueChange={onChange} size="sm" />;
 }
 
 export function TaskList({

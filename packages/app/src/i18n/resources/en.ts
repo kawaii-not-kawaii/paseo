@@ -222,6 +222,21 @@ export const en = {
     },
   },
   team: {
+    header: {
+      context: "on {{daemon}} · {{count}} members",
+      stopAll: "Stop all activity",
+      stopAllTitle: "Stop all activity?",
+      stopAllMessage:
+        "Every running member in this project stops. Claims are kept, so work resumes where it left off.",
+      stopAllConfirm: "Stop all",
+    },
+    escalation: {
+      bannerTitle: "Work on #{{ref}} stopped — handback limit reached",
+      bannerBody:
+        "{{count}} of {{limit}} attempts failed the same criterion. Every attempt is readable on the task. Other members are still working.",
+      readAttempts: "Read attempts",
+      resume: "Resume",
+    },
     title: "Team",
     daemon: "Daemon",
     needsHostUpgrade: "Update the host to use this.",
@@ -236,6 +251,9 @@ export const en = {
       pending: "This section lands in a later Team Parity task.",
     },
     chat: {
+      composerPlaceholder: "Message #{{channel}}",
+      enterToSend: "Enter to send",
+      insertMention: "Mention a member",
       channels: "Channels",
       activity: "Member activity",
       messages: "Messages",
@@ -267,11 +285,14 @@ export const en = {
       },
     },
     members: {
+      count: "Members ({{count}})",
+      builtInIdentity: "built-in identity",
       idle: "Idle",
       working: "Working",
       stopped: "Stopped",
       unavailable: "Unavailable",
       list: {
+        workspaceRemoved: "Its worktree was removed on merge",
         empty: "No members yet",
         noChannels: "No channels",
         workspaceMissing: "Needs a new workspace",
@@ -279,6 +300,12 @@ export const en = {
         channels: "Channels: {{channels}}",
       },
       detail: {
+        configuration: "Configuration",
+        homeWorkspaceHelp: "Where its work runs — never shared with another member",
+        rolePromptHelp: "Yours to edit — applies to every session this member runs",
+        memoryLabel: "Memory",
+        memoryMeta: "Owned by the member · {{size}}",
+        noMemory: "No MEMORY.md yet",
         rolePrompt: "Role prompt",
         memory: "MEMORY.md and home files",
         path: "Path: {{path}}",
@@ -330,6 +357,16 @@ export const en = {
       },
     },
     tasks: {
+      count_one: "{{count}} task",
+      count_other: "{{count}} tasks",
+      newTask: "New task",
+      untitled: "Untitled task",
+      dropTarget: "Drop a task here",
+      claimedBy: "Claimed by {{member}}",
+      forMember: "for {{member}}",
+      unclaimed: "unclaimed",
+      byMember: "by {{member}}",
+      handedBack: "Handed back {{count}} of {{limit}} — needs you",
       empty: "No tasks yet",
       emptyColumn: "No tasks in this column",
       drag: "Drag task",
@@ -381,6 +418,8 @@ export const en = {
       },
     },
     settings: {
+      pageTitle: "Project team settings",
+      pageSubtitle: "Applies to {{project}} on this daemon only",
       retentionCap: "Message retention cap",
       handbackLimit: "Handback limit",
       attemptTimeout: "Attempt timeout (minutes)",

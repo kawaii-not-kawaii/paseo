@@ -225,6 +225,21 @@ export const ru: TranslationResources = {
     },
   },
   team: {
+    header: {
+      context: "на {{daemon}} · участников: {{count}}",
+      stopAll: "Остановить всю активность",
+      stopAllTitle: "Остановить всю активность?",
+      stopAllMessage:
+        "Все работающие участники проекта будут остановлены. Захваты сохранятся, поэтому работа продолжится с того же места.",
+      stopAllConfirm: "Остановить всё",
+    },
+    escalation: {
+      bannerTitle: "Работа над #{{ref}} остановлена — достигнут лимит возвратов",
+      bannerBody:
+        "{{count}} из {{limit}} попыток провалили один и тот же критерий. Каждая попытка доступна в задаче. Другие участники продолжают работу.",
+      readAttempts: "Посмотреть попытки",
+      resume: "Продолжить",
+    },
     title: "Команда",
     daemon: "Демон",
     needsHostUpgrade: "Обновите хост, чтобы использовать это.",
@@ -239,6 +254,9 @@ export const ru: TranslationResources = {
       pending: "Этот раздел появится в следующей задаче Team Parity.",
     },
     chat: {
+      composerPlaceholder: "Сообщение в #{{channel}}",
+      enterToSend: "Enter — отправить",
+      insertMention: "Упомянуть участника",
       channels: "Каналы",
       activity: "Активность участников",
       messages: "Сообщения",
@@ -270,11 +288,14 @@ export const ru: TranslationResources = {
       },
     },
     members: {
+      count: "Участники ({{count}})",
+      builtInIdentity: "встроенная личность",
       idle: "Ожидает",
       working: "Работает",
       stopped: "Остановлен",
       unavailable: "Недоступен",
       list: {
+        workspaceRemoved: "Его worktree удалён при слиянии",
         empty: "Пока нет участников",
         noChannels: "Нет каналов",
         workspaceMissing: "Нужен новый workspace",
@@ -282,6 +303,12 @@ export const ru: TranslationResources = {
         channels: "Каналы: {{channels}}",
       },
       detail: {
+        configuration: "Настройка",
+        homeWorkspaceHelp: "Где выполняется его работа — никогда не делится с другим участником",
+        rolePromptHelp: "Вы можете его менять — применяется к каждой сессии этого участника",
+        memoryLabel: "Память",
+        memoryMeta: "Принадлежит участнику · {{size}}",
+        noMemory: "MEMORY.md пока нет",
         rolePrompt: "Ролевой промпт",
         memory: "MEMORY.md и домашние файлы",
         path: "Путь: {{path}}",
@@ -333,6 +360,16 @@ export const ru: TranslationResources = {
       },
     },
     tasks: {
+      count_one: "{{count}} задача",
+      count_other: "{{count}} задач",
+      newTask: "Новая задача",
+      untitled: "Задача без названия",
+      dropTarget: "Перетащите задачу сюда",
+      claimedBy: "Захвачена {{member}}",
+      forMember: "для {{member}}",
+      unclaimed: "не захвачена",
+      byMember: "автор {{member}}",
+      handedBack: "Возвращена {{count}} из {{limit}} — нужны вы",
       empty: "Задач пока нет",
       emptyColumn: "В этой колонке нет задач",
       drag: "Перетащить задачу",
@@ -384,6 +421,8 @@ export const ru: TranslationResources = {
       },
     },
     settings: {
+      pageTitle: "Настройки команды проекта",
+      pageSubtitle: "Применяется только к {{project}} на этом демоне",
       retentionCap: "Лимит хранения сообщений",
       handbackLimit: "Лимит возвратов",
       attemptTimeout: "Тайм-аут попытки (в минутах)",

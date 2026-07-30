@@ -226,6 +226,21 @@ export const es: TranslationResources = {
     },
   },
   team: {
+    header: {
+      context: "en {{daemon}} · {{count}} miembros",
+      stopAll: "Detener toda la actividad",
+      stopAllTitle: "¿Detener toda la actividad?",
+      stopAllMessage:
+        "Se detienen todos los miembros en ejecución de este proyecto. Las reclamaciones se conservan, así que el trabajo se reanuda donde quedó.",
+      stopAllConfirm: "Detener todo",
+    },
+    escalation: {
+      bannerTitle: "El trabajo en #{{ref}} se detuvo: se alcanzó el límite de devoluciones",
+      bannerBody:
+        "{{count}} de {{limit}} intentos fallaron el mismo criterio. Cada intento se puede leer en la tarea. Los demás miembros siguen trabajando.",
+      readAttempts: "Ver intentos",
+      resume: "Reanudar",
+    },
     title: "Equipo",
     daemon: "Daemon",
     needsHostUpgrade: "Actualiza el host para usar esto.",
@@ -240,6 +255,9 @@ export const es: TranslationResources = {
       pending: "Esta sección llega en una tarea posterior de Team Parity.",
     },
     chat: {
+      composerPlaceholder: "Mensaje para #{{channel}}",
+      enterToSend: "Enter para enviar",
+      insertMention: "Mencionar a un miembro",
       channels: "Canales",
       activity: "Actividad de miembros",
       messages: "Mensajes",
@@ -271,11 +289,14 @@ export const es: TranslationResources = {
       },
     },
     members: {
+      count: "Miembros ({{count}})",
+      builtInIdentity: "identidad integrada",
       idle: "Inactivo",
       working: "Trabajando",
       stopped: "Detenido",
       unavailable: "No disponible",
       list: {
+        workspaceRemoved: "Su worktree se eliminó al fusionar",
         empty: "Todavía no hay miembros",
         noChannels: "Sin canales",
         workspaceMissing: "Necesita un nuevo workspace",
@@ -283,6 +304,12 @@ export const es: TranslationResources = {
         channels: "Canales: {{channels}}",
       },
       detail: {
+        configuration: "Configuración",
+        homeWorkspaceHelp: "Donde se ejecuta su trabajo: nunca se comparte con otro miembro",
+        rolePromptHelp: "Tuyo para editar: se aplica a cada sesión que ejecuta este miembro",
+        memoryLabel: "Memoria",
+        memoryMeta: "Propiedad del miembro · {{size}}",
+        noMemory: "Aún no hay MEMORY.md",
         rolePrompt: "Prompt de rol",
         memory: "MEMORY.md y archivos del hogar",
         path: "Ruta: {{path}}",
@@ -334,6 +361,16 @@ export const es: TranslationResources = {
       },
     },
     tasks: {
+      count_one: "{{count}} tarea",
+      count_other: "{{count}} tareas",
+      newTask: "Nueva tarea",
+      untitled: "Tarea sin título",
+      dropTarget: "Suelta una tarea aquí",
+      claimedBy: "Reclamada por {{member}}",
+      forMember: "para {{member}}",
+      unclaimed: "sin reclamar",
+      byMember: "por {{member}}",
+      handedBack: "Devuelta {{count}} de {{limit}}: te necesita",
       empty: "Todavía no hay tareas",
       emptyColumn: "No hay tareas en esta columna",
       drag: "Arrastrar tarea",
@@ -385,6 +422,8 @@ export const es: TranslationResources = {
       },
     },
     settings: {
+      pageTitle: "Ajustes del equipo del proyecto",
+      pageSubtitle: "Solo se aplica a {{project}} en este daemon",
       retentionCap: "Límite de retención de mensajes",
       handbackLimit: "Límite de devoluciones",
       attemptTimeout: "Tiempo límite del intento (minutos)",

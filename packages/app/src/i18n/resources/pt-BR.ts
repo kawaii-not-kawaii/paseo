@@ -226,6 +226,21 @@ export const ptBR: TranslationResources = {
     },
   },
   team: {
+    header: {
+      context: "em {{daemon}} · {{count}} membros",
+      stopAll: "Parar toda a atividade",
+      stopAllTitle: "Parar toda a atividade?",
+      stopAllMessage:
+        "Todos os membros em execução neste projeto param. As reivindicações são mantidas, então o trabalho continua de onde parou.",
+      stopAllConfirm: "Parar tudo",
+    },
+    escalation: {
+      bannerTitle: "O trabalho em #{{ref}} parou — limite de devoluções atingido",
+      bannerBody:
+        "{{count}} de {{limit}} tentativas falharam no mesmo critério. Cada tentativa pode ser lida na tarefa. Os outros membros continuam trabalhando.",
+      readAttempts: "Ver tentativas",
+      resume: "Retomar",
+    },
     title: "Equipe",
     daemon: "Daemon",
     needsHostUpgrade: "Atualize o host para usar isto.",
@@ -240,6 +255,9 @@ export const ptBR: TranslationResources = {
       pending: "Esta seção chega em uma tarefa posterior de Team Parity.",
     },
     chat: {
+      composerPlaceholder: "Mensagem para #{{channel}}",
+      enterToSend: "Enter para enviar",
+      insertMention: "Mencionar um membro",
       channels: "Canais",
       activity: "Atividade dos membros",
       messages: "Mensagens",
@@ -271,11 +289,14 @@ export const ptBR: TranslationResources = {
       },
     },
     members: {
+      count: "Membros ({{count}})",
+      builtInIdentity: "identidade integrada",
       idle: "Ocioso",
       working: "Trabalhando",
       stopped: "Parado",
       unavailable: "Indisponível",
       list: {
+        workspaceRemoved: "O worktree dele foi removido no merge",
         empty: "Ainda não há membros",
         noChannels: "Sem canais",
         workspaceMissing: "Precisa de um novo workspace",
@@ -283,6 +304,12 @@ export const ptBR: TranslationResources = {
         channels: "Canais: {{channels}}",
       },
       detail: {
+        configuration: "Configuração",
+        homeWorkspaceHelp: "Onde o trabalho dele roda — nunca compartilhado com outro membro",
+        rolePromptHelp: "Seu para editar — vale para cada sessão que este membro executa",
+        memoryLabel: "Memória",
+        memoryMeta: "Pertence ao membro · {{size}}",
+        noMemory: "Ainda não há MEMORY.md",
         rolePrompt: "Prompt de papel",
         memory: "MEMORY.md e arquivos da home",
         path: "Caminho: {{path}}",
@@ -334,6 +361,16 @@ export const ptBR: TranslationResources = {
       },
     },
     tasks: {
+      count_one: "{{count}} tarefa",
+      count_other: "{{count}} tarefas",
+      newTask: "Nova tarefa",
+      untitled: "Tarefa sem título",
+      dropTarget: "Solte uma tarefa aqui",
+      claimedBy: "Reivindicada por {{member}}",
+      forMember: "para {{member}}",
+      unclaimed: "não reivindicada",
+      byMember: "por {{member}}",
+      handedBack: "Devolvida {{count}} de {{limit}} — precisa de você",
       empty: "Ainda não há tarefas",
       emptyColumn: "Não há tarefas nesta coluna",
       drag: "Arrastar tarefa",
@@ -385,6 +422,8 @@ export const ptBR: TranslationResources = {
       },
     },
     settings: {
+      pageTitle: "Configurações da equipe do projeto",
+      pageSubtitle: "Aplica-se apenas a {{project}} neste daemon",
       retentionCap: "Limite de retenção de mensagens",
       handbackLimit: "Limite de devoluções",
       attemptTimeout: "Tempo limite da tentativa (minutos)",

@@ -12,6 +12,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
 import type { Theme } from "@/styles/theme";
+import { TEAM_SPACE } from "@/screens/team/team-layout";
 import type { TaskFilterState } from "./task-filters";
 
 interface TaskFiltersProps {
@@ -77,32 +78,33 @@ function FilterMenu({
   const { t } = useTranslation();
 
   return (
-    <View style={styles.filterBlock}>
-      <Text style={styles.label}>{label}</Text>
-      <DropdownMenu>
-        <DropdownMenuTrigger style={styles.trigger}>
-          <Text style={styles.triggerText} numberOfLines={1}>
-            {value}
-          </Text>
-          <ThemedChevronDown size={16} uniProps={mutedChevron} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" align="start" width={240}>
-          <DropdownMenuItem onSelect={() => onSelect(null)}>
-            {t("team.tasks.filters.all")}
+    <DropdownMenu>
+      {/*
+        The design renders the filter as one inline pill reading
+        "Assignee: any", not a stacked label over a full-width field.
+      */}
+      <DropdownMenuTrigger style={styles.trigger}>
+        <Text style={styles.triggerText} numberOfLines={1}>
+          {`${label}: ${value}`}
+        </Text>
+        <ThemedChevronDown size={11} uniProps={mutedChevron} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="bottom" align="start" width={240}>
+        <DropdownMenuItem onSelect={() => onSelect(null)}>
+          {t("team.tasks.filters.all")}
+        </DropdownMenuItem>
+        {includeUnassigned ? (
+          <DropdownMenuItem onSelect={() => onSelect("__unassigned__")}>
+            {t("team.tasks.claim.unassigned")}
           </DropdownMenuItem>
-          {includeUnassigned ? (
-            <DropdownMenuItem onSelect={() => onSelect("__unassigned__")}>
-              {t("team.tasks.claim.unassigned")}
-            </DropdownMenuItem>
-          ) : null}
-          {members.map((member) => (
-            <DropdownMenuItem key={member.id} onSelect={() => onSelect(member.id)}>
-              {member.name}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </View>
+        ) : null}
+        {members.map((member) => (
+          <DropdownMenuItem key={member.id} onSelect={() => onSelect(member.id)}>
+            {member.name}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -116,33 +118,21 @@ function findMemberName(members: TeamMember[], memberId: string | null): string 
 const styles = StyleSheet.create((theme) => ({
   container: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: theme.spacing[3],
-  },
-  filterBlock: {
+    alignItems: "center",
     gap: theme.spacing[2],
-    minWidth: 180,
-  },
-  label: {
-    color: theme.colors.foregroundMuted,
-    fontSize: theme.fontSize.xs,
-    fontWeight: theme.fontWeight.medium,
   },
   trigger: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: theme.spacing[2],
+    gap: theme.spacing[1.5],
+    height: 26,
     borderRadius: theme.borderRadius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface0,
-    paddingHorizontal: theme.spacing[3],
-    paddingVertical: theme.spacing[2],
+    paddingHorizontal: TEAM_SPACE.snug,
   },
   triggerText: {
-    color: theme.colors.foreground,
-    flex: 1,
-    fontSize: theme.fontSize.sm,
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
   },
 }));
