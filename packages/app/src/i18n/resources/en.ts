@@ -301,6 +301,9 @@ export const en = {
         channels: "Channels: {{channels}}",
       },
       detail: {
+        channelsAll: "All channels in this project",
+        channelsHelp:
+          "Channel membership is not separate yet — every member of this project can be mentioned in any of its channels.",
         configuration: "Configuration",
         homeWorkspaceHelp: "Where its work runs — never shared with another member",
         rolePromptHelp: "Yours to edit — applies to every session this member runs",

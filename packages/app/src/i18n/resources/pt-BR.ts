@@ -305,6 +305,9 @@ export const ptBR: TranslationResources = {
         channels: "Canais: {{channels}}",
       },
       detail: {
+        channelsAll: "Todos os canais deste projeto",
+        channelsHelp:
+          "A participação em canais ainda não é separada — qualquer membro deste projeto pode ser mencionado em qualquer um dos seus canais.",
         configuration: "Configuração",
         homeWorkspaceHelp: "Onde o trabalho dele roda — nunca compartilhado com outro membro",
         rolePromptHelp: "Seu para editar — vale para cada sessão que este membro executa",

@@ -305,6 +305,9 @@ export const ja: TranslationResources = {
         channels: "チャンネル: {{channels}}",
       },
       detail: {
+        channelsAll: "このプロジェクトのすべてのチャンネル",
+        channelsHelp:
+          "チャンネルのメンバーシップはまだ分離されていません。このプロジェクトのメンバーは、どのチャンネルでもメンションできます。",
         configuration: "構成",
         homeWorkspaceHelp: "作業が実行される場所 — 他のメンバーと共有されることはありません",
         rolePromptHelp: "編集できます — このメンバーの全セッションに適用されます",

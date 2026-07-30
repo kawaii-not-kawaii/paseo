@@ -445,7 +445,6 @@ function TeamSectionBody({
         client={client}
         projectId={selectedProject.projectKey}
         members={members}
-        channels={channels}
         onMembersChanged={onMembersChanged}
         onEditMember={onEditMember}
       />

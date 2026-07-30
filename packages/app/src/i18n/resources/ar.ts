@@ -302,6 +302,9 @@ export const ar: TranslationResources = {
         channels: "القنوات: {{channels}}",
       },
       detail: {
+        channelsAll: "كل قنوات هذا المشروع",
+        channelsHelp:
+          "عضوية القنوات ليست منفصلة بعد — يمكن الإشارة إلى أي عضو في هذا المشروع داخل أي من قنواته.",
         configuration: "الإعداد",
         homeWorkspaceHelp: "حيث يُنفَّذ عمله — لا يُشارَك أبدًا مع عضو آخر",
         rolePromptHelp: "لك أن تحرره — ينطبق على كل جلسة يشغّلها هذا العضو",

@@ -4,6 +4,7 @@ import { TeamRequestSchemas } from "@getpaseo/protocol/team/rpc-schemas";
 import type { z } from "zod";
 import type { Session } from "../session.js";
 import { MemberLifecycle } from "./member-lifecycle.js";
+import type { TeamMember } from "@getpaseo/protocol/team/types";
 import { TeamService } from "./team-service.js";
 
 type TeamRequest = z.infer<(typeof TeamRequestSchemas)[number]>;
@@ -322,8 +323,30 @@ export class TeamSession {
       payload: {
         requestId: msg.requestId,
         error: null,
-        members: this.service.listMembers(msg.projectId),
+        members: this.withRuntimeStatus(msg.projectId, this.service.listMembers(msg.projectId)),
       },
+    });
+  }
+
+  /**
+   * Replaces the stored `idle` with what the member's runtime is actually
+   * doing. `TeamService` has no agent manager by design, so it can only ever
+   * say `idle` or `unavailable`; the lifecycle lives here, next to the session's
+   * agent manager, so this is the first point that can tell the truth.
+   *
+   * `unavailable` is left alone — a member with no home workspace cannot run at
+   * all, which outranks whatever its runtime happens to be.
+   */
+  private withRuntimeStatus(projectId: string, members: TeamMember[]): TeamMember[] {
+    if (!this.lifecycle) {
+      return members;
+    }
+    return members.map((member) => {
+      if (member.kind === "human" || member.status === "unavailable") {
+        return member;
+      }
+      const runtime = this.lifecycle?.runtimeStatus({ projectId, memberId: member.id });
+      return runtime ? { ...member, status: runtime } : member;
     });
   }
 

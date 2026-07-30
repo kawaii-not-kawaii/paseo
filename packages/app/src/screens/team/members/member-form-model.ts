@@ -166,6 +166,17 @@ function recalculateProviderState(
   state: MutableMemberFormState,
   entries: readonly ProviderSnapshotEntry[],
 ): void {
+  // With no entries there is nothing to validate the selection against, and
+  // normalizing anyway destroys it: the member's stored provider/model/mode get
+  // cleared, and when the async provider load lands a moment later the empty
+  // model resolves to the provider *default*. That is how editing a member set
+  // to haiku silently rewrote it to opus — and saving persisted the rewrite.
+  // Keep the stored selection until there is a real list to check it against.
+  if (entries.length === 0) {
+    state.modelSelectorProviders = [];
+    state.modeOptions = [];
+    return;
+  }
   const selectedEntry = findSelectableEntry(entries, state.selectedProvider);
   state.selectedProvider = selectedEntry?.provider ?? null;
   state.selectedModel = resolveModelId(selectedEntry, state.selectedModel);

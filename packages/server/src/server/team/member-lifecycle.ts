@@ -167,6 +167,11 @@ export class MemberLifecycle {
     return this.agentManager.getAgent(created.id) ?? created;
   }
 
+  /** Runtime status for one member, or null when nothing is live for it. */
+  public runtimeStatus(input: { projectId: string; memberId: string }): "running" | "idle" | null {
+    return resolveMemberRuntimeStatus(this.agentManager.listAgents(), input);
+  }
+
   /**
    * Stops a member's runtime on the user's instruction (FR-021).
    *
@@ -279,6 +284,33 @@ export function buildTeamAgentLabels(input: {
     [TEAM_MEMBER_ID_LABEL]: input.memberId,
     [TEAM_AUTO_STARTED_LABEL]: input.autoStarted ? "1" : "0",
   };
+}
+
+/**
+ * The runtime status of a member, or null when it has no live agent.
+ *
+ * `TeamService` deliberately knows nothing about agents, so it can only report
+ * `idle`/`unavailable` from stored state. That left `running` and `stopped`
+ * unreachable — a member showed idle even while working, and every "working"
+ * affordance in the UI was dead. The session decorates the roster with this.
+ */
+export function resolveMemberRuntimeStatus(
+  agents: ManagedAgent[],
+  input: { projectId: string; memberId: string },
+): "running" | "idle" | null {
+  const agent = findLiveTeamMemberAgent(agents, input);
+  if (!agent) {
+    return null;
+  }
+  // `initializing` counts as running: the member is coming up because something
+  // asked it to, and reporting idle there reads as "nothing is happening".
+  if (agent.lifecycle === "running" || agent.lifecycle === "initializing") {
+    return "running";
+  }
+  if (agent.lifecycle === "closed" || agent.lifecycle === "error") {
+    return null;
+  }
+  return "idle";
 }
 
 export function findLiveTeamMemberAgent(

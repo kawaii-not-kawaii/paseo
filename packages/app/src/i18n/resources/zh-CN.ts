@@ -301,6 +301,8 @@ export const zhCN: TranslationResources = {
         channels: "频道：{{channels}}",
       },
       detail: {
+        channelsAll: "此项目的所有频道",
+        channelsHelp: "频道成员关系尚未独立——本项目的任何成员都可以在其任意频道中被提及。",
         configuration: "配置",
         homeWorkspaceHelp: "其工作运行的位置 — 绝不与其他成员共享",
         rolePromptHelp: "可由你编辑 — 适用于该成员的每一次会话",

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { TeamChannel, TeamMember } from "@getpaseo/protocol/team/types";
+import type { TeamMember } from "@getpaseo/protocol/team/types";
 import { ChevronRight } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -39,7 +39,6 @@ const MEMORY_FILE = "MEMORY.md";
 export function MemberDetail({
   client,
   member,
-  channels,
   labels,
   workspaceName,
   projectId,
@@ -49,7 +48,6 @@ export function MemberDetail({
 }: {
   client: DaemonClient | null;
   member: TeamMember;
-  channels: TeamChannel[];
   labels: TeamMemberStatusLabels;
   workspaceName: string | null;
   projectId: string;
@@ -116,36 +114,25 @@ export function MemberDetail({
     };
   }, [client, member.id, member.kind]);
 
-  const channelNames = useMemo(() => {
-    if (!member.channelIds || member.channelIds.length === 0) {
-      return t("team.members.list.noChannels");
-    }
-    const byId = new Map(channels.map((channel) => [channel.id, channel.name] as const));
-    return member.channelIds
-      .map((id) => {
-        const name = byId.get(id);
-        return name ? `#${name}` : null;
-      })
-      .filter((name): name is string => name !== null)
-      .join(", ");
-  }, [channels, member.channelIds, t]);
-
   const configRows = useMemo(
     () => [
       {
         key: "homeWorkspace",
+        editable: true,
         title: t("team.members.form.homeWorkspace"),
         help: t("team.members.detail.homeWorkspaceHelp"),
         value: workspaceName ?? member.homeWorkspaceId ?? t("team.members.list.workspaceMissing"),
       },
       {
         key: "runtime",
+        editable: true,
         title: t("team.members.form.runtimeAndModel"),
         help: null,
         value: [member.provider, member.model].filter(Boolean).join(" · "),
       },
       {
         key: "rolePrompt",
+        editable: true,
         title: t("team.members.detail.rolePrompt"),
         help: t("team.members.detail.rolePromptHelp"),
         value: null,
@@ -153,11 +140,17 @@ export function MemberDetail({
       {
         key: "channels",
         title: t("team.sections.chat"),
-        help: null,
-        value: channelNames,
+        // Channel membership does not exist on the daemon yet: `channelIds` is
+        // declared on the wire but never populated, and `resolveMentionMemberIds`
+        // is project-scoped, so every project member is reachable in every
+        // channel. Say that plainly rather than opening a form that cannot
+        // change it.
+        help: t("team.members.detail.channelsHelp"),
+        value: t("team.members.detail.channelsAll"),
+        editable: false,
       },
     ],
-    [channelNames, member.homeWorkspaceId, member.model, member.provider, t, workspaceName],
+    [member.homeWorkspaceId, member.model, member.provider, t, workspaceName],
   );
 
   return (
@@ -195,7 +188,7 @@ export function MemberDetail({
                   help={row.help}
                   value={row.value}
                   bordered={index > 0}
-                  onPress={handleEdit}
+                  onPress={row.editable ? handleEdit : undefined}
                 />
               ))}
             </View>
@@ -235,7 +228,8 @@ function MemberConfigRow({
   help: string | null;
   value: string | null;
   bordered: boolean;
-  onPress: () => void;
+  /** Omitted for rows nothing can currently change — they render inert. */
+  onPress?: () => void;
 }) {
   const rowStyle = useCallback(
     ({ hovered }: { hovered?: boolean }) => [
@@ -246,8 +240,8 @@ function MemberConfigRow({
     [bordered],
   );
 
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={rowStyle}>
+  const body = (
+    <>
       <View style={styles.configRowText}>
         <Text style={styles.configTitle}>{title}</Text>
         {help ? <Text style={styles.configHelp}>{help}</Text> : null}
@@ -257,7 +251,21 @@ function MemberConfigRow({
           {value}
         </Text>
       ) : null}
-      <ThemedChevronRight size={14} uniProps={faintChevron} />
+      {onPress ? <ThemedChevronRight size={14} uniProps={faintChevron} /> : null}
+    </>
+  );
+
+  // No chevron and no hover when there is nothing to open — a row that looks
+  // actionable and is not is worse than a plain one.
+  if (!onPress) {
+    return (
+      <View style={bordered ? styles.configRowInertBordered : styles.configRowInert}>{body}</View>
+    );
+  }
+
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={rowStyle}>
+      {body}
     </Pressable>
   );
 }
@@ -360,6 +368,20 @@ const styles = StyleSheet.create((theme) => ({
     padding: theme.spacing[4],
   },
   configRowBordered: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  configRowInert: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+    padding: theme.spacing[4],
+  },
+  configRowInertBordered: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+    padding: theme.spacing[4],
     borderTopWidth: 1,
     borderTopColor: theme.colors.border,
   },

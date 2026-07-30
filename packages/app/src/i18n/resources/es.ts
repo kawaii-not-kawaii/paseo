@@ -305,6 +305,9 @@ export const es: TranslationResources = {
         channels: "Canales: {{channels}}",
       },
       detail: {
+        channelsAll: "Todos los canales de este proyecto",
+        channelsHelp:
+          "La pertenencia a canales aún no es independiente: cualquier miembro de este proyecto puede ser mencionado en cualquiera de sus canales.",
         configuration: "Configuración",
         homeWorkspaceHelp: "Donde se ejecuta su trabajo: nunca se comparte con otro miembro",
         rolePromptHelp: "Tuyo para editar: se aplica a cada sesión que ejecuta este miembro",

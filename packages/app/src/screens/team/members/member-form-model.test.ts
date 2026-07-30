@@ -115,3 +115,63 @@ describe("describeSubmitBlocker", () => {
     ).toBeNull();
   });
 });
+
+describe("provider selection round-trip", () => {
+  const entries = [
+    {
+      provider: "claude",
+      enabled: true,
+      models: [
+        { id: "opus", label: "Opus", isDefault: true },
+        { id: "haiku", label: "Haiku" },
+      ],
+      modes: [{ id: "default", label: "Default" }],
+    },
+  ] as never;
+
+  const openEditing = (model: string) =>
+    openMemberForm({
+      mode: "edit",
+      currentProjectId: "prj_test",
+      member: {
+        id: "m1",
+        name: "test",
+        description: null,
+        provider: "claude",
+        model,
+        kind: "agent",
+        rolePrompt: "does the work",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        archivedAt: null,
+      } as never,
+      projects: [],
+      assignments: [],
+      templates: [],
+      providerEntries: [],
+    });
+
+  // The provider list loads async, so the form is constructed with an empty
+  // one. Normalizing against that empty list used to clear the member's model,
+  // and the real list then resolved the cleared value to the provider default —
+  // so opening the edit form rewrote haiku to opus, and saving persisted it.
+  it("keeps the member's model while the provider list is still loading", () => {
+    const model = openEditing("haiku");
+
+    expect(model.getState().selectedModel).toBe("haiku");
+    expect(model.getState().selectedProvider).toBe("claude");
+
+    model.applyProviderEntries(entries);
+
+    expect(model.getState().selectedModel).toBe("haiku");
+    expect(model.getState().selectedProvider).toBe("claude");
+    model.close();
+  });
+
+  it("falls back to the default once a model is genuinely unavailable", () => {
+    const model = openEditing("retired-model");
+    model.applyProviderEntries(entries);
+
+    expect(model.getState().selectedModel).toBe("opus");
+    model.close();
+  });
+});
