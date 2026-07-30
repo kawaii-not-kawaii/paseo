@@ -3,7 +3,7 @@ import { useCallback, useMemo } from "react";
 import { GripVertical, Lock, MoreVertical, TriangleAlert } from "lucide-react-native";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import type { TeamMember, TeamTask } from "@getpaseo/protocol/team/types";
-import { DraggableList, type DraggableRenderItemInfo } from "@/components/draggable-list";
+import type { DraggableRenderItemInfo } from "@/components/draggable-list";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useIsCompactFormFactor } from "@/constants/layout";
+import { isWeb } from "@/constants/platform";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { memberHandle } from "@/screens/team/member-status";
@@ -23,6 +24,8 @@ import {
   TEAM_TASK_COLUMN_WIDTH,
 } from "@/screens/team/team-layout";
 import { TEAM_TASK_STATUS_VALUES, sortTasksBySeq, type TeamTaskStatusValue } from "./task-status";
+import { TaskBoardDragSurface } from "./task-board-drag-surface";
+import type { TaskBoardColumn } from "./task-board-drag-surface.types";
 
 export function TaskBoard({
   tasks,
@@ -49,7 +52,7 @@ export function TaskBoard({
     return next;
   }, [tasks]);
 
-  const columns = TEAM_TASK_STATUS_VALUES.map((status) => ({
+  const columns: TaskBoardColumn[] = TEAM_TASK_STATUS_VALUES.map((status) => ({
     status,
     title: t(`team.tasks.status.${status}`),
     tasks: groupedTasks.get(status) ?? [],
@@ -62,41 +65,37 @@ export function TaskBoard({
       style={styles.board}
       contentContainerStyle={styles.boardContent}
     >
-      {columns.map((column) => (
-        <View key={column.status} style={styles.column}>
-          <View style={styles.columnHeader}>
-            <Text style={styles.columnTitle}>{column.title}</Text>
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{column.tasks.length}</Text>
-            </View>
-          </View>
-          <DraggableList
-            data={column.tasks}
-            keyExtractor={(task) => task.id}
-            renderItem={(info) => (
-              <TaskBoardCard
-                info={info}
-                members={members}
-                handbackLimit={handbackLimit}
-                isDone={column.status === "done"}
-                onOpenTask={onOpenTask}
-                onMoveTask={onMoveTask}
-                onResumeTask={onResumeTask}
-              />
-            )}
-            onDragEnd={() => undefined}
-            scrollEnabled={false}
-            useDragHandle
-            nestable
-            containerStyle={styles.columnList}
-            ListEmptyComponent={
-              <View style={styles.dropTarget}>
-                <Text style={styles.dropTargetText}>{t("team.tasks.dropTarget")}</Text>
+      <TaskBoardDragSurface
+        columns={columns}
+        onMoveTask={onMoveTask}
+        renderColumn={(column, list) => (
+          <View style={styles.column}>
+            <View style={styles.columnHeader}>
+              <Text style={styles.columnTitle}>{column.title}</Text>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{column.tasks.length}</Text>
               </View>
-            }
+            </View>
+            <View style={styles.columnList}>{list}</View>
+          </View>
+        )}
+        renderItem={(info, status) => (
+          <TaskBoardCard
+            info={info}
+            members={members}
+            handbackLimit={handbackLimit}
+            isDone={status === "done"}
+            onOpenTask={onOpenTask}
+            onMoveTask={onMoveTask}
+            onResumeTask={onResumeTask}
           />
-        </View>
-      ))}
+        )}
+        renderDropTarget={() => (
+          <View style={styles.dropTarget}>
+            <Text style={styles.dropTargetText}>{t("team.tasks.dropTarget")}</Text>
+          </View>
+        )}
+      />
     </ScrollView>
   );
 }
@@ -226,7 +225,7 @@ function TaskCardHandle({
     return null;
   }
 
-  if (task.claimantMemberId) {
+  if (task.claimantMemberId && isWeb) {
     return (
       <Pressable
         onLongPress={onDrag}

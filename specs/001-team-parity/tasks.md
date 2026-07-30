@@ -276,7 +276,7 @@ acknowledged message or task change is lost (SC-006).
       `teamChannelReads` capability with protocol and session tests (FR-008b).
 - [x] T126 Render unread affordances, clear them by calling the daemon when a channel is viewed,
       and render only the truthful coarse working presence from member status.
-- [ ] T127 Implement one board-owned dnd-kit context on web, with each status column droppable and
+- [x] T127 Implement one board-owned dnd-kit context on web, with each status column droppable and
       moves delegated to the existing task update path; retain the native explicit move menu
       (FR-025a).
 - [ ] T128 Triage the system-note pill, composer attachments, channel bell, and panel-right
