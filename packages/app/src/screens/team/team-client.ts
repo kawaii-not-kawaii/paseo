@@ -12,6 +12,7 @@ import type {
   TeamChannelCreateResponse,
   TeamChannelDeleteResponse,
   TeamChannelListResponse,
+  TeamChannelMarkReadResponse,
   TeamChannelUpdateResponse,
   TeamMemberAssignResponse,
   TeamMemberCreateResponse,
@@ -57,6 +58,12 @@ type TeamClientRequest =
     }
   | {
       type: "team.channel.delete.request";
+      requestId: string;
+      projectId: string;
+      channelId: string;
+    }
+  | {
+      type: "team.channel.mark_read.request";
       requestId: string;
       projectId: string;
       channelId: string;
@@ -185,6 +192,7 @@ type TeamClientResponse =
   | TeamChannelCreateResponse["payload"]
   | TeamChannelDeleteResponse["payload"]
   | TeamChannelListResponse["payload"]
+  | TeamChannelMarkReadResponse["payload"]
   | TeamChannelUpdateResponse["payload"]
   | TeamMemberAssignResponse["payload"]
   | TeamMemberCreateResponse["payload"]
@@ -283,6 +291,27 @@ export async function listTeamChannels(
   });
   throwTeamError(payload);
   return payload.channels;
+}
+
+export async function markTeamChannelRead(input: {
+  client: DaemonClient;
+  projectId: string;
+  channelId: string;
+}): Promise<string | null> {
+  const requestId = createRequestId("team-channel-mark-read");
+  const payload = await sendTeamRequest<TeamChannelMarkReadResponse["payload"]>({
+    client: input.client,
+    requestId,
+    message: {
+      type: "team.channel.mark_read.request",
+      requestId,
+      projectId: input.projectId,
+      channelId: input.channelId,
+    },
+    responseType: "team.channel.mark_read.response",
+  });
+  throwTeamError(payload);
+  return payload.channelId;
 }
 
 export async function createTeamChannel(input: {

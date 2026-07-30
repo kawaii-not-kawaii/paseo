@@ -91,6 +91,11 @@ const retentionStatusRowSchema = z.object({
   last_retention_pruned_at: z.string().nullable(),
 });
 
+const channelUnreadRowSchema = z.object({
+  channel_id: z.string(),
+  unread_count: z.number().int().nonnegative(),
+});
+
 type MessageRow = z.infer<typeof messageRowSchema>;
 type ChannelRow = z.infer<typeof channelRowSchema>;
 type MessageMentionRow = z.infer<typeof messageMentionRowSchema>;
@@ -369,6 +374,39 @@ export function createProjectStore(db: TeamDatabaseHandle) {
 
   function deleteChannel(channelId: string): void {
     db.prepare("DELETE FROM channels WHERE id = ?").run(channelId);
+  }
+
+  function listChannelUnreadCounts(identityId: string): Map<string, number> {
+    const rows = channelUnreadRowSchema.array().parse(
+      db
+        .prepare(
+          `SELECT c.id AS channel_id, COUNT(m.rowid) AS unread_count
+             FROM channels c
+             LEFT JOIN channel_read_cursors r
+               ON r.channel_id = c.id AND r.identity_id = ?
+             LEFT JOIN messages m
+               ON m.channel_id = c.id
+              AND m.rowid > COALESCE(r.last_read_message_rowid, 0)
+            WHERE c.archived_at IS NULL
+            GROUP BY c.id`,
+        )
+        .all(identityId) as unknown[],
+    );
+    return new Map(rows.map((row) => [row.channel_id, row.unread_count]));
+  }
+
+  function markChannelRead(channelId: string, identityId: string, updatedAt: string): void {
+    db.prepare(
+      `INSERT INTO channel_read_cursors (
+         channel_id, identity_id, last_read_message_rowid, updated_at
+       )
+       SELECT ?, ?, COALESCE(MAX(rowid), 0), ?
+         FROM messages
+        WHERE channel_id = ?
+       ON CONFLICT(channel_id, identity_id) DO UPDATE SET
+         last_read_message_rowid = excluded.last_read_message_rowid,
+         updated_at = excluded.updated_at`,
+    ).run(channelId, identityId, updatedAt, channelId);
   }
 
   function listMessages(input: ListProjectMessagesInput): ProjectMessagePage {
@@ -1051,6 +1089,8 @@ export function createProjectStore(db: TeamDatabaseHandle) {
     createChannel,
     updateChannel,
     deleteChannel,
+    listChannelUnreadCounts,
+    markChannelRead,
     listMessages,
     createMessage,
     getMessage,

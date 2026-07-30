@@ -146,6 +146,19 @@ Primary key `(message_id, member_id)`. A separate table rather than a JSON colum
 delivery — "which members must receive this message" (FR-007) — is an indexed lookup rather than a
 scan over message bodies.
 
+### `channel_read_cursors`
+
+| Column                    | Type             | Notes                                                         |
+| ------------------------- | ---------------- | ------------------------------------------------------------- |
+| `channel_id`              | TEXT NOT NULL    | FK → `channels(id)` ON DELETE CASCADE                         |
+| `identity_id`             | TEXT NOT NULL    | The built-in human identity today; supports later identities. |
+| `last_read_message_rowid` | INTEGER NOT NULL | Highest inserted message row visible when marked read.        |
+| `updated_at`              | TEXT NOT NULL    | ISO 8601.                                                     |
+
+Primary key `(channel_id, identity_id)`. Unread is the count of channel messages with a SQLite
+`rowid` greater than the cursor. The cursor remains valid when retention deletes older messages and
+does not require keeping a referenced message alive (FR-008a).
+
 ### `tasks`
 
 | Column                      | Type                       | Notes                                                                              |

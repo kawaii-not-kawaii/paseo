@@ -394,3 +394,18 @@ vs MEMORY.md, per-project-per-daemon scope.
 (`.agents/`, `.claude/skills/`, `.bmad-loop/`, `_bmad/`, `.codex/`) are untracked and have been
 excluded from every commit. They either belong in `.gitignore` or belong committed — unresolved, and
 a `git add -A` would sweep them in.
+
+## Design elements without backing data
+
+The July 30 Team design completion pass evaluates four intentionally omitted elements:
+
+- **System-note pill** — not built. Task status events are project-scoped while messages are
+  channel-scoped, and neither a task nor a status update identifies the channel/message that should
+  own the pill. Adding a `kind` field alone would create a renderer with no truthful producer.
+- **Composer image and paperclip** — not built. There is no attachment entity, storage,
+  upload/download protocol, retention policy, or agent-facing file contract. Shipping buttons would
+  be dead UI; building the feature would be a separate trust-boundary and storage project.
+- **Channel header bell** — not built. Mute and channel membership/preferences do not exist. The
+  bell waits for that product capability rather than inventing a local-only preference.
+- **Header panel-right** — not built. Team is a host route with no right panel to reveal. A toggle
+  without a target is not a feature.

@@ -38,6 +38,23 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    version: 3,
+    up: (db, kind) => {
+      if (kind !== "project") {
+        return;
+      }
+      db.exec(`
+        CREATE TABLE channel_read_cursors (
+          channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+          identity_id TEXT NOT NULL,
+          last_read_message_rowid INTEGER NOT NULL,
+          updated_at TEXT NOT NULL,
+          PRIMARY KEY (channel_id, identity_id)
+        );
+      `);
+    },
+  },
 ];
 
 export const LATEST_TEAM_DATABASE_VERSION = migrations.at(-1)?.version ?? 0;

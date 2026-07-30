@@ -57,6 +57,7 @@ export function installTeamServerInfo(
       features: {
         ...payload.features,
         team: isTeamToolInjectionEnabled(),
+        teamChannelReads: true,
       },
     };
   };

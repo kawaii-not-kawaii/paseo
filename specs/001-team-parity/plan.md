@@ -21,6 +21,13 @@ The technical approach is shaped by three facts discovered in the code rather th
    A team is per project _per daemon_; the Team view shows the connected daemon's team.
 3. **This is a fork that must keep merging upstream** (Constitution VIII). All logic lives in
    fork-owned directories; upstream files are touched only at enumerated seams.
+4. **Unread state belongs to the human identity, not the device.** A project database read cursor
+   keyed by channel and identity lets every client see the same durable unread state. The daemon
+   advances the cursor to the channel's current message row when it is viewed.
+5. **The existing drag primitive is list-local.** Web gets one board-owned dnd-kit context with
+   each status column registered as a drop target. Native keeps the existing overflow move action;
+   reshaping the upstream cross-platform primitive for one fork feature would widen the merge
+   surface without solving native cross-list drag.
 
 ## Technical Context
 
@@ -38,6 +45,7 @@ inbound validation.
 dependencies over mocks; real SQLite in tests, never a mock database.
 
 **Target Platform**: iOS, Android, browser web, Electron desktop — cross-platform by default.
+Cross-column task drag is web/Electron first; native retains the existing explicit status menu.
 
 **Project Type**: npm workspace monorepo; daemon + mobile/web client + protocol package.
 
@@ -58,8 +66,8 @@ _GATE: evaluated before Phase 0, re-evaluated after Phase 1 design._
 | Principle                                     | Status                        | How this design satisfies it                                                                                                                                                                                                                                                           |
 | --------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | I. Protocol Backward Compatibility            | PASS                          | All team RPCs are new `type` values; no existing schema is modified. New fields optional. Dotted namespaces with `.request`/`.response`. `discriminatedUnion` throughout. No `.transform`/`.catch`/`.preprocess` in wire schemas — retention and normalization happen post-validation. |
-| II. Capability Gates, Not Fallback Paths      | PASS                          | Single flag `server_info.features.team`. The app shows the Team view or tells the user to update the host. No degraded path, no legacy-RPC fan-out. One `COMPAT(team)` comment.                                                                                                        |
-| III. Cross-Platform By Default                | PASS                          | No new platform gates beyond `useIsCompactFormFactor()` for layout. Team is _not_ a mobile panel (see Structure). Hover-to-reveal uses `isHovered \|\| isNative \|\| isCompact`.                                                                                                       |
+| II. Capability Gates, Not Fallback Paths      | PASS                          | `server_info.features.team` gates the surface; `server_info.features.teamChannelReads` gates durable unread tracking. Missing capabilities tell the user to update the host. No degraded path or legacy-RPC fan-out. Each capability has one `COMPAT` comment.                         |
+| III. Cross-Platform By Default                | PASS WITH DOCUMENTED LIMIT    | Unread and presence are cross-platform. Cross-column drag uses a fork-owned `.web.tsx` implementation because the installed native list primitive has no shared cross-list context; native retains the explicit move menu. Team is _not_ a mobile panel (see Structure).               |
 | IV. Behavior-Proving Tests, Real Dependencies | PASS                          | Real SQLite in tests. Claim contention, lease expiry, migration, and adoption are behavioral tests. Every fallible UI action gets success and failure coverage.                                                                                                                        |
 | V. Commit To A Shape                          | PASS                          | Zod validation at the SQLite read boundary and the WebSocket boundary; typed internals after. No barrel files.                                                                                                                                                                         |
 | VI. Glossary-Authoritative Terminology        | PASS                          | New glossary entries required in the same change: Member, Channel, Task (disambiguated from Agent session), Claim, Home workspace.                                                                                                                                                     |

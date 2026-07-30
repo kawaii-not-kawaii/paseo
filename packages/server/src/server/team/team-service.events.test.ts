@@ -69,6 +69,56 @@ describe("TeamService live events", () => {
     service.close();
   });
 
+  test("lists and advances the human identity's unread cursor", async () => {
+    const service = new TeamService({
+      paseoHome: await createPaseoHome(),
+      now: () => new Date("2026-07-30T12:00:00.000Z"),
+      createId: sequenceIds("member-human", "channel-all", "message-1"),
+    });
+    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const postTeamMessage = service.postMessage.bind(service);
+    postTeamMessage({
+      projectId: "project-1",
+      channelId: channel.id,
+      authorMemberId: "member-agent",
+      body: "new work",
+    });
+
+    const emitted: SessionOutboundMessage[] = [];
+    const session = new TeamSession({ service, emit: (message) => emitted.push(message) });
+    await session.handle({
+      type: "team.channel.list.request",
+      requestId: "req-list-before",
+      projectId: "project-1",
+    });
+    expect(findByType(emitted, "team.channel.list.response")?.payload.channels).toEqual([
+      expect.objectContaining({ id: channel.id, unreadCount: 1 }),
+    ]);
+
+    await session.handle({
+      type: "team.channel.mark_read.request",
+      requestId: "req-read",
+      projectId: "project-1",
+      channelId: channel.id,
+    });
+    await session.handle({
+      type: "team.channel.list.request",
+      requestId: "req-list-after",
+      projectId: "project-1",
+    });
+    const lists = emitted.filter(
+      (
+        message,
+      ): message is Extract<SessionOutboundMessage, { type: "team.channel.list.response" }> =>
+        message.type === "team.channel.list.response",
+    );
+    expect(lists.at(-1)?.payload.channels).toEqual([
+      expect.objectContaining({ id: channel.id, unreadCount: 0 }),
+    ]);
+
+    service.close();
+  });
+
   async function createPaseoHome(): Promise<string> {
     const path = await mkdtemp(join(tmpdir(), "team-service-events-test-"));
     cleanupPaths.push(path);

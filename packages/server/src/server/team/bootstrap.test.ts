@@ -33,6 +33,7 @@ describe("installTeamServerInfo", () => {
     const { server, readFeatures } = createServerStub();
     installTeamServerInfo(server, () => true);
     expect(readFeatures().team).toBe(true);
+    expect(readFeatures().teamChannelReads).toBe(true);
   });
 
   test("withholds team when MCP injection is off, rather than shipping mute members", () => {

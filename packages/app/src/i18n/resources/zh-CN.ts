@@ -254,6 +254,7 @@ export const zhCN: TranslationResources = {
     chat: {
       composerPlaceholder: "发送到 #{{channel}}",
       enterToSend: "按 Enter 发送",
+      memberWorking: "{{member}} 正在工作",
       insertMention: "提及成员",
       channels: "频道",
       activity: "成员活动",

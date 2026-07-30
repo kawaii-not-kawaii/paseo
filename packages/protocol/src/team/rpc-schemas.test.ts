@@ -3,6 +3,8 @@ import { z } from "zod";
 import { SessionOutboundMessageSchema } from "../messages.js";
 import {
   TeamEventSchemas,
+  TeamChannelListResponseSchema,
+  TeamChannelMarkReadRequestSchema,
   TeamMemberCreateRequestSchema,
   TeamMemberListResponseSchema,
   TeamMessagePostedSchema,
@@ -135,6 +137,34 @@ describe("team rpc schemas", () => {
     });
     expect(event.payload.message.mentionMemberIds).toBeUndefined();
     expect(event.payload.message.autoStarted).toBeUndefined();
+
+    const oldChannelList = TeamChannelListResponseSchema.parse({
+      type: "team.channel.list.response",
+      payload: {
+        requestId: "req-channels",
+        error: null,
+        channels: [
+          {
+            id: "channel-1",
+            name: "general",
+            purpose: null,
+            createdAt: "2026-07-27T00:00:00.000Z",
+            updatedAt: "2026-07-27T00:00:00.000Z",
+            archivedAt: null,
+          },
+        ],
+      },
+    });
+    expect(oldChannelList.payload.channels[0]?.unreadCount).toBeUndefined();
+
+    expect(
+      TeamChannelMarkReadRequestSchema.parse({
+        type: "team.channel.mark_read.request",
+        requestId: "req-read",
+        projectId: "project-1",
+        channelId: "channel-1",
+      }).channelId,
+    ).toBe("channel-1");
   });
 
   test("new session union entries do not break old-shaped outbound messages", () => {

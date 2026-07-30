@@ -441,10 +441,21 @@ export class TeamService {
       }));
   }
 
-  public listChannels(projectId: string): TeamChannel[] {
-    return createProjectStore(this.dbManager.openProject(projectId))
+  public listChannels(projectId: string, identityId?: string): TeamChannel[] {
+    const store = createProjectStore(this.dbManager.openProject(projectId));
+    const unreadCounts = identityId ? store.listChannelUnreadCounts(identityId) : null;
+    return store
       .listChannels()
-      .map(toTeamChannel);
+      .map((channel) => toTeamChannel(channel, unreadCounts?.get(channel.id)));
+  }
+
+  public markChannelRead(projectId: string, channelId: string, identityId: string): string {
+    const store = createProjectStore(this.dbManager.openProject(projectId));
+    if (!store.getChannel(channelId)) {
+      throw new Error(`Channel ${channelId} was not found.`);
+    }
+    store.markChannelRead(channelId, identityId, this.now().toISOString());
+    return channelId;
   }
 
   public createChannel(input: CreateTeamChannelInput): TeamChannel {
@@ -1025,18 +1036,22 @@ function toTeamMember(member: RosterMember, homeWorkspaceId: string | null): Tea
   };
 }
 
-function toTeamChannel(channel: {
-  id: string;
-  name: string;
-  purpose: string | null;
-  createdAt: string;
-  updatedAt: string;
-  archivedAt: string | null;
-}): TeamChannel {
+function toTeamChannel(
+  channel: {
+    id: string;
+    name: string;
+    purpose: string | null;
+    createdAt: string;
+    updatedAt: string;
+    archivedAt: string | null;
+  },
+  unreadCount?: number,
+): TeamChannel {
   return {
     id: channel.id,
     name: channel.name,
     purpose: channel.purpose,
+    ...(unreadCount === undefined ? {} : { unreadCount }),
     createdAt: channel.createdAt,
     updatedAt: channel.updatedAt,
     archivedAt: channel.archivedAt,

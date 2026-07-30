@@ -94,4 +94,53 @@ describe("project store", () => {
 
     manager.closeAll();
   });
+
+  test("persists unread counts independently for each identity", async () => {
+    const teamDir = await createTeamDir();
+    const manager = createTeamDatabaseManager({ teamDir });
+    const store = createProjectStore(manager.openProject("proj-1"));
+    const createdAt = "2026-07-30T12:00:00.000Z";
+    store.createChannel({
+      id: "chn_1",
+      name: "general",
+      purpose: null,
+      createdAt,
+      updatedAt: createdAt,
+      archivedAt: null,
+    });
+
+    store.markChannelRead("chn_1", "human-1", createdAt);
+    store.createMessage({
+      id: "msg_1",
+      channelId: "chn_1",
+      authorMemberId: "member-1",
+      body: "first",
+      replyToMessageId: null,
+      createdAt,
+      autoStarted: false,
+    });
+    store.createMessage({
+      id: "msg_2",
+      channelId: "chn_1",
+      authorMemberId: "member-1",
+      body: "second",
+      replyToMessageId: null,
+      createdAt,
+      autoStarted: false,
+    });
+
+    expect(store.listChannelUnreadCounts("human-1")).toEqual(new Map([["chn_1", 2]]));
+    expect(store.listChannelUnreadCounts("human-2")).toEqual(new Map([["chn_1", 2]]));
+
+    store.markChannelRead("chn_1", "human-1", "2026-07-30T12:01:00.000Z");
+    expect(store.listChannelUnreadCounts("human-1")).toEqual(new Map([["chn_1", 0]]));
+    expect(store.listChannelUnreadCounts("human-2")).toEqual(new Map([["chn_1", 2]]));
+
+    manager.closeAll();
+    const reopened = createTeamDatabaseManager({ teamDir });
+    expect(
+      createProjectStore(reopened.openProject("proj-1")).listChannelUnreadCounts("human-1"),
+    ).toEqual(new Map([["chn_1", 0]]));
+    reopened.closeAll();
+  });
 });

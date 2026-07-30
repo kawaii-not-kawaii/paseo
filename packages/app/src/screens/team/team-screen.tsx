@@ -16,7 +16,7 @@ import { MemberForm } from "@/screens/team/members/member-form";
 import { TeamMembersSection } from "@/screens/team/members/member-section";
 import { TeamTasksSection } from "@/screens/team/tasks/task-section";
 import { TeamSettingsSection } from "@/screens/team/settings/settings-section";
-import { useTeamCapability } from "@/screens/team/team-capability";
+import { useTeamCapability, useTeamChannelReadsCapability } from "@/screens/team/team-capability";
 import { TeamHeader } from "@/screens/team/team-header";
 import {
   isTeamSection,
@@ -27,6 +27,7 @@ import {
   getTeamProjectSettings,
   listTeamChannels,
   listTeamMembers,
+  markTeamChannelRead,
   stopAllTeamActivity,
 } from "@/screens/team/team-client";
 import { listTeamTasks } from "@/screens/team/tasks/team-tasks-client";
@@ -36,6 +37,14 @@ function mergeMembersByName(current: TeamMember[], member: TeamMember): TeamMemb
   const next = new Map(current.map((entry) => [entry.id, entry] as const));
   next.set(member.id, member);
   return Array.from(next.values()).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function incrementChannelUnread(channels: TeamChannel[], channelId: string): TeamChannel[] {
+  return channels.map((channel) =>
+    channel.id === channelId
+      ? { ...channel, unreadCount: (channel.unreadCount ?? 0) + 1 }
+      : channel,
+  );
 }
 
 /**
@@ -54,6 +63,7 @@ export function TeamScreen() {
   const serverId = useHostRouteServerId();
   const hosts = useHosts();
   const teamEnabled = useTeamCapability(serverId);
+  const channelReadsEnabled = useTeamChannelReadsCapability(serverId);
   const projectsResult = useProjects({ enabled: Boolean(serverId) });
   const client = useSessionStore((state) =>
     serverId ? (state.sessions[serverId]?.client ?? null) : null,
@@ -136,6 +146,48 @@ export function TeamScreen() {
   useEffect(() => {
     void refreshRosterAndChannels();
   }, [refreshRosterAndChannels]);
+
+  const markViewedChannel = useCallback(
+    async (channelId: string) => {
+      if (!channelReadsEnabled || !client || !projectId) {
+        return;
+      }
+      try {
+        await markTeamChannelRead({ client, projectId, channelId });
+        setChannels((current) =>
+          current.map((channel) =>
+            channel.id === channelId ? { ...channel, unreadCount: 0 } : channel,
+          ),
+        );
+      } catch (nextError) {
+        setError(nextError instanceof Error ? nextError.message : String(nextError));
+      }
+    },
+    [channelReadsEnabled, client, projectId],
+  );
+
+  useEffect(() => {
+    if (activeChannelId) {
+      void markViewedChannel(activeChannelId);
+    }
+  }, [activeChannelId, markViewedChannel]);
+
+  useEffect(() => {
+    if (!channelReadsEnabled || !client || !projectId) {
+      return;
+    }
+    return client.on("team.message.posted", (event) => {
+      if (event.payload.projectId !== projectId) {
+        return;
+      }
+      const messageChannelId = event.payload.message.channelId;
+      if (messageChannelId === activeChannelId) {
+        void markViewedChannel(messageChannelId);
+        return;
+      }
+      setChannels((current) => incrementChannelUnread(current, messageChannelId));
+    });
+  }, [activeChannelId, channelReadsEnabled, client, markViewedChannel, projectId]);
 
   const handleMembersChanged = useCallback(() => {
     void refreshRosterAndChannels();
@@ -307,6 +359,7 @@ export function TeamScreen() {
           error={error}
           escalatedTask={escalatedTask}
           handbackLimit={handbackLimit}
+          channelReadsEnabled={channelReadsEnabled}
           onSelectChannel={setActiveChannelId}
           onChannelsChanged={refreshRosterAndChannels}
           onMembersChanged={handleMembersChanged}
@@ -350,6 +403,7 @@ function TeamSectionBody({
   error,
   escalatedTask,
   handbackLimit,
+  channelReadsEnabled,
   onSelectChannel,
   onChannelsChanged,
   onMembersChanged,
@@ -368,6 +422,7 @@ function TeamSectionBody({
   error: string | null;
   escalatedTask: TeamTask | null;
   handbackLimit: number | null;
+  channelReadsEnabled: boolean;
   onSelectChannel: (channelId: string) => void;
   onChannelsChanged: () => void | Promise<void>;
   onMembersChanged: () => void;
@@ -425,6 +480,7 @@ function TeamSectionBody({
       error={error}
       escalatedTask={escalatedTask}
       handbackLimit={handbackLimit}
+      channelReadsEnabled={channelReadsEnabled}
       onSelectChannel={onSelectChannel}
       onChannelsChanged={onChannelsChanged}
       onOpenTasks={onOpenTasks}

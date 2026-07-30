@@ -81,6 +81,10 @@ export class TeamSession {
         this.handleChannelDelete(
           msg as Extract<TeamRequest, { type: "team.channel.delete.request" }>,
         ),
+      "team.channel.mark_read.request": (msg) =>
+        this.handleChannelMarkRead(
+          msg as Extract<TeamRequest, { type: "team.channel.mark_read.request" }>,
+        ),
       "team.message.list.request": (msg) =>
         this.handleMessageList(msg as Extract<TeamRequest, { type: "team.message.list.request" }>),
       "team.message.post.request": (msg) =>
@@ -209,7 +213,7 @@ export class TeamSession {
       payload: {
         requestId: msg.requestId,
         error: null,
-        channels: this.service.listChannels(msg.projectId),
+        channels: this.service.listChannels(msg.projectId, this.service.getHumanMember().id),
       },
     });
   }
@@ -250,6 +254,23 @@ export class TeamSession {
       "team.channel.delete.response",
       msg.requestId,
       () => ({ channelId: this.service.deleteChannel(msg.projectId, msg.channelId) }),
+      { channelId: null },
+    );
+  }
+
+  private handleChannelMarkRead(
+    msg: Extract<TeamRequest, { type: "team.channel.mark_read.request" }>,
+  ): Promise<void> {
+    return this.emitResult(
+      "team.channel.mark_read.response",
+      msg.requestId,
+      () => ({
+        channelId: this.service.markChannelRead(
+          msg.projectId,
+          msg.channelId,
+          this.service.getHumanMember().id,
+        ),
+      }),
       { channelId: null },
     );
   }

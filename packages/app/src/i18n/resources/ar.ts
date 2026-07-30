@@ -254,6 +254,7 @@ export const ar: TranslationResources = {
     chat: {
       composerPlaceholder: "رسالة إلى #{{channel}}",
       enterToSend: "Enter للإرسال",
+      memberWorking: "{{member}} يعمل",
       insertMention: "أشر إلى عضو",
       channels: "القنوات",
       activity: "نشاط الأعضاء",

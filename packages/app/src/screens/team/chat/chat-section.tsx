@@ -16,7 +16,14 @@ import { deleteTeamChannel, resumeTeamProject } from "@/screens/team/team-client
 import { settingsStyles } from "@/styles/settings";
 import { confirmDialog } from "@/utils/confirm-dialog";
 import { useTeamMemberStatusLabels } from "@/screens/team/use-member-status-labels";
-import { TEAM_SPACE, TEAM_SUBHEADER_HEIGHT } from "@/screens/team/team-layout";
+import {
+  TEAM_SPACE,
+  TEAM_MESSAGE_MAX_WIDTH,
+  TEAM_STATUS_DOT_SIZE,
+  TEAM_SUBHEADER_HEIGHT,
+} from "@/screens/team/team-layout";
+import { memberHandle } from "@/screens/team/member-status";
+import { TeamStatusDot } from "@/screens/team/ui/status-dot";
 import { EscalationBanner } from "./escalation-banner";
 import { ChannelForm } from "./channel-form";
 import { ChatRail } from "./chat-rail";
@@ -40,6 +47,7 @@ export function TeamChatSection({
   error,
   escalatedTask,
   handbackLimit,
+  channelReadsEnabled,
   onSelectChannel,
   onChannelsChanged,
   onOpenTasks,
@@ -54,6 +62,7 @@ export function TeamChatSection({
   error: string | null;
   escalatedTask: TeamTask | null;
   handbackLimit: number | null;
+  channelReadsEnabled: boolean;
   onSelectChannel: (channelId: string) => void;
   onChannelsChanged: () => void | Promise<void>;
   onOpenTasks: () => void;
@@ -89,6 +98,10 @@ export function TeamChatSection({
   const activeChannel = useMemo(
     () => channels.find((channel) => channel.id === channelId) ?? null,
     [channelId, channels],
+  );
+  const workingMember = useMemo(
+    () => members.find((member) => member.kind === "agent" && member.status === "running") ?? null,
+    [members],
   );
 
   const handleOpenCreate = useCallback(() => setCreateVisible(true), []);
@@ -152,6 +165,7 @@ export function TeamChatSection({
         activeChannelId={channelId}
         memberLabels={memberLabels}
         canCreateChannel={Boolean(client)}
+        unreadEnabled={channelReadsEnabled}
         onSelectChannel={onSelectChannel}
         onCreateChannel={handleOpenCreate}
       />
@@ -191,6 +205,8 @@ export function TeamChatSection({
             />
           </View>
         ) : null}
+
+        {workingMember ? <PresenceLine member={workingMember} /> : null}
 
         <MessageComposer
           client={client}
@@ -233,6 +249,18 @@ export function TeamChatSection({
         onClose={handleCloseEdit}
         onSaved={handleSaved}
       />
+    </View>
+  );
+}
+
+function PresenceLine({ member }: { member: TeamMember }) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.presence}>
+      <TeamStatusDot tone="working" size={TEAM_STATUS_DOT_SIZE - 1} fast />
+      <Text style={styles.presenceText}>
+        {t("team.chat.memberWorking", { member: memberHandle(member) })}
+      </Text>
     </View>
   );
 }
@@ -350,5 +378,17 @@ const styles = StyleSheet.create((theme) => ({
     flexShrink: 0,
     paddingHorizontal: theme.spacing[6],
     paddingBottom: theme.spacing[3],
+  },
+  presence: {
+    maxWidth: TEAM_MESSAGE_MAX_WIDTH,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[1.5],
+    paddingHorizontal: theme.spacing[6],
+    paddingBottom: theme.spacing[2],
+  },
+  presenceText: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
   },
 }));

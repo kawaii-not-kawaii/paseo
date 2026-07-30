@@ -9,7 +9,11 @@ import {
   memberStatusTone,
   type TeamMemberStatusLabels,
 } from "@/screens/team/member-status";
-import { TEAM_CHANNEL_COLUMN_WIDTH, TEAM_SPACE } from "@/screens/team/team-layout";
+import {
+  TEAM_CHANNEL_COLUMN_WIDTH,
+  TEAM_SPACE,
+  TEAM_UNREAD_DOT_SIZE,
+} from "@/screens/team/team-layout";
 import { TeamIconButton } from "@/screens/team/ui/icon-button";
 import { TeamStatusDot } from "@/screens/team/ui/status-dot";
 import type { Theme } from "@/styles/theme";
@@ -32,6 +36,7 @@ export function ChatRail({
   activeChannelId,
   memberLabels,
   canCreateChannel,
+  unreadEnabled,
   onSelectChannel,
   onCreateChannel,
 }: {
@@ -40,6 +45,7 @@ export function ChatRail({
   activeChannelId: string | null;
   memberLabels: TeamMemberStatusLabels;
   canCreateChannel: boolean;
+  unreadEnabled: boolean;
   onSelectChannel: (channelId: string) => void;
   onCreateChannel: () => void;
 }) {
@@ -78,6 +84,9 @@ export function ChatRail({
           />
         </View>
         <View style={styles.rows}>
+          {!unreadEnabled ? (
+            <Text style={styles.capabilityHint}>{t("team.needsHostUpgrade")}</Text>
+          ) : null}
           {channels.length === 0 ? (
             <Text style={styles.empty}>{t("team.chat.emptyChannels")}</Text>
           ) : (
@@ -137,9 +146,30 @@ const ChannelRow = memo(function ChannelRow({
       <Text style={isActive ? styles.channelNameActive : styles.channelName} numberOfLines={1}>
         {channel.name}
       </Text>
+      <ChannelUnreadAffordance channel={channel} isActive={isActive} />
     </Pressable>
   );
 });
+
+function ChannelUnreadAffordance({
+  channel,
+  isActive,
+}: {
+  channel: TeamChannel;
+  isActive: boolean;
+}) {
+  if ((channel.unreadCount ?? 0) === 0) {
+    return null;
+  }
+  if (isActive) {
+    return <View style={styles.unreadDot} testID={`team-channel-unread-dot-${channel.id}`} />;
+  }
+  return (
+    <Text style={styles.unreadCount} testID={`team-channel-unread-count-${channel.id}`}>
+      {channel.unreadCount}
+    </Text>
+  );
+}
 
 const MemberRow = memo(function MemberRow({
   member,
@@ -242,6 +272,22 @@ const styles = StyleSheet.create((theme) => ({
     flex: 1,
     fontSize: theme.fontSize.sm,
     color: theme.colors.foreground,
+  },
+  unreadDot: {
+    width: TEAM_UNREAD_DOT_SIZE,
+    height: TEAM_UNREAD_DOT_SIZE,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.accent,
+  },
+  unreadCount: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.xs,
+  },
+  capabilityHint: {
+    color: theme.colors.foregroundExtraMuted,
+    fontSize: theme.fontSize.xs,
+    paddingHorizontal: theme.spacing[2],
+    paddingVertical: theme.spacing[1],
   },
   memberName: {
     flex: 1,

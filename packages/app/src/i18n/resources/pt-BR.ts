@@ -257,6 +257,7 @@ export const ptBR: TranslationResources = {
     chat: {
       composerPlaceholder: "Mensagem para #{{channel}}",
       enterToSend: "Enter para enviar",
+      memberWorking: "{{member}} está trabalhando",
       insertMention: "Mencionar um membro",
       channels: "Canais",
       activity: "Atividade dos membros",

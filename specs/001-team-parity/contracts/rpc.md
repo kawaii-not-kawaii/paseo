@@ -22,6 +22,9 @@ Per `docs/protocol-validation.md` and Constitution I:
 ```ts
 // COMPAT(team): added in v0.2.3, drop the gate when floor >= v0.2.3
 server_info.features.team?: boolean
+
+// COMPAT(teamChannelReads): added in v0.2.3, drop the gate when floor >= v0.2.3
+server_info.features.teamChannelReads?: boolean
 ```
 
 Detected in exactly one place in the app. Absent or false → the Team nav entry is hidden and any
@@ -30,12 +33,16 @@ deep link renders "Update the host to use this." No degraded Team view, no fallb
 
 ## Channels
 
-| RPC                           | Payload                                       | Notes              |
-| ----------------------------- | --------------------------------------------- | ------------------ |
-| `team.channel.list.request`   | `projectId`                                   |                    |
-| `team.channel.create.request` | `projectId`, `name`, `purpose?`               |                    |
-| `team.channel.update.request` | `projectId`, `channelId`, `name?`, `purpose?` |                    |
-| `team.channel.delete.request` | `projectId`, `channelId`                      | Cascades messages. |
+| RPC                              | Payload                                       | Notes                                                                                |
+| -------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `team.channel.list.request`      | `projectId`                                   |                                                                                      |
+| `team.channel.create.request`    | `projectId`, `name`, `purpose?`               |                                                                                      |
+| `team.channel.update.request`    | `projectId`, `channelId`, `name?`, `purpose?` |                                                                                      |
+| `team.channel.delete.request`    | `projectId`, `channelId`                      | Cascades messages.                                                                   |
+| `team.channel.mark_read.request` | `projectId`, `channelId`                      | Advances the built-in human identity's durable cursor to the latest current message. |
+
+`team.channel.list.response.channels[*].unreadCount` is optional for backward-compatible parsing.
+It is present when `teamChannelReads` is true.
 
 ## Messages
 

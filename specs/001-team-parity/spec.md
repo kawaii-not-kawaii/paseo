@@ -276,13 +276,20 @@ restart, and verify no committed message or task is lost and the view opens norm
   members subscribed to that channel, without human relaying.
 - **FR-008**: Channels MUST show new messages as they arrive while the user is viewing, without a
   manual refresh.
+- **FR-008a**: Each channel MUST show the number of messages the built-in human identity has not
+  read. Viewing a channel MUST advance that identity's read position, and both the unread count and
+  the cleared state MUST survive reload and daemon restart.
+- **FR-008b**: Channel unread tracking MUST be capability-gated independently of the base Team
+  surface. A client connected to an older Team daemon MUST identify that a host update is required
+  rather than calling an unsupported read-position operation.
 - **FR-009**: Channel history MUST load incrementally, so that opening a channel with a large
   history is as fast as opening an empty one.
 - **FR-010**: Messages MUST be attributed to their author, ordered consistently, and timestamped.
 - **FR-011**: The system MUST render inline references to tasks, channels, and members within
   message text as navigable links.
-- **FR-012**: The user MUST be able to see each member's current activity — idle, working, or what
-  it is presently doing — from the channel view.
+- **FR-012**: The user MUST be able to see each member's current activity — idle or working — from
+  the channel view. More specific activity text MUST only appear when the daemon supplies that
+  specific activity; the client MUST NOT infer commands or tools from a generic working status.
 - **FR-013**: Channels, messages, and their history MUST be scoped to a project and MUST survive
   the archival of any workspace and the removal of any worktree.
 
@@ -348,6 +355,9 @@ restart, and verify no committed message or task is lost and the view opens norm
   MUST be told which dependencies block it.
 - **FR-025**: The Tasks section MUST present a board with Todo, In Progress, In Review, and Done
   columns, and MUST allow moving a task between columns by dragging it.
+- **FR-025a**: A task moved between board columns on the web MUST retain its new status after a
+  full page reload. Native keeps the existing explicit move action until a shared native
+  cross-list drag primitive exists.
 - **FR-026**: The Tasks section MUST offer a list view of the same tasks, and MUST allow filtering
   by creator and by assignee in both views.
 - **FR-027**: Tasks MUST display their unmet dependencies so a blocked task is visibly blocked.
@@ -470,6 +480,8 @@ restart, and verify no committed message or task is lost and the view opens norm
   opening an empty channel, within one second on a mid-range phone.
 - **SC-004**: A message posted by one member appears in another client's open view of that channel
   within two seconds.
+- **SC-004a**: An unread count appears for a message posted to a channel the user is not viewing,
+  clears when that channel is viewed, and remains cleared after a full page reload.
 - **SC-005**: 100% of members, their descriptions, project assignments, and home workspaces survive
   a daemon restart.
 - **SC-006**: 100% of acknowledged messages and task changes survive an unclean shutdown.
@@ -494,6 +506,8 @@ restart, and verify no committed message or task is lost and the view opens norm
   branch being merged — zero members are stranded by a successful merge.
 - **SC-012**: When several members contend for one task, exactly one holds it — duplicated work on
   a claimed task occurs zero times.
+- **SC-012a**: On web, dragging a claimed task to another board column updates the task status and
+  the task remains in that column after a full page reload.
 - **SC-013**: No task remains claimed by a member that has stopped; claims are released within one
   view refresh of the member stopping.
 - **SC-014**: A user can stop all automatically started activity in a project with one action, and

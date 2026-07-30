@@ -257,6 +257,7 @@ export const es: TranslationResources = {
     chat: {
       composerPlaceholder: "Mensaje para #{{channel}}",
       enterToSend: "Enter para enviar",
+      memberWorking: "{{member}} está trabajando",
       insertMention: "Mencionar a un miembro",
       channels: "Canales",
       activity: "Actividad de miembros",

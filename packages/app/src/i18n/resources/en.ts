@@ -253,6 +253,7 @@ export const en = {
     chat: {
       composerPlaceholder: "Message #{{channel}}",
       enterToSend: "Enter to send",
+      memberWorking: "{{member}} is working",
       insertMention: "Mention a member",
       channels: "Channels",
       activity: "Member activity",

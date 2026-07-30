@@ -256,6 +256,7 @@ export const ru: TranslationResources = {
     chat: {
       composerPlaceholder: "Сообщение в #{{channel}}",
       enterToSend: "Enter — отправить",
+      memberWorking: "{{member}} работает",
       insertMention: "Упомянуть участника",
       channels: "Каналы",
       activity: "Активность участников",

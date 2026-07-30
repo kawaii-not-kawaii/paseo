@@ -68,6 +68,13 @@ export const TeamChannelDeleteRequestSchema = z.object({
   channelId: z.string(),
 });
 
+export const TeamChannelMarkReadRequestSchema = z.object({
+  type: z.literal("team.channel.mark_read.request"),
+  requestId: z.string(),
+  projectId: z.string(),
+  channelId: z.string(),
+});
+
 export const TeamMessageListRequestSchema = z.object({
   type: z.literal("team.message.list.request"),
   requestId: z.string(),
@@ -280,6 +287,13 @@ export const TeamChannelUpdateResponseSchema = z.object({
 
 export const TeamChannelDeleteResponseSchema = z.object({
   type: z.literal("team.channel.delete.response"),
+  payload: TeamResponseEnvelopeSchema.extend({
+    channelId: z.string().nullable(),
+  }),
+});
+
+export const TeamChannelMarkReadResponseSchema = z.object({
+  type: z.literal("team.channel.mark_read.response"),
   payload: TeamResponseEnvelopeSchema.extend({
     channelId: z.string().nullable(),
   }),
@@ -501,6 +515,7 @@ export const TeamRequestSchemas = [
   TeamChannelCreateRequestSchema,
   TeamChannelUpdateRequestSchema,
   TeamChannelDeleteRequestSchema,
+  TeamChannelMarkReadRequestSchema,
   TeamMessageListRequestSchema,
   TeamMessagePostRequestSchema,
   TeamTaskListRequestSchema,
@@ -532,6 +547,7 @@ export const TeamResponseSchemas = [
   TeamChannelCreateResponseSchema,
   TeamChannelUpdateResponseSchema,
   TeamChannelDeleteResponseSchema,
+  TeamChannelMarkReadResponseSchema,
   TeamMessageListResponseSchema,
   TeamMessagePostResponseSchema,
   TeamTaskListResponseSchema,
@@ -577,6 +593,7 @@ export type TeamChannelListRequest = z.infer<typeof TeamChannelListRequestSchema
 export type TeamChannelCreateRequest = z.infer<typeof TeamChannelCreateRequestSchema>;
 export type TeamChannelUpdateRequest = z.infer<typeof TeamChannelUpdateRequestSchema>;
 export type TeamChannelDeleteRequest = z.infer<typeof TeamChannelDeleteRequestSchema>;
+export type TeamChannelMarkReadRequest = z.infer<typeof TeamChannelMarkReadRequestSchema>;
 export type TeamMessageListRequest = z.infer<typeof TeamMessageListRequestSchema>;
 export type TeamMessagePostRequest = z.infer<typeof TeamMessagePostRequestSchema>;
 export type TeamTaskListRequest = z.infer<typeof TeamTaskListRequestSchema>;
@@ -611,6 +628,7 @@ export type TeamChannelListResponse = z.infer<typeof TeamChannelListResponseSche
 export type TeamChannelCreateResponse = z.infer<typeof TeamChannelCreateResponseSchema>;
 export type TeamChannelUpdateResponse = z.infer<typeof TeamChannelUpdateResponseSchema>;
 export type TeamChannelDeleteResponse = z.infer<typeof TeamChannelDeleteResponseSchema>;
+export type TeamChannelMarkReadResponse = z.infer<typeof TeamChannelMarkReadResponseSchema>;
 export type TeamMessageListResponse = z.infer<typeof TeamMessageListResponseSchema>;
 export type TeamMessagePostResponse = z.infer<typeof TeamMessagePostResponseSchema>;
 export type TeamTaskListResponse = z.infer<typeof TeamTaskListResponseSchema>;

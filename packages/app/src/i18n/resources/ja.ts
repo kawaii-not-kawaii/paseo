@@ -257,6 +257,7 @@ export const ja: TranslationResources = {
     chat: {
       composerPlaceholder: "#{{channel}} へのメッセージ",
       enterToSend: "Enter で送信",
+      memberWorking: "{{member}} が作業中",
       insertMention: "メンバーをメンション",
       channels: "チャンネル",
       activity: "メンバーの稼働状況",

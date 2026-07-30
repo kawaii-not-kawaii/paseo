@@ -53,6 +53,7 @@ export const TeamChannelSchema = z.object({
   id: z.string(),
   name: z.string(),
   purpose: z.string().nullable(),
+  unreadCount: z.number().int().nonnegative().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
   archivedAt: z.string().nullable(),
