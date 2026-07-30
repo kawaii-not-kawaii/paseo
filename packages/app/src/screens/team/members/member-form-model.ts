@@ -174,6 +174,52 @@ function recalculateProviderState(
   state.modeOptions = selectedEntry?.modes ?? [];
 }
 
+/**
+ * Which requirement is keeping the submit button disabled, as an i18n key plus
+ * params — the caller does the translating so this stays testable.
+ *
+ * Deliberately next to `recalculateCanSubmit`: the two must agree. A
+ * requirement added there with no matching reason here puts the form back to a
+ * disabled button that explains nothing, which is how a project with no
+ * workspaces became an unexplained dead end.
+ */
+export interface MemberSubmitBlocker {
+  key: string;
+  params?: Record<string, string>;
+}
+
+export function describeSubmitBlocker(
+  state: Pick<MemberFormState, "name" | "rolePrompt" | "selectedProvider" | "assignments">,
+): MemberSubmitBlocker | null {
+  if (state.name.trim().length === 0) {
+    return { key: "team.members.form.blockedName" };
+  }
+  if (state.rolePrompt.trim().length === 0) {
+    return { key: "team.members.form.blockedRolePrompt" };
+  }
+  if (state.selectedProvider === null) {
+    return { key: "team.members.form.blockedRuntime" };
+  }
+  // Nothing inside the form can fix a project with no workspaces, so name the
+  // project and say what has to happen outside it.
+  const starved = state.assignments.find(
+    (assignment) => assignment.enabled && assignment.workspaceOptions.length === 0,
+  );
+  if (starved) {
+    return {
+      key: "team.members.form.blockedNoWorkspaces",
+      params: { project: starved.projectName },
+    };
+  }
+  const unset = state.assignments.find(
+    (assignment) => assignment.enabled && assignment.homeWorkspaceId === null,
+  );
+  if (unset) {
+    return { key: "team.members.form.workspaceRequired" };
+  }
+  return null;
+}
+
 function recalculateCanSubmit(state: MutableMemberFormState): void {
   state.canSubmit =
     state.name.trim().length > 0 &&

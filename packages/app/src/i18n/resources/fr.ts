@@ -337,6 +337,11 @@ export const fr: TranslationResources = {
         removeConfirm: "Retirer",
       },
       form: {
+        blockedName: "Ajoutez un nom.",
+        blockedRolePrompt: "Ajoutez un prompt de rôle.",
+        blockedRuntime: "Choisissez un runtime.",
+        blockedNoWorkspaces:
+          "{{project}} n'a pas encore d'espace de travail. Créez-en un dans ce projet, puis revenez.",
         createTitle: "Créer un membre",
         editTitle: "Modifier le membre",
         name: "Nom",

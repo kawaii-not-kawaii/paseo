@@ -335,6 +335,11 @@ export const ru: TranslationResources = {
         removeConfirm: "Удалить",
       },
       form: {
+        blockedName: "Добавьте имя.",
+        blockedRolePrompt: "Добавьте ролевой промпт.",
+        blockedRuntime: "Выберите среду выполнения.",
+        blockedNoWorkspaces:
+          "В проекте {{project}} ещё нет рабочих пространств. Создайте его в этом проекте и вернитесь.",
         createTitle: "Создать участника",
         editTitle: "Изменить участника",
         name: "Имя",

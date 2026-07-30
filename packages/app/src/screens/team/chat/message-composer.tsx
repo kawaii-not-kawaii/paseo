@@ -267,12 +267,20 @@ export function MessageComposer({
     inputRef.current?.focus();
   }, []);
 
+  // The focus ring moves from the input to the box. A raw TextInput renders the
+  // platform focus outline tight around itself, which reads as a stray
+  // rectangle inside the composer rather than as the composer being focused —
+  // the same reason `FormTextInput` zeroes it and styles its wrapper instead.
+  const [isFocused, setIsFocused] = useState(false);
+  const handleFocus = useCallback(() => setIsFocused(true), []);
+  const handleBlur = useCallback(() => setIsFocused(false), []);
+
   const disabled =
     !client || !projectId || !channelId || text.trim().length === 0 || status.kind === "pending";
 
   return (
     <View style={styles.container}>
-      <View ref={anchorRef} collapsable={false} style={styles.box}>
+      <View ref={anchorRef} collapsable={false} style={isFocused ? styles.boxFocused : styles.box}>
         <TextInput
           ref={inputRef}
           multiline
@@ -280,6 +288,8 @@ export function MessageComposer({
           onChangeText={handleChangeText}
           onSelectionChange={handleSelectionChange}
           onKeyPress={handleKeyPress}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           placeholder={placeholder}
           placeholderTextColor={undefined}
           style={styles.input}
@@ -340,13 +350,26 @@ const styles = StyleSheet.create((theme) => ({
     borderTopColor: theme.colors.border,
   },
   box: {
+    width: "100%",
     maxWidth: TEAM_MESSAGE_MAX_WIDTH,
+    alignSelf: "center",
     borderRadius: theme.borderRadius.xl,
     borderWidth: 1,
     borderColor: theme.colors.borderAccent,
     backgroundColor: theme.colors.surface1,
   },
+  boxFocused: {
+    width: "100%",
+    maxWidth: TEAM_MESSAGE_MAX_WIDTH,
+    alignSelf: "center",
+    borderRadius: theme.borderRadius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.accent,
+    backgroundColor: theme.colors.surface1,
+  },
   input: {
+    outlineWidth: 0,
+    outlineColor: "transparent",
     minHeight: 44,
     maxHeight: 200,
     color: theme.colors.foreground,

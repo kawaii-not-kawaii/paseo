@@ -330,6 +330,10 @@ export const zhCN: TranslationResources = {
         removeConfirm: "移除",
       },
       form: {
+        blockedName: "请填写名称。",
+        blockedRolePrompt: "请填写角色提示词。",
+        blockedRuntime: "请选择运行时。",
+        blockedNoWorkspaces: "{{project}} 还没有工作区。请先在该项目中创建一个，然后返回。",
         createTitle: "创建成员",
         editTitle: "编辑成员",
         name: "名称",

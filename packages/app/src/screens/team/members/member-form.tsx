@@ -38,7 +38,12 @@ import {
   removeTeamMember,
   updateTeamMember,
 } from "@/screens/team/team-client";
-import { type MemberFormSnapshot, type MemberProjectAssignmentState } from "./member-form-model";
+import {
+  describeSubmitBlocker,
+  type MemberFormSnapshot,
+  type MemberFormState,
+  type MemberProjectAssignmentState,
+} from "./member-form-model";
 import type {
   MemberAssignmentRecord,
   MemberProjectOption,
@@ -62,6 +67,15 @@ interface AssignmentCatalogState {
   status: "loading" | "loaded" | "error";
   assignments: MemberAssignmentRecord[];
   error: string | null;
+}
+
+/** Translates the model's blocker into the sentence shown under the form. */
+function describeBlocker(
+  state: MemberFormState,
+  t: (key: string, options?: Record<string, unknown>) => string,
+): string | null {
+  const blocker = describeSubmitBlocker(state);
+  return blocker ? t(blocker.key, blocker.params) : null;
 }
 
 function buildOpenKey(props: MemberFormProps): string {
@@ -729,6 +743,18 @@ function LoadedMemberForm({
           </Text>
         ) : null}
 
+        {/*
+          Without this the disabled button is a dead end: the validation message
+          is only set by `handleSubmit`, which a disabled button never reaches.
+          A project with no workspaces is the worst case — nothing inside this
+          form can fix it, so it has to say so.
+        */}
+        {!state.canSubmit && !state.submitError ? (
+          <Text style={styles.submitBlockedReason} testID="team-member-form-blocked-reason">
+            {describeBlocker(state, t)}
+          </Text>
+        ) : null}
+
         <View style={styles.actionsRow}>
           <Button
             variant="secondary"
@@ -815,6 +841,12 @@ const styles = StyleSheet.create((theme) => {
     },
     submitError: {
       color: theme.colors.statusDanger,
+      fontSize: theme.fontSize.sm,
+    },
+    // Muted, not danger — nothing has gone wrong yet, the form is just
+    // incomplete.
+    submitBlockedReason: {
+      color: theme.colors.foregroundMuted,
       fontSize: theme.fontSize.sm,
     },
   };

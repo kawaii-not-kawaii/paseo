@@ -333,6 +333,11 @@ export const ar: TranslationResources = {
         removeConfirm: "إزالة",
       },
       form: {
+        blockedName: "أضف اسمًا.",
+        blockedRolePrompt: "أضف موجّه الدور.",
+        blockedRuntime: "اختر بيئة تشغيل.",
+        blockedNoWorkspaces:
+          "لا توجد مساحات عمل في {{project}} بعد. أنشئ واحدة في ذلك المشروع ثم عد.",
         createTitle: "إنشاء عضو",
         editTitle: "تحرير العضو",
         name: "الاسم",

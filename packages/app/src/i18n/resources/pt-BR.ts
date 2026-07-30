@@ -336,6 +336,10 @@ export const ptBR: TranslationResources = {
         removeConfirm: "Remover",
       },
       form: {
+        blockedName: "Adicione um nome.",
+        blockedRolePrompt: "Adicione um prompt de função.",
+        blockedRuntime: "Escolha um runtime.",
+        blockedNoWorkspaces: "{{project}} ainda não tem workspaces. Crie um nesse projeto e volte.",
         createTitle: "Criar membro",
         editTitle: "Editar membro",
         name: "Nome",

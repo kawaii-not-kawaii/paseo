@@ -64,7 +64,9 @@ export function EscalationBanner({
 
 const styles = StyleSheet.create((theme) => ({
   banner: {
+    width: "100%",
     maxWidth: TEAM_MESSAGE_MAX_WIDTH,
+    alignSelf: "center",
     flexDirection: "row",
     gap: theme.spacing[3],
     paddingVertical: 14,

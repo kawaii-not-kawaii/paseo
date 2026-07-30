@@ -392,7 +392,12 @@ const styles = StyleSheet.create((theme) => ({
     alignItems: "center",
   },
   message: {
+    // Centred, matching `streamItemWrapper` in agent-stream. Capping without
+    // centring strands the column against one edge on a wide window and makes
+    // collapsing the sidebar look like it did nothing.
+    width: "100%",
     maxWidth: TEAM_MESSAGE_MAX_WIDTH,
+    alignSelf: "center",
     gap: 5,
   },
   messageMetaRow: {

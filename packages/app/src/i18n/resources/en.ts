@@ -332,6 +332,11 @@ export const en = {
         removeConfirm: "Remove",
       },
       form: {
+        blockedName: "Add a name.",
+        blockedRolePrompt: "Add a role prompt.",
+        blockedRuntime: "Choose a runtime.",
+        blockedNoWorkspaces:
+          "{{project}} has no workspaces yet. Create one in that project first, then come back.",
         createTitle: "Create member",
         editTitle: "Edit member",
         name: "Name",

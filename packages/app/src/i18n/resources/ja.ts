@@ -336,6 +336,11 @@ export const ja: TranslationResources = {
         removeConfirm: "削除",
       },
       form: {
+        blockedName: "名前を入力してください。",
+        blockedRolePrompt: "ロールプロンプトを入力してください。",
+        blockedRuntime: "ランタイムを選択してください。",
+        blockedNoWorkspaces:
+          "{{project}} にはまだワークスペースがありません。そのプロジェクトで作成してから戻ってください。",
         createTitle: "メンバーを作成",
         editTitle: "メンバーを編集",
         name: "名前",
