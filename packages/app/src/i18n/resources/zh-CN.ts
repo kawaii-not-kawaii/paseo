@@ -335,7 +335,7 @@ export const zhCN: TranslationResources = {
         blockedName: "请填写名称。",
         blockedRolePrompt: "请填写角色提示词。",
         blockedRuntime: "请选择运行时。",
-        blockedNoWorkspaces: "{{project}} 还没有工作区。请先在该项目中创建一个，然后返回。",
+        blockedNoWorkspaces: "{{project}} 还没有工作区。请在下方创建一个。",
         createTitle: "创建成员",
         editTitle: "编辑成员",
         name: "名称",
@@ -354,6 +354,8 @@ export const zhCN: TranslationResources = {
         workspacePlaceholder: "选择工作区",
         noWorkspaces: "没有可用工作区",
         workspaceRequired: "保存前请先选择主工作区。",
+        createWorkspace: "创建工作区",
+        workspaceCreateFailed: "无法创建工作区。",
         create: "创建成员",
       },
       proposals: {

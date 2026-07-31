@@ -46,6 +46,7 @@ describe("describeSubmitBlocker", () => {
   ) => ({
     projectId: "prj_test",
     projectName: "test",
+    repoRoot: "/repo",
     required: true,
     enabled: true,
     homeWorkspaceId: "wks_1",

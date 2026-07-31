@@ -30,7 +30,7 @@ One edge the capability cannot see: it answers "will the daemon inject", not "wi
 ## Surface
 
 - **Chat** shows project channels, member activity, message history, and the composer. Mentioning `@member` routes work without the human relaying.
-- **Members** manages durable member records: runtime/model, role prompt, project assignments, home workspace, and `MEMORY.md` / home files.
+- **Members** manages durable member records: runtime/model, role prompt, project assignments, home workspace, and `MEMORY.md` / home files. `project_members.home_workspace_id` is UNIQUE, so the home workspace picker offers only workspaces no other member holds, and creates one (`workspace.create.request`, `kind: "directory"` on the project's repo root, titled `<member>-home`) rather than sending the user out to a chat draft to materialise one.
 - **Tasks** shows the shared board and list views. Tasks are the durable work record members move through `Todo`, `In Progress`, `In Review`, and `Done`.
 - **Settings** owns the bounded project controls: message retention, handback limit, attempt timeout, no-progress backstop, adoption of legacy chat, and recovery from snapshots.
 

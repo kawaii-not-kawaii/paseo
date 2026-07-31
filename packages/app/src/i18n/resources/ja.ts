@@ -343,7 +343,7 @@ export const ja: TranslationResources = {
         blockedRolePrompt: "ロールプロンプトを入力してください。",
         blockedRuntime: "ランタイムを選択してください。",
         blockedNoWorkspaces:
-          "{{project}} にはまだワークスペースがありません。そのプロジェクトで作成してから戻ってください。",
+          "{{project}} にはまだワークスペースがありません。下で作成してください。",
         createTitle: "メンバーを作成",
         editTitle: "メンバーを編集",
         name: "名前",
@@ -362,6 +362,8 @@ export const ja: TranslationResources = {
         workspacePlaceholder: "ワークスペースを選択",
         noWorkspaces: "利用可能なワークスペースがありません",
         workspaceRequired: "保存する前にホームワークスペースを選択してください。",
+        createWorkspace: "ワークスペースを作成",
+        workspaceCreateFailed: "ワークスペースを作成できませんでした。",
         create: "メンバーを作成",
       },
       proposals: {
