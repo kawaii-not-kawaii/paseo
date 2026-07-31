@@ -151,20 +151,6 @@ export class MemberLifecycle {
     const statuses = new Map<string, "running" | "idle">();
     return this.agentManager.subscribe(
       (event) => {
-        if (event.type === "agent_stream" && event.event.type === "turn_completed") {
-          const agent = this.agentManager.getAgent(event.agentId);
-          const projectId = agent?.labels[TEAM_PROJECT_ID_LABEL];
-          const memberId = agent?.labels[TEAM_MEMBER_ID_LABEL];
-          if (projectId && memberId) {
-            void this.deliverCatchUp({ projectId, memberId }).catch((error: unknown) => {
-              this.logger.error(
-                { err: error, projectId, memberId },
-                "Failed to deliver deferred team-message catch-up",
-              );
-            });
-          }
-          return;
-        }
         if (event.type !== "agent_state") {
           return;
         }
@@ -180,6 +166,22 @@ export class MemberLifecycle {
         }
         statuses.set(key, status);
         listener({ projectId, memberId, status });
+        // Catch-up rides the running -> idle transition rather than `turn_completed`.
+        // `turn_completed` is emitted from inside the run's own stream loop, so the
+        // run is still in flight when it arrives: `deliverCatchUp` would hit the
+        // `hasInFlightRun` guard, return without advancing the cursor, and never be
+        // retried — silently dropping exactly the messages it exists to deliver.
+        // The idle transition is emitted after the run has drained, and is already
+        // deduped by `statuses` above, so it fires once per completion.
+        if (status !== "idle") {
+          return;
+        }
+        void this.deliverCatchUp({ projectId, memberId }).catch((error: unknown) => {
+          this.logger.error(
+            { err: error, projectId, memberId },
+            "Failed to deliver deferred team-message catch-up",
+          );
+        });
       },
       { replayState: false },
     );

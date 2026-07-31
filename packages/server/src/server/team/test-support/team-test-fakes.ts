@@ -112,8 +112,14 @@ export class FakeAgentManager {
     this.dispatchAgentState(agent);
   }
 
+  /**
+   * Models the real AgentManager's ordering: `turn_completed` is emitted from inside
+   * the run's own stream loop, so the agent is still `running` when it arrives, and
+   * only afterwards does the run drain and the lifecycle fall to `idle`. Emitting the
+   * two the other way round makes `hasInFlightRun` falsely false at `turn_completed`
+   * and hides anything that keys deferred work off that event.
+   */
   public completeTurn(agentId: string): void {
-    this.setAgentLifecycle(agentId, "idle");
     const event: AgentManagerEvent = {
       type: "agent_stream",
       agentId,
@@ -122,6 +128,14 @@ export class FakeAgentManager {
     for (const subscriber of this.subscribers) {
       subscriber(event);
     }
+    // The drain is not instantaneous, so the agent stays `running` past the event.
+    // Flipping to `idle` in the same tick would let anything keyed off
+    // `turn_completed` clear `hasInFlightRun` by luck and pass regardless.
+    setImmediate(() => {
+      if (this.liveAgents.has(agentId)) {
+        this.setAgentLifecycle(agentId, "idle");
+      }
+    });
   }
 
   public subscriberCount(): number {
