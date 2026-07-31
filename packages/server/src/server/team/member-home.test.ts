@@ -156,6 +156,12 @@ describe("member home", () => {
     // Runtimes namespace MCP tools differently; a member searching for the bare name may find
     // nothing and conclude the tools are missing.
     expect(prompt).toContain("mcp__paseo__team_post");
+    expect(prompt).toContain("does not oblige you to reply");
+    expect(prompt).toContain("silence is the correct outcome");
+    expect(prompt).toContain("unless you are mentioned or you own the work");
+    expect(prompt).toContain("Only the member who did the work reports its outcome");
+    expect(prompt).toContain("Do not post idle narration");
+    expect(prompt).toContain("Silence about completed work reads as no progress");
   });
 });
 
