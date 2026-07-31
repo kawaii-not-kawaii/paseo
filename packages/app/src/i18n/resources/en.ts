@@ -338,8 +338,7 @@ export const en = {
         blockedName: "Add a name.",
         blockedRolePrompt: "Add a role prompt.",
         blockedRuntime: "Choose a runtime.",
-        blockedNoWorkspaces:
-          "{{project}} has no workspaces yet. Create one in that project first, then come back.",
+        blockedNoWorkspaces: "{{project}} has no workspaces yet. Create one below.",
         createTitle: "Create member",
         editTitle: "Edit member",
         name: "Name",
@@ -358,6 +357,8 @@ export const en = {
         workspacePlaceholder: "Choose a workspace",
         noWorkspaces: "No workspaces available",
         workspaceRequired: "Choose a home workspace before saving.",
+        createWorkspace: "Create a workspace",
+        workspaceCreateFailed: "Could not create a workspace.",
         create: "Create member",
       },
       proposals: {

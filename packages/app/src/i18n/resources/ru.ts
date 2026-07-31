@@ -342,7 +342,7 @@ export const ru: TranslationResources = {
         blockedRolePrompt: "Добавьте ролевой промпт.",
         blockedRuntime: "Выберите среду выполнения.",
         blockedNoWorkspaces:
-          "В проекте {{project}} ещё нет рабочих пространств. Создайте его в этом проекте и вернитесь.",
+          "В проекте {{project}} ещё нет рабочих пространств. Создайте его ниже.",
         createTitle: "Создать участника",
         editTitle: "Изменить участника",
         name: "Имя",
@@ -361,6 +361,8 @@ export const ru: TranslationResources = {
         workspacePlaceholder: "Выберите workspace",
         noWorkspaces: "Нет доступных workspace",
         workspaceRequired: "Перед сохранением выберите домашний workspace.",
+        createWorkspace: "Создать рабочее пространство",
+        workspaceCreateFailed: "Не удалось создать рабочее пространство.",
         create: "Создать участника",
       },
       proposals: {

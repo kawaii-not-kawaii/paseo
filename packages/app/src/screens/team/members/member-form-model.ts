@@ -11,6 +11,7 @@ import {
 import type {
   MemberAssignmentRecord,
   MemberProjectOption,
+  MemberWorkspaceOption,
   TeamMemberProposal,
 } from "./member-types";
 
@@ -28,6 +29,7 @@ export interface MemberFormSnapshot {
 export interface MemberProjectAssignmentState {
   projectId: string;
   projectName: string;
+  repoRoot: string;
   required: boolean;
   enabled: boolean;
   homeWorkspaceId: string | null;
@@ -74,6 +76,7 @@ export interface MemberFormModel {
   setModeId: (modeId: string) => void;
   setProjectEnabled: (projectId: string, enabled: boolean) => void;
   setProjectWorkspace: (projectId: string, workspaceId: string) => void;
+  addProjectWorkspace: (projectId: string, workspace: MemberWorkspaceOption) => void;
   setSubmitError: (value: string | null) => void;
   setProjectError: (projectId: string, value: string | null) => void;
 }
@@ -119,6 +122,7 @@ function buildAssignments(input: {
     return {
       projectId: project.projectId,
       projectName: project.projectName,
+      repoRoot: project.repoRoot,
       required: project.required ?? false,
       enabled,
       homeWorkspaceId: workspaceId,
@@ -335,6 +339,7 @@ export function openMemberForm(snapshot: MemberFormSnapshot): MemberFormModel {
           projects: state.assignments.map((assignment) => ({
             projectId: assignment.projectId,
             projectName: assignment.projectName,
+            repoRoot: assignment.repoRoot,
             required: assignment.required,
             workspaceOptions: assignment.workspaceOptions,
           })),
@@ -430,6 +435,37 @@ export function openMemberForm(snapshot: MemberFormSnapshot): MemberFormModel {
               }
             : assignment,
         ),
+        submitError: null,
+      };
+      publish();
+    },
+    // A workspace this form just created. It is added to the options here rather
+    // than waited for: the session-store merge that feeds `applyProjects` is a
+    // separate async hop, and until it lands a selection with no matching option
+    // renders as the empty placeholder. Adding it locally makes the new
+    // workspace selectable the moment it exists; the later `applyProjects` finds
+    // the same id in the refreshed list and keeps the selection.
+    addProjectWorkspace: (projectId, workspace) => {
+      state = {
+        ...state,
+        assignments: state.assignments.map((assignment) => {
+          if (assignment.projectId !== projectId) {
+            return assignment;
+          }
+          const workspaceOptions = assignment.workspaceOptions.some(
+            (option) => option.id === workspace.id,
+          )
+            ? assignment.workspaceOptions
+            : [...assignment.workspaceOptions, workspace];
+          return {
+            ...assignment,
+            enabled: true,
+            workspaceOptions,
+            homeWorkspaceId: workspace.id,
+            workspaceLabel: workspace.label,
+            error: null,
+          };
+        }),
         submitError: null,
       };
       publish();

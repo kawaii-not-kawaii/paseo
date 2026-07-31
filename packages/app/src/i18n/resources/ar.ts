@@ -339,8 +339,7 @@ export const ar: TranslationResources = {
         blockedName: "أضف اسمًا.",
         blockedRolePrompt: "أضف موجّه الدور.",
         blockedRuntime: "اختر بيئة تشغيل.",
-        blockedNoWorkspaces:
-          "لا توجد مساحات عمل في {{project}} بعد. أنشئ واحدة في ذلك المشروع ثم عد.",
+        blockedNoWorkspaces: "لا توجد مساحات عمل في {{project}} بعد. أنشئ واحدة أدناه.",
         createTitle: "إنشاء عضو",
         editTitle: "تحرير العضو",
         name: "الاسم",
@@ -359,6 +358,8 @@ export const ar: TranslationResources = {
         workspacePlaceholder: "اختر مساحة عمل",
         noWorkspaces: "لا توجد مساحات عمل متاحة",
         workspaceRequired: "اختر مساحة عمل أساسية قبل الحفظ.",
+        createWorkspace: "إنشاء مساحة عمل",
+        workspaceCreateFailed: "تعذّر إنشاء مساحة العمل.",
         create: "إنشاء عضو",
       },
       proposals: {

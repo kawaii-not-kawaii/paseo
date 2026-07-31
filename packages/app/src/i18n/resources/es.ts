@@ -342,8 +342,7 @@ export const es: TranslationResources = {
         blockedName: "Añade un nombre.",
         blockedRolePrompt: "Añade un prompt de rol.",
         blockedRuntime: "Elige un runtime.",
-        blockedNoWorkspaces:
-          "{{project}} todavía no tiene espacios de trabajo. Crea uno en ese proyecto y vuelve.",
+        blockedNoWorkspaces: "{{project}} todavía no tiene espacios de trabajo. Crea uno abajo.",
         createTitle: "Crear miembro",
         editTitle: "Editar miembro",
         name: "Nombre",
@@ -362,6 +361,8 @@ export const es: TranslationResources = {
         workspacePlaceholder: "Elige un workspace",
         noWorkspaces: "No hay workspaces disponibles",
         workspaceRequired: "Elige un workspace base antes de guardar.",
+        createWorkspace: "Crear un espacio de trabajo",
+        workspaceCreateFailed: "No se pudo crear el espacio de trabajo.",
         create: "Crear miembro",
       },
       proposals: {

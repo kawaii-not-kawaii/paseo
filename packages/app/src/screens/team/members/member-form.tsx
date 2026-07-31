@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { Text, View } from "react-native";
+import { Plus } from "lucide-react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { AgentProvider } from "@getpaseo/protocol/agent-types";
 import type { TeamMember, TeamRoleTemplate } from "@getpaseo/protocol/team/types";
@@ -29,7 +30,9 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useProjects } from "@/hooks/use-projects";
 import { useProvidersSnapshot } from "@/hooks/use-providers-snapshot";
+import { normalizeWorkspaceDescriptor, useSessionStore } from "@/stores/session-store";
 import { settingsStyles } from "@/styles/settings";
+import { toErrorMessage } from "@/utils/error-messages";
 import {
   assignTeamMember,
   createTeamMember,
@@ -66,7 +69,15 @@ interface MemberFormProps {
 interface AssignmentCatalogState {
   status: "loading" | "loaded" | "error";
   assignments: MemberAssignmentRecord[];
+  /** `projectId\0workspaceId` of every home workspace another member holds. */
+  takenWorkspaces: ReadonlySet<string>;
   error: string | null;
+}
+
+const NO_TAKEN_WORKSPACES: ReadonlySet<string> = new Set<string>();
+
+function takenWorkspaceKey(projectId: string, workspaceId: string): string {
+  return `${projectId}\0${workspaceId}`;
 }
 
 /** Translates the model's blocker into the sentence shown under the form. */
@@ -97,6 +108,12 @@ function buildProjectOptions(
   serverId: string,
   currentProjectId: string,
   projects: ReturnType<typeof useProjects>["projects"],
+  // `project_members.home_workspace_id` is UNIQUE, so a workspace another member
+  // already lives in cannot be picked. Offering it anyway only buys the user the
+  // server's "already assigned to <name>" rejection at save time — and that
+  // message names the raw workspace id, which is exactly what this picker stopped
+  // showing.
+  takenWorkspaces: ReadonlySet<string>,
 ): MemberProjectOption[] {
   return projects
     .map((project): MemberProjectOption | null => {
@@ -107,12 +124,18 @@ function buildProjectOptions(
       return {
         projectId: project.projectKey,
         projectName: project.projectName,
+        repoRoot: host.repoRoot,
         required: project.projectKey === currentProjectId,
-        workspaceOptions: host.workspaces.map((workspace) => ({
-          id: workspace.id,
-          label: workspace.title ?? workspace.name,
-          description: workspace.currentBranch ?? undefined,
-        })),
+        workspaceOptions: host.workspaces
+          .filter(
+            (workspace) =>
+              !takenWorkspaces.has(takenWorkspaceKey(project.projectKey, workspace.id)),
+          )
+          .map((workspace) => ({
+            id: workspace.id,
+            label: workspace.title ?? workspace.name,
+            description: workspace.currentBranch ?? undefined,
+          })),
       };
     })
     .filter((project) => project !== null);
@@ -179,11 +202,6 @@ function OpenMemberForm({
 }: MemberFormProps) {
   const { t } = useTranslation();
   const projectsResult = useProjects({ enabled: visible && Boolean(serverId) });
-  const hostProjects = useMemo(
-    () =>
-      serverId ? buildProjectOptions(serverId, currentProjectId, projectsResult.projects) : [],
-    [currentProjectId, projectsResult.projects, serverId],
-  );
   const providerSnapshot = useProvidersSnapshot(serverId, { enabled: visible });
   const [templatesState, setTemplatesState] = useState<{
     status: "loading" | "loaded" | "error";
@@ -193,8 +211,26 @@ function OpenMemberForm({
   const [assignmentsState, setAssignmentsState] = useState<AssignmentCatalogState>({
     status: "loading",
     assignments: [],
+    takenWorkspaces: NO_TAKEN_WORKSPACES,
     error: null,
   });
+  const hostProjects = useMemo(
+    () =>
+      serverId
+        ? buildProjectOptions(
+            serverId,
+            currentProjectId,
+            projectsResult.projects,
+            assignmentsState.takenWorkspaces,
+          )
+        : [],
+    [assignmentsState.takenWorkspaces, currentProjectId, projectsResult.projects, serverId],
+  );
+  // Which projects exist, not which workspaces they hold. Creating a workspace
+  // from this form changes `hostProjects`, and keying the roster load on that
+  // would put the form back into its loading state, unmounting it and throwing
+  // away everything typed so far.
+  const projectIdsKey = hostProjects.map((project) => project.projectId).join("\0");
 
   useEffect(() => {
     if (!visible || !client) {
@@ -226,25 +262,40 @@ function OpenMemberForm({
   }, [client, visible]);
 
   useEffect(() => {
-    if (!visible || !client || hostProjects.length === 0) {
+    if (!visible || !client || projectIdsKey.length === 0) {
       return;
     }
     let cancelled = false;
-    setAssignmentsState({ status: "loading", assignments: [], error: null });
+    setAssignmentsState({
+      status: "loading",
+      assignments: [],
+      takenWorkspaces: NO_TAKEN_WORKSPACES,
+      error: null,
+    });
     void Promise.all(
-      hostProjects.map(async (project) => ({
-        projectId: project.projectId,
-        members: await listTeamMembers(client, project.projectId),
+      projectIdsKey.split("\0").map(async (projectId) => ({
+        projectId,
+        members: await listTeamMembers(client, projectId),
       })),
     )
       .then((projectMembers) => {
         if (cancelled) {
           return undefined;
         }
+        const takenWorkspaces = new Set(
+          projectMembers.flatMap((project) =>
+            project.members.flatMap((candidate) =>
+              candidate.id !== member?.id && candidate.homeWorkspaceId
+                ? [takenWorkspaceKey(project.projectId, candidate.homeWorkspaceId)]
+                : [],
+            ),
+          ),
+        );
         if (!member) {
           setAssignmentsState({
             status: "loaded",
             assignments: [{ projectId: currentProjectId, homeWorkspaceId: null }],
+            takenWorkspaces,
             error: null,
           });
           return undefined;
@@ -260,7 +311,7 @@ function OpenMemberForm({
               : null;
           })
           .filter((assignment): assignment is MemberAssignmentRecord => assignment !== null);
-        setAssignmentsState({ status: "loaded", assignments, error: null });
+        setAssignmentsState({ status: "loaded", assignments, takenWorkspaces, error: null });
         return undefined;
       })
       .catch((error) => {
@@ -270,13 +321,14 @@ function OpenMemberForm({
         setAssignmentsState({
           status: "error",
           assignments: [],
+          takenWorkspaces: NO_TAKEN_WORKSPACES,
           error: error instanceof Error ? error.message : String(error),
         });
       });
     return () => {
       cancelled = true;
     };
-  }, [client, currentProjectId, hostProjects, member, visible]);
+  }, [client, currentProjectId, member, projectIdsKey, visible]);
 
   const isDataLoading =
     projectsResult.isLoading ||
@@ -369,6 +421,49 @@ function LoadedMemberForm({
   const model = useMemberFormModel(snapshot);
   const state = useSyncExternalStore(model.subscribe, model.getState, model.getState);
   const [isPending, setIsPending] = useState(false);
+  const [creatingProjectId, setCreatingProjectId] = useState<string | null>(null);
+  const mergeWorkspaces = useSessionStore((store) => store.mergeWorkspaces);
+
+  // Every member needs a home workspace of its own, and the daemon rejects
+  // sharing one. Without this the only way to get a spare workspace is to leave
+  // Team, start a chat draft and send a message — once per member.
+  const handleCreateWorkspace = useCallback(
+    async (projectId: string) => {
+      const assignment = state.assignments.find((entry) => entry.projectId === projectId);
+      if (!client || !serverId || !assignment?.repoRoot || creatingProjectId !== null) {
+        return;
+      }
+      setCreatingProjectId(projectId);
+      model.setProjectError(projectId, null);
+      try {
+        // `<member>-home`, the convention the seeded member workspaces already
+        // use. Naming it after the member alone reads as a duplicate of the
+        // member's current home in the very picker that is about to list both.
+        const name = state.name.trim();
+        const title = name ? `${name}-home` : "";
+        const payload = await client.createWorkspace({
+          source: { kind: "directory", path: assignment.repoRoot, projectId },
+          ...(title ? { title } : {}),
+        });
+        if (payload.error || !payload.workspace) {
+          throw new Error(payload.error ?? t("team.members.form.workspaceCreateFailed"));
+        }
+        const workspace = normalizeWorkspaceDescriptor(payload.workspace);
+        // The daemon pushes this workspace to every client anyway; merging it
+        // here just gets the picker there first.
+        mergeWorkspaces(serverId, [workspace]);
+        model.addProjectWorkspace(projectId, {
+          id: workspace.id,
+          label: workspace.title || workspace.name,
+        });
+      } catch (error) {
+        model.setProjectError(projectId, toErrorMessage(error));
+      } finally {
+        setCreatingProjectId(null);
+      }
+    },
+    [client, creatingProjectId, mergeWorkspaces, model, serverId, state.assignments, state.name, t],
+  );
 
   const modeOptions = useMemo<SelectFieldOption<string>[]>(
     () =>
@@ -713,22 +808,40 @@ function LoadedMemberForm({
                       />
                     </View>
                     {assignment.enabled ? (
-                      <SelectField
-                        label={t("team.members.form.homeWorkspace")}
-                        value={assignment.homeWorkspaceId}
-                        selectedDisplay={selectedWorkspaceDisplay}
-                        options={buildAssignmentOptions(assignment)}
-                        onChange={(workspaceId) =>
-                          model.setProjectWorkspace(assignment.projectId, workspaceId)
-                        }
-                        placeholder={t("team.members.form.workspacePlaceholder")}
-                        emptyText={t("team.members.form.noWorkspaces")}
-                        error={assignment.error}
-                        size={controlSize}
-                        title={t("team.members.form.homeWorkspace")}
-                        triggerTestID={`team-member-project-workspace-${assignment.projectId}`}
-                        disabled={assignment.workspaceOptions.length === 0 || isPending}
-                      />
+                      <>
+                        <SelectField
+                          label={t("team.members.form.homeWorkspace")}
+                          value={assignment.homeWorkspaceId}
+                          selectedDisplay={selectedWorkspaceDisplay}
+                          options={buildAssignmentOptions(assignment)}
+                          onChange={(workspaceId) =>
+                            model.setProjectWorkspace(assignment.projectId, workspaceId)
+                          }
+                          placeholder={t("team.members.form.workspacePlaceholder")}
+                          emptyText={t("team.members.form.noWorkspaces")}
+                          error={assignment.error}
+                          size={controlSize}
+                          title={t("team.members.form.homeWorkspace")}
+                          triggerTestID={`team-member-project-workspace-${assignment.projectId}`}
+                          disabled={assignment.workspaceOptions.length === 0 || isPending}
+                        />
+                        {/* Omitted rather than disabled when the project has no
+                            directory on this host: there is nothing to create in. */}
+                        {assignment.repoRoot ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={Plus}
+                            style={styles.createWorkspaceButton}
+                            onPress={() => void handleCreateWorkspace(assignment.projectId)}
+                            loading={creatingProjectId === assignment.projectId}
+                            disabled={isPending || creatingProjectId !== null}
+                            testID={`team-member-project-create-workspace-${assignment.projectId}`}
+                          >
+                            {t("team.members.form.createWorkspace")}
+                          </Button>
+                        ) : null}
+                      </>
                     ) : null}
                   </View>
                 </View>
@@ -829,6 +942,9 @@ const styles = StyleSheet.create((theme) => {
     assignmentHeaderText: {
       flex: 1,
       gap: theme.spacing[1],
+    },
+    createWorkspaceButton: {
+      alignSelf: "flex-start",
     },
     actionsRow: {
       flexDirection: "row",
