@@ -36,10 +36,12 @@ One edge the capability cannot see: it answers "will the daemon inject", not "wi
 
 ## Wake and presence
 
-- A human channel message wakes every idle non-human member assigned to the project. Channel membership does not exist yet; when it does, the one delivery resolver in `member-lifecycle.ts` narrows this set.
-- A member-authored message wakes only explicitly mentioned members.
-- Ambient human messages never interrupt a running member. Its channel cursor remains behind, and one consolidated wake after the run completes catches it up on every unread message, regardless of author. An explicit mention deliberately retains the existing interrupt behavior.
+- Every channel message wakes every idle non-human member in its resolved audience except its author, regardless of who authored it. A wake does not imply a reply: the shared member prompt makes silence the correct result when nothing needs that member's attention, forbids idle narration, and reserves outcome reporting for the member that did the work.
+- Channel membership does not exist yet, so the resolved audience is every non-human member assigned to the project, even for messages in other channels. This fan-out is strictly wider than raft's channel-scoped reach. The lookup remains in the one delivery resolver in `member-lifecycle.ts` so adding channel membership later narrows it in one place.
+- Ambient messages never interrupt a running member. Its channel cursor remains behind, and one consolidated wake after the run completes catches it up on every unread message, regardless of author. An explicit mention deliberately retains the existing interrupt behavior.
 - A successful wake and a member's own post advance that member's channel cursor. This prevents duplicate and self-triggered catch-up without a separate queue.
+- Unlike raft, Paseo does not inject a content-free inbox notice into a busy member's active turn. It reaches the same no-interruption outcome by waking the member from its cursor-backed backlog after the run drains.
+- More than 20 consecutive member-authored messages without a human message produces a daemon warning. This is detection only: it never suppresses, delays, or drops a wake.
 - Live member status comes from the agent manager through `MemberLifecycle`; `TeamService` remains storage-only. One daemon lifecycle subscription translates those transitions into the existing `team.member.changed` event and drives completion catch-up.
 
 ## Claim model

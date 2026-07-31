@@ -127,7 +127,7 @@ describe("MemberLifecycle", () => {
     service.close();
   });
 
-  test("an unmentioned member message wakes nobody", async () => {
+  test("an unmentioned member message wakes every other assigned member, but not its author", async () => {
     const paseoHome = await createPaseoHome();
     const service = new TeamService({
       paseoHome,
@@ -142,9 +142,29 @@ describe("MemberLifecycle", () => {
       rolePrompt: "Review carefully.",
       homeWorkspaceId: "workspace-reviewer",
     });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-qa",
+      name: "QA",
+      rolePrompt: "Test carefully.",
+      homeWorkspaceId: "workspace-qa",
+    });
 
     const agentManager = new FakeAgentManager();
-    const lifecycle = createLifecycle(service, agentManager);
+    const lifecycle = new MemberLifecycle({
+      teamService: service,
+      agentManager,
+      workspaceRegistry: {
+        get: async (workspaceId) =>
+          buildWorkspaceRecord({
+            workspaceId,
+            projectId: "project-1",
+            cwd: `/repo/${workspaceId}`,
+          }),
+      },
+      logger: createTestLogger(),
+    });
 
     await lifecycle.deliverMentions({
       projectId: "project-1",
@@ -154,8 +174,86 @@ describe("MemberLifecycle", () => {
       },
     });
 
-    expect(agentManager.createCalls).toEqual([]);
-    expect(agentManager.promptCalls).toEqual([]);
+    expect(agentManager.createCalls.map((call) => call.options.workspaceId)).toEqual([
+      "workspace-qa",
+    ]);
+    expect(agentManager.promptCalls).toHaveLength(1);
+
+    service.close();
+  });
+
+  test("warns when an agent conversation crosses the runaway threshold without gating delivery", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds(
+        "member-human",
+        "channel-all",
+        ...Array.from({ length: 22 }, (_, index) => `message-${index + 1}`),
+      ),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-author",
+      name: "Author",
+      rolePrompt: "Report results.",
+      homeWorkspaceId: "workspace-author",
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review results.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const logger = createTestLogger();
+    const warn = vi.spyOn(logger, "warn");
+    const agentManager = new FakeAgentManager();
+    const lifecycle = new MemberLifecycle({
+      teamService: service,
+      agentManager,
+      workspaceRegistry: {
+        get: async (workspaceId) =>
+          buildWorkspaceRecord({
+            workspaceId,
+            projectId: "project-1",
+            cwd: `/repo/${workspaceId}`,
+          }),
+      },
+      logger,
+    });
+    const postTeamMessage = service.postMessage.bind(service);
+    const postAgentMessage = (index: number) =>
+      postTeamMessage({
+        projectId: "project-1",
+        channelId: channel.id,
+        authorMemberId: "member-author",
+        body: `Agent message ${index}`,
+      });
+
+    for (let index = 1; index <= 20; index += 1) {
+      postAgentMessage(index);
+    }
+    await lifecycle.deliverMentions({ projectId: "project-1", message: postAgentMessage(21) });
+    await lifecycle.deliverMentions({ projectId: "project-1", message: postAgentMessage(22) });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "project-1",
+        channelId: channel.id,
+        consecutiveAgentMessages: 21,
+      }),
+      expect.stringContaining("warning threshold"),
+    );
+    expect(agentManager.createCalls.map((call) => call.options.workspaceId)).toEqual([
+      "workspace-reviewer",
+    ]);
+    expect(agentManager.promptCalls).toHaveLength(2);
 
     service.close();
   });

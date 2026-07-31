@@ -9,6 +9,7 @@ import { TeamService } from "./team-service.js";
 export const TEAM_MEMBER_ID_LABEL = "paseo.team.memberId";
 export const TEAM_PROJECT_ID_LABEL = "paseo.team.projectId";
 export const TEAM_AUTO_STARTED_LABEL = "paseo.team.autoStarted";
+const AGENT_MESSAGE_WARNING_THRESHOLD = 20;
 
 interface MemberLifecycleOptions {
   teamService: TeamService;
@@ -45,6 +46,7 @@ export class MemberLifecycle {
   }
 
   public async deliverMentions(input: { projectId: string; message: TeamMessage }): Promise<void> {
+    this.warnOnRunawayAgentConversation(input);
     const deliveries = this.resolveMessageDeliveries(input);
     if (deliveries.length === 0) {
       return;
@@ -249,15 +251,37 @@ export class MemberLifecycle {
     message: TeamMessage;
   }): Array<{ memberId: string; interruptRunning: boolean }> {
     const mentionedMemberIds = new Set(input.message.mentionMemberIds ?? []);
-    const author = this.teamService.getMember(input.message.authorMemberId);
-    const memberIds =
-      author?.kind === "human"
-        ? this.teamService.listMembers(input.projectId).map((member) => member.id)
-        : Array.from(mentionedMemberIds);
-    return memberIds.map((memberId) => ({
-      memberId,
-      interruptRunning: mentionedMemberIds.has(memberId),
-    }));
+    return this.teamService
+      .listMembers(input.projectId)
+      .filter((member) => member.id !== input.message.authorMemberId)
+      .map((member) => ({
+        memberId: member.id,
+        interruptRunning: mentionedMemberIds.has(member.id),
+      }));
+  }
+
+  private warnOnRunawayAgentConversation(input: { projectId: string; message: TeamMessage }): void {
+    const humanMemberId = this.teamService.getHumanMember().id;
+    const messages = this.teamService.listMessages({
+      projectId: input.projectId,
+      channelId: input.message.channelId,
+      limit: AGENT_MESSAGE_WARNING_THRESHOLD + 2,
+    }).messages;
+    const firstHumanMessage = messages.findIndex(
+      (message) => message.authorMemberId === humanMemberId,
+    );
+    const consecutiveAgentMessages = firstHumanMessage === -1 ? messages.length : firstHumanMessage;
+    if (consecutiveAgentMessages !== AGENT_MESSAGE_WARNING_THRESHOLD + 1) {
+      return;
+    }
+    this.logger.warn(
+      {
+        projectId: input.projectId,
+        channelId: input.message.channelId,
+        consecutiveAgentMessages,
+      },
+      "Team channel has exceeded the consecutive agent-message warning threshold.",
+    );
   }
 
   private async deliverCatchUp(input: { projectId: string; memberId: string }): Promise<void> {

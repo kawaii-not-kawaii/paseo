@@ -304,6 +304,13 @@ acknowledged message or task change is lost (SC-006).
 - [x] T134 Run the focused Team tests, typecheck, lint, format, and isolated-daemon live
       verification that an open Team view flips member status without navigation or reload and two
       busy members catch up once before the exchange rests.
+- [x] T137 Add and test load-bearing member etiquette that makes a no-op wake correct, prevents
+      uninvited replies and idle narration, and reserves outcome reporting for the member that did
+      the work (FR-007d).
+- [x] T138 Widen the single delivery resolver to wake idle peers for every channel message, exclude
+      the author, and add a log-only consecutive-agent-message warning (FR-007a, FR-007b, FR-007d).
+- [ ] T139 Re-run the isolated-daemon live scenario with an agent-authored message and prove a
+      two-member exchange returns to idle without ping-ponging (SC-004b).
 
 ---
 

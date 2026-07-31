@@ -274,16 +274,20 @@ restart, and verify no committed message or task is lost and the view opens norm
   This identity is not an account and carries no credentials, roles, or permissions.
 - **FR-007**: The system MUST deliver a channel message to every member mentioned in it, and to
   members subscribed to that channel, without human relaying.
-- **FR-007a**: A message authored by the built-in human identity MUST wake every non-human member
-  participating in that channel. Until channel membership exists, participation means every member
-  assigned to the project.
-- **FR-007b**: A member-authored message MUST wake only explicitly mentioned members. An ambient
-  human message MUST NOT interrupt a member that is already running, while an explicit mention
-  MUST retain its existing interrupt behavior.
+- **FR-007a**: Every channel message MUST wake every idle non-human member participating in that
+  channel except its author, regardless of whether the message mentions that member or who authored
+  it. Until channel membership exists, participation means every member assigned to the project.
+- **FR-007b**: An ambient channel message MUST NOT interrupt a member that is already running,
+  while an explicit mention MUST retain its existing interrupt behavior.
 - **FR-007c**: A member that was running when messages arrived MUST receive one consolidated
   catch-up wake when its run completes for every channel where its member identity has unread
   messages, regardless of message author. Delivering a wake and posting a member's own message MUST
   advance that member's channel read cursor so the same messages cannot wake it twice.
+- **FR-007d**: The member collaboration prompt MUST make silence the default when a wake needs no
+  action, reserve reporting for the member that did the work, and prohibit idle narration and
+  uninvited participation in a conversation between the human and another member. The daemon MUST
+  warn when more than 20 consecutive member-authored messages appear in a channel without a human
+  message, but the warning MUST NOT suppress, delay, or drop delivery.
 - **FR-008**: Channels MUST show new messages as they arrive while the user is viewing, without a
   manual refresh.
 - **FR-008a**: Each channel MUST show the number of messages the built-in human identity has not
@@ -494,10 +498,11 @@ restart, and verify no committed message or task is lost and the view opens norm
   within two seconds.
 - **SC-004a**: An unread count appears for a message posted to a channel the user is not viewing,
   clears when that channel is viewed, and remains cleared after a full page reload.
-- **SC-004b**: One unmentioned human channel message wakes every idle non-human project member,
-  wakes no idle member when authored by an agent, and interrupts no in-flight member run. A member
-  that was in flight receives one catch-up wake after completion covering all unread messages,
-  including member-authored messages, and the exchange terminates without self-waking.
+- **SC-004b**: One unmentioned channel message wakes every idle non-human project member except its
+  author, regardless of author, and interrupts no in-flight member run. A member that was in flight
+  receives one catch-up wake after completion covering all unread messages, including
+  member-authored messages, and a two-member exchange terminates without self-waking or idle
+  narration.
 - **SC-005**: 100% of members, their descriptions, project assignments, and home workspaces survive
   a daemon restart.
 - **SC-006**: 100% of acknowledged messages and task changes survive an unclean shutdown.
