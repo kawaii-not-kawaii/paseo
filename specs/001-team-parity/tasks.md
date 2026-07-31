@@ -309,7 +309,7 @@ acknowledged message or task change is lost (SC-006).
       the work (FR-007d).
 - [x] T138 Widen the single delivery resolver to wake idle peers for every channel message, exclude
       the author, and add a log-only consecutive-agent-message warning (FR-007a, FR-007b, FR-007d).
-- [ ] T139 Re-run the isolated-daemon live scenario with an agent-authored message and prove a
+- [x] T139 Re-run the isolated-daemon live scenario with an agent-authored message and prove a
       two-member exchange returns to idle without ping-ponging (SC-004b).
 
 ---

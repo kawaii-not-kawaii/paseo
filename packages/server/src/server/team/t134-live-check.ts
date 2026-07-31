@@ -19,7 +19,8 @@ interface LiveState {
   channelId: string;
   memberIds: [string, string];
   memberNames: [string, string];
-  replyTokens: [string, string];
+  handoffToken: string;
+  acknowledgementToken: string;
 }
 
 interface SessionMessage {
@@ -36,7 +37,8 @@ async function seed(): Promise<void> {
   const suffix = Date.now().toString(36);
   const projectId = `prj_t134_${suffix}`;
   const memberNames: [string, string] = [`alpha${suffix}`, `beta${suffix}`];
-  const replyTokens: [string, string] = [`ALPHA_CAUGHT_UP_${suffix}`, `BETA_CAUGHT_UP_${suffix}`];
+  const handoffToken = `ALPHA_HANDOFF_${suffix}`;
+  const acknowledgementToken = `BETA_ACK_${suffix}`;
   await mkdir(path.join(paseoHome, "projects"), { recursive: true });
   await mkdir(liveRoot, { recursive: true });
 
@@ -85,30 +87,39 @@ async function seed(): Promise<void> {
   const service = new TeamService({ paseoHome });
   const channel = service.createChannel({ projectId, name: "live" });
   const model = process.env.T134_MODEL ?? "gpt-5.3-codex-spark";
-  const members = memberNames.map((name, index) =>
-    service.createMember({
+  const members = memberNames.map((name, index) => {
+    const rolePrompt =
+      index === 0
+        ? [
+            `You are ${name}, the live-check handoff owner.`,
+            `When a private instruction contains START_AGENT_WAKE, call team_post once in channel "live" with exactly: ${handoffToken}`,
+            "Do not mention another member in that post.",
+            "You do not own verification of the handoff; follow the team conversation etiquette on later wakes.",
+          ]
+        : [
+            `You are ${name}, the live-check verification owner.`,
+            `When ${handoffToken} appears in channel "live", call team_read for "live", then call team_post once in "live" with exactly: ${acknowledgementToken}`,
+            "Do not mention another member in that post.",
+            "Follow the team conversation etiquette for anything outside that owned verification.",
+          ];
+    return service.createMember({
       projectId,
       name,
-      description: "Exercises deferred Team catch-up",
+      description: "Exercises raft-style Team wake and restraint",
       provider: "codex",
       model,
       modeId: "full-access",
       homeWorkspaceId: workspaceIds[index],
-      rolePrompt: [
-        `You are ${name}, a deterministic live-check member.`,
-        "When a channel message contains STAY_BUSY, run `sleep 20` in the shell.",
-        "During that STAY_BUSY run, do not call team_post and do not mention another member.",
-        `For any later catch-up notification, call team_read for channel "live", then call team_post once in "live" with exactly: ${replyTokens[index]}`,
-        "Never mention another member in that reply.",
-      ].join(" "),
-    }),
-  );
+      rolePrompt: rolePrompt.join(" "),
+    });
+  });
   const state: LiveState = {
     projectId,
     channelId: channel.id,
     memberIds: [members[0]!.id, members[1]!.id],
     memberNames,
-    replyTokens,
+    handoffToken,
+    acknowledgementToken,
   };
   service.close();
   await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
@@ -199,74 +210,53 @@ async function check(): Promise<void> {
     );
     statusEvents.length = 0;
     postedBodies.length = 0;
-    for (const memberName of state.memberNames) {
-      const sent = await request(socket, pending, {
-        type: "send_agent_message_request",
-        agentId: memberName,
-        text: "STAY_BUSY private runtime check. Run `sleep 20` in the shell, do not call any team_* tool, then answer only READY in this private run.",
-      });
-      assertResponse(sent, "send_agent_message_response");
-      if (sent.payload?.accepted !== true) {
-        throw new Error(`Private busy run was rejected for ${memberName}`);
-      }
-    }
-    await waitUntil(
-      "both members running",
-      () => state.memberIds.every((id) => latestStatus(statusEvents, id) === "running"),
-      60_000,
-    );
-
-    const catchUpBody = `CATCH_UP_TOKEN_${Date.now()}: read this after the run you are already doing, then reply once.`;
-    const catchUpPostedAt = Date.now();
-    const posted = await request(socket, pending, {
-      type: "team.message.post.request",
-      projectId: state.projectId,
-      channelId: state.channelId,
-      body: catchUpBody,
+    const sent = await request(socket, pending, {
+      type: "send_agent_message_request",
+      agentId: state.memberNames[0],
+      text: `START_AGENT_WAKE: post the exact handoff token ${state.handoffToken} now, following your role prompt.`,
     });
-    assertResponse(posted, "team.message.post.response");
-    const postedMessage = posted.payload?.message as { mentionMemberIds?: string[] } | undefined;
-    if ((postedMessage?.mentionMemberIds ?? []).length !== 0) {
-      throw new Error("The catch-up message unexpectedly contained a mention");
+    assertResponse(sent, "send_agent_message_response");
+    if (sent.payload?.accepted !== true) {
+      throw new Error(`Private handoff run was rejected for ${state.memberNames[0]}`);
     }
 
     await waitUntil(
-      "both members post their catch-up replies",
+      "the first member to post an agent-authored handoff",
       () =>
-        state.replyTokens.every((token) =>
-          postedBodies.some((message) => message.body.includes(token)),
+        postedBodies.some(
+          (message) =>
+            message.authorMemberId === state.memberIds[0] &&
+            message.body.trim() === state.handoffToken,
         ),
       timeoutMs,
     );
-    const firstAgentPostAt = Math.min(
-      ...postedBodies
-        .filter((message) => state.memberIds.includes(message.authorMemberId))
-        .map((message) => message.at),
-    );
-    if (firstAgentPostAt - catchUpPostedAt < 8_000) {
-      throw new Error("A busy member appears to have been interrupted by the ambient message");
-    }
     await waitUntil(
-      "both catch-up runs to publish their final idle status",
+      "the idle peer to wake and acknowledge the agent-authored handoff",
       () =>
-        state.memberIds.every((memberId) =>
-          containsInOrder(
-            statusEvents
-              .filter((event) => event.memberId === memberId)
-              .map((event) => event.status),
-            ["running", "idle", "running", "idle"],
-          ),
+        postedBodies.some(
+          (message) =>
+            message.authorMemberId === state.memberIds[1] &&
+            message.body.trim() === state.acknowledgementToken,
         ),
-      60_000,
+      timeoutMs,
     );
-    for (const memberId of state.memberIds) {
-      const statuses = statusEvents
-        .filter((event) => event.memberId === memberId)
-        .map((event) => event.status);
-      if (!containsInOrder(statuses, ["running", "idle", "running", "idle"])) {
-        throw new Error(`Missing pushed run/catch-up transitions for ${memberId}: ${statuses}`);
-      }
-    }
+    await waitUntil(
+      "the acknowledgement to wake its idle or just-drained author once",
+      () =>
+        containsInOrder(
+          statusEvents
+            .filter((event) => event.memberId === state.memberIds[0])
+            .map((event) => event.status),
+          ["running", "idle", "running", "idle"],
+        ) &&
+        containsInOrder(
+          statusEvents
+            .filter((event) => event.memberId === state.memberIds[1])
+            .map((event) => event.status),
+          ["running", "idle"],
+        ),
+      timeoutMs,
+    );
 
     await waitForQuiescence(
       () => ({
@@ -287,18 +277,30 @@ async function check(): Promise<void> {
       authorMemberId: string;
       body: string;
     }>;
+    const alphaStatuses = statusEvents
+      .filter((event) => event.memberId === state.memberIds[0])
+      .map((event) => event.status);
+    const betaStatuses = statusEvents
+      .filter((event) => event.memberId === state.memberIds[1])
+      .map((event) => event.status);
     const checks = {
-      oneUnmentionedHumanTrigger:
-        messages.filter((message) => message.body === catchUpBody).length === 1,
-      bothMembersReplied: state.replyTokens.every((token) =>
-        postedBodies.some((message) => message.body.includes(token)),
-      ),
-      pushedRunningAndIdle: state.memberIds.every((memberId) =>
-        containsInOrder(
-          statusEvents.filter((event) => event.memberId === memberId).map((event) => event.status),
-          ["running", "idle", "running", "idle"],
-        ),
-      ),
+      oneAgentAuthoredHandoff:
+        messages.filter(
+          (message) =>
+            message.authorMemberId === state.memberIds[0] &&
+            message.body.trim() === state.handoffToken,
+        ).length === 1,
+      onePeerAcknowledgement:
+        messages.filter(
+          (message) =>
+            message.authorMemberId === state.memberIds[1] &&
+            message.body.trim() === state.acknowledgementToken,
+        ).length === 1,
+      noNarrationOrPingPong: messages.length === 2,
+      agentMessageWokeIdlePeer: containsInOrder(betaStatuses, ["running", "idle"]),
+      acknowledgementWokeAuthorOnce:
+        alphaStatuses.filter((status) => status === "running").length === 2 &&
+        containsInOrder(alphaStatuses, ["running", "idle", "running", "idle"]),
       restedFor20Seconds: state.memberIds.every(
         (memberId) => latestStatus(statusEvents, memberId) === "idle",
       ),

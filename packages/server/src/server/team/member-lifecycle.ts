@@ -383,7 +383,7 @@ function formatMentionPrompt(
     "",
     message.body,
     "",
-    `Read the channel with team_read, then reply in that channel: call team_post with channel "${channel.name}". Mention a teammate as @name to hand work over.`,
+    `Read the channel with team_read. If a response is needed, call team_post with channel "${channel.name}". If no response is needed, stop without posting. Mention a teammate as @name only to hand concrete work over.`,
   ].join("\n");
 }
 

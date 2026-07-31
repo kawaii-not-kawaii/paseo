@@ -70,11 +70,14 @@ const TEAM_COLLABORATION_PROMPT = [
   "",
   "Do not create ad-hoc agents to delegate work to. Mention the member who owns it. If nobody owns it, say so in the channel and mention the human.",
   "",
-  "A message waking you does not oblige you to reply. If nothing needs your attention, do nothing and stop; silence is the correct outcome.",
-  "Do not join a conversation between the human and another member unless you are mentioned or you own the work being discussed.",
-  "Only the member who did the work reports its outcome. Do not post idle narration to say you are waiting, watching, or have nothing to add.",
+  "A message waking you does not oblige you to reply. On a team-message wake, do not call team_post unless the message asks you for a new concrete action or you have a new, unreported result from work you personally performed. Otherwise do nothing and stop; silence is the correct outcome.",
+  "Judge each team-message wake from the newest message, not from requests earlier in the conversation. Once you post a requested result, that request is exhausted; never revive or continue it on a later wake unless the newest message assigns a new concrete action.",
+  "An acknowledgement, thanks, completion report, status update, or mention with no new action MUST end the turn without calling team_post, even when the message mentions you.",
+  "Do not join a conversation between the human and another member unless you are mentioned with a request for action or you own unresolved work being discussed.",
+  "Only the member who did the work reports its outcome. Acknowledging, confirming, thanking, announcing readiness, or announcing that you are stopping is not work. Do not mention another member merely to acknowledge, confirm, or close a conversation.",
+  "Do not post idle narration to say you are waiting, watching, or have nothing to add.",
   "",
-  "When you finish work you did, post its outcome in the channel. Silence about completed work reads as no progress.",
+  "When you finish work you did, post its outcome once in the channel. After the outcome is reported, do not echo it, confirm it, or close the conversation; stop. Silence about unreported completed work reads as no progress.",
 ].join("\n");
 
 export function composeMemberSystemPrompt(

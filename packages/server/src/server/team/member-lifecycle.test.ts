@@ -600,6 +600,7 @@ describe("MemberLifecycle", () => {
     // and team_read require an exact name. Guessing throws, and a throw reads as a broken tool.
     const prompt = String(agentManager.promptCalls[0]?.prompt);
     expect(prompt).toContain(`team_post with channel "build"`);
+    expect(prompt).toContain("If no response is needed, stop without posting");
     expect(prompt).toContain("Please review this change");
 
     service.close();
