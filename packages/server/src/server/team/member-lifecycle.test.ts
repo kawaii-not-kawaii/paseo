@@ -1,11 +1,13 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { createTestLogger } from "../../test-utils/test-logger.js";
 import { isAutoStartedTeamAgent, MemberLifecycle } from "./member-lifecycle.js";
 import { TeamService } from "./team-service.js";
+import { subscribeTeamMemberLifecycle } from "./team-session.js";
 import {
+  buildWorkspaceRecord,
   buildMessage,
   createWorkspaceRegistryStub,
   FakeAgentManager,
@@ -69,6 +71,323 @@ describe("MemberLifecycle", () => {
     expect(agentManager.createCalls[0]?.options.workspaceId).toBe("workspace-reviewer");
     expect(String(agentManager.promptCalls[0]?.prompt)).toContain("Please review this change");
 
+    service.close();
+  });
+
+  test("an unmentioned human message wakes every assigned member", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human"),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-qa",
+      name: "QA",
+      rolePrompt: "Test carefully.",
+      homeWorkspaceId: "workspace-qa",
+    });
+
+    const agentManager = new FakeAgentManager();
+    const lifecycle = new MemberLifecycle({
+      teamService: service,
+      agentManager,
+      workspaceRegistry: {
+        get: async (workspaceId) =>
+          buildWorkspaceRecord({
+            workspaceId,
+            projectId: "project-1",
+            cwd: `/repo/${workspaceId}`,
+          }),
+      },
+      logger: createTestLogger(),
+    });
+
+    await lifecycle.deliverMentions({
+      projectId: "project-1",
+      message: buildMessage("Please take a look", []),
+    });
+
+    expect(agentManager.createCalls.map((call) => call.options.workspaceId).sort()).toEqual([
+      "workspace-qa",
+      "workspace-reviewer",
+    ]);
+    expect(agentManager.promptCalls).toHaveLength(2);
+
+    service.close();
+  });
+
+  test("an unmentioned member message wakes every other assigned member, but not its author", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human"),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-qa",
+      name: "QA",
+      rolePrompt: "Test carefully.",
+      homeWorkspaceId: "workspace-qa",
+    });
+
+    const agentManager = new FakeAgentManager();
+    const lifecycle = new MemberLifecycle({
+      teamService: service,
+      agentManager,
+      workspaceRegistry: {
+        get: async (workspaceId) =>
+          buildWorkspaceRecord({
+            workspaceId,
+            projectId: "project-1",
+            cwd: `/repo/${workspaceId}`,
+          }),
+      },
+      logger: createTestLogger(),
+    });
+
+    await lifecycle.deliverMentions({
+      projectId: "project-1",
+      message: {
+        ...buildMessage("Status update", []),
+        authorMemberId: "member-reviewer",
+      },
+    });
+
+    expect(agentManager.createCalls.map((call) => call.options.workspaceId)).toEqual([
+      "workspace-qa",
+    ]);
+    expect(agentManager.promptCalls).toHaveLength(1);
+
+    service.close();
+  });
+
+  test("warns when an agent conversation crosses the runaway threshold without gating delivery", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds(
+        "member-human",
+        "channel-all",
+        ...Array.from({ length: 22 }, (_, index) => `message-${index + 1}`),
+      ),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-author",
+      name: "Author",
+      rolePrompt: "Report results.",
+      homeWorkspaceId: "workspace-author",
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review results.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const logger = createTestLogger();
+    const warn = vi.spyOn(logger, "warn");
+    const agentManager = new FakeAgentManager();
+    const lifecycle = new MemberLifecycle({
+      teamService: service,
+      agentManager,
+      workspaceRegistry: {
+        get: async (workspaceId) =>
+          buildWorkspaceRecord({
+            workspaceId,
+            projectId: "project-1",
+            cwd: `/repo/${workspaceId}`,
+          }),
+      },
+      logger,
+    });
+    const postTeamMessage = service.postMessage.bind(service);
+    const postAgentMessage = (index: number) =>
+      postTeamMessage({
+        projectId: "project-1",
+        channelId: channel.id,
+        authorMemberId: "member-author",
+        body: `Agent message ${index}`,
+      });
+
+    for (let index = 1; index <= 20; index += 1) {
+      postAgentMessage(index);
+    }
+    await lifecycle.deliverMentions({ projectId: "project-1", message: postAgentMessage(21) });
+    await lifecycle.deliverMentions({ projectId: "project-1", message: postAgentMessage(22) });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "project-1",
+        channelId: channel.id,
+        consecutiveAgentMessages: 21,
+      }),
+      expect.stringContaining("warning threshold"),
+    );
+    expect(agentManager.createCalls.map((call) => call.options.workspaceId)).toEqual([
+      "workspace-reviewer",
+    ]);
+    expect(agentManager.promptCalls).toHaveLength(2);
+
+    service.close();
+  });
+
+  test("ambient delivery skips a running member while an explicit mention interrupts it", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human"),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+
+    const agentManager = new FakeAgentManager();
+    const lifecycle = createLifecycle(service, agentManager);
+    const started = await lifecycle.start({
+      projectId: "project-1",
+      memberId: "member-reviewer",
+    });
+    if (!started) {
+      throw new Error("Expected a member runtime");
+    }
+    agentManager.setAgentLifecycle(started.id, "running");
+
+    await lifecycle.deliverMentions({
+      projectId: "project-1",
+      message: buildMessage("Ambient update", []),
+    });
+    expect(agentManager.promptCalls).toEqual([]);
+    expect(agentManager.replaceCalls).toEqual([]);
+
+    await lifecycle.deliverMentions({
+      projectId: "project-1",
+      message: {
+        ...buildMessage("@Reviewer please stop and review this", ["member-reviewer"]),
+        authorMemberId: "member-qa",
+      },
+    });
+    expect(agentManager.replaceCalls).toEqual([expect.objectContaining({ agentId: started.id })]);
+
+    service.close();
+  });
+
+  test("a busy member catches up once on all unread messages after its run completes", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds(
+        "member-human",
+        "channel-all",
+        "channel-reviews",
+        "message-human",
+        "message-agent",
+        "message-review",
+      ),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    const all = service.createChannel({ projectId: "project-1", name: "all" });
+    const reviews = service.createChannel({ projectId: "project-1", name: "reviews" });
+    const postTeamMessage = service.postMessage.bind(service);
+
+    const agentManager = new FakeAgentManager();
+    const lifecycle = createLifecycle(service, agentManager);
+    const unsubscribe = subscribeTeamMemberLifecycle(service, lifecycle);
+    const started = await lifecycle.start({
+      projectId: "project-1",
+      memberId: "member-reviewer",
+    });
+    if (!started) {
+      throw new Error("Expected a member runtime");
+    }
+    agentManager.setAgentLifecycle(started.id, "running");
+
+    const humanMessage = postTeamMessage({
+      projectId: "project-1",
+      channelId: all.id,
+      authorMemberId: service.getHumanMember().id,
+      body: "Please review this.",
+    });
+    await lifecycle.deliverMentions({ projectId: "project-1", message: humanMessage });
+    const agentMessage = postTeamMessage({
+      projectId: "project-1",
+      channelId: all.id,
+      authorMemberId: "member-qa",
+      body: "QA results are ready.",
+    });
+    await lifecycle.deliverMentions({ projectId: "project-1", message: agentMessage });
+    const reviewMessage = postTeamMessage({
+      projectId: "project-1",
+      channelId: reviews.id,
+      authorMemberId: service.getHumanMember().id,
+      body: "Also check the review thread.",
+    });
+    await lifecycle.deliverMentions({ projectId: "project-1", message: reviewMessage });
+
+    expect(agentManager.promptCalls).toEqual([]);
+    expect(
+      service
+        .listChannels("project-1", "member-reviewer")
+        .map((channel) => [channel.name, channel.unreadCount]),
+    ).toEqual([
+      ["all", 2],
+      ["reviews", 1],
+    ]);
+
+    agentManager.completeTurn(started.id);
+    await vi.waitFor(() => expect(agentManager.promptCalls).toHaveLength(1));
+    expect(String(agentManager.promptCalls[0]?.prompt)).toContain("#all (2 unread)");
+    expect(String(agentManager.promptCalls[0]?.prompt)).toContain("#reviews (1 unread)");
+    expect(
+      service.listChannels("project-1", "member-reviewer").map((channel) => channel.unreadCount),
+    ).toEqual([0, 0]);
+
+    agentManager.setAgentLifecycle(started.id, "running");
+    agentManager.completeTurn(started.id);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(agentManager.promptCalls).toHaveLength(1);
+
+    unsubscribe();
     service.close();
   });
 
@@ -281,6 +600,7 @@ describe("MemberLifecycle", () => {
     // and team_read require an exact name. Guessing throws, and a throw reads as a broken tool.
     const prompt = String(agentManager.promptCalls[0]?.prompt);
     expect(prompt).toContain(`team_post with channel "build"`);
+    expect(prompt).toContain("If no response is needed, stop without posting");
     expect(prompt).toContain("Please review this change");
 
     service.close();

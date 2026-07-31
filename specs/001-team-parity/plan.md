@@ -28,6 +28,15 @@ The technical approach is shaped by three facts discovered in the code rather th
    each status column registered as a drop target. Native keeps the existing overflow move action;
    reshaping the upstream cross-platform primitive for one fork feature would widen the merge
    surface without solving native cross-list drag.
+6. **Every channel message is an ambient wake.** Delivery stays in
+   `MemberLifecycle.deliverMentions`: every message fans out to the channel's resolved member set
+   except its author, without interrupting busy members. Explicit mentions retain interrupt
+   behavior. Existing per-member channel read cursors record messages that arrive during a run; the
+   single daemon lifecycle bridge emits the existing `team.member.changed` event and delivers one
+   all-author catch-up wake after completion. Successful wakes and members' own posts advance those
+   cursors, so no queue or schema change is needed. Prompt etiquette makes silence correct when no
+   response is useful; a log-only threshold makes a runaway agent exchange detectable without
+   gating it.
 
 ## Technical Context
 

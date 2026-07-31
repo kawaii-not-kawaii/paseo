@@ -3,12 +3,13 @@ import type { AgentSessionConfig } from "../agent/agent-sdk-types.js";
 import type { AgentManager, ManagedAgent } from "../agent/agent-manager.js";
 import type { WorkspaceRegistry } from "../workspace-registry.js";
 import type { Logger } from "pino";
-import type { TeamMessage } from "@getpaseo/protocol/team/types";
+import type { TeamChannel, TeamMessage } from "@getpaseo/protocol/team/types";
 import { TeamService } from "./team-service.js";
 
 export const TEAM_MEMBER_ID_LABEL = "paseo.team.memberId";
 export const TEAM_PROJECT_ID_LABEL = "paseo.team.projectId";
 export const TEAM_AUTO_STARTED_LABEL = "paseo.team.autoStarted";
+const AGENT_MESSAGE_WARNING_THRESHOLD = 20;
 
 interface MemberLifecycleOptions {
   teamService: TeamService;
@@ -22,6 +23,7 @@ interface MemberLifecycleOptions {
     | "hasInFlightRun"
     | "replaceAgentRun"
     | "streamAgent"
+    | "subscribe"
     // FR-021: the user can stop a member by hand, which ends its runtime and nothing else.
     | "cancelAgentRun"
     | "closeAgent"
@@ -44,8 +46,9 @@ export class MemberLifecycle {
   }
 
   public async deliverMentions(input: { projectId: string; message: TeamMessage }): Promise<void> {
-    const mentionMemberIds = Array.from(new Set(input.message.mentionMemberIds ?? []));
-    if (mentionMemberIds.length === 0) {
+    this.warnOnRunawayAgentConversation(input);
+    const deliveries = this.resolveMessageDeliveries(input);
+    if (deliveries.length === 0) {
       return;
     }
     const prompt = formatMentionPrompt(
@@ -54,12 +57,20 @@ export class MemberLifecycle {
       input.message,
       this.logger,
     );
-    for (const memberId of mentionMemberIds) {
-      await this.deliverMention({
+    for (const delivery of deliveries) {
+      const delivered = await this.deliverMention({
         projectId: input.projectId,
-        memberId,
+        memberId: delivery.memberId,
         prompt,
+        interruptRunning: delivery.interruptRunning,
       });
+      if (delivered && this.teamService.getChannel(input.projectId, input.message.channelId)) {
+        this.teamService.markChannelRead(
+          input.projectId,
+          input.message.channelId,
+          delivery.memberId,
+        );
+      }
     }
   }
 
@@ -67,6 +78,7 @@ export class MemberLifecycle {
     projectId: string;
     memberId: string;
     prompt: string;
+    interruptRunning?: boolean;
   }): Promise<ManagedAgent | null> {
     const member = this.teamService.getMember(input.memberId);
     if (!member) {
@@ -106,8 +118,11 @@ export class MemberLifecycle {
     });
 
     if (existing) {
+      if (input.interruptRunning === false && this.agentManager.hasInFlightRun(existing.id)) {
+        return null;
+      }
       await startAgentRun(this.agentManager, existing.id, notification, this.logger, {
-        replaceRunning: true,
+        replaceRunning: input.interruptRunning ?? true,
       });
       return existing;
     }
@@ -127,9 +142,51 @@ export class MemberLifecycle {
     );
 
     await startAgentRun(this.agentManager, created.id, notification, this.logger, {
-      replaceRunning: true,
+      replaceRunning: input.interruptRunning ?? true,
     });
     return this.agentManager.getAgent(created.id) ?? created;
+  }
+
+  public subscribeRuntimeStatus(
+    listener: (change: { projectId: string; memberId: string; status: "running" | "idle" }) => void,
+  ): () => void {
+    const statuses = new Map<string, "running" | "idle">();
+    return this.agentManager.subscribe(
+      (event) => {
+        if (event.type !== "agent_state") {
+          return;
+        }
+        const projectId = event.agent.labels[TEAM_PROJECT_ID_LABEL];
+        const memberId = event.agent.labels[TEAM_MEMBER_ID_LABEL];
+        if (!projectId || !memberId) {
+          return;
+        }
+        const status = resolveMemberRuntimeStatus([event.agent], { projectId, memberId }) ?? "idle";
+        const key = `${projectId}\0${memberId}`;
+        if (statuses.get(key) === status) {
+          return;
+        }
+        statuses.set(key, status);
+        listener({ projectId, memberId, status });
+        // Catch-up rides the running -> idle transition rather than `turn_completed`.
+        // `turn_completed` is emitted from inside the run's own stream loop, so the
+        // run is still in flight when it arrives: `deliverCatchUp` would hit the
+        // `hasInFlightRun` guard, return without advancing the cursor, and never be
+        // retried — silently dropping exactly the messages it exists to deliver.
+        // The idle transition is emitted after the run has drained, and is already
+        // deduped by `statuses` above, so it fires once per completion.
+        if (status !== "idle") {
+          return;
+        }
+        void this.deliverCatchUp({ projectId, memberId }).catch((error: unknown) => {
+          this.logger.error(
+            { err: error, projectId, memberId },
+            "Failed to deliver deferred team-message catch-up",
+          );
+        });
+      },
+      { replayState: false },
+    );
   }
 
   /**
@@ -187,6 +244,64 @@ export class MemberLifecycle {
     await this.agentManager.cancelAgentRun(live.id);
     await this.agentManager.closeAgent(live.id);
     return true;
+  }
+
+  private resolveMessageDeliveries(input: {
+    projectId: string;
+    message: TeamMessage;
+  }): Array<{ memberId: string; interruptRunning: boolean }> {
+    const mentionedMemberIds = new Set(input.message.mentionMemberIds ?? []);
+    return this.teamService
+      .listMembers(input.projectId)
+      .filter((member) => member.id !== input.message.authorMemberId)
+      .map((member) => ({
+        memberId: member.id,
+        interruptRunning: mentionedMemberIds.has(member.id),
+      }));
+  }
+
+  private warnOnRunawayAgentConversation(input: { projectId: string; message: TeamMessage }): void {
+    const humanMemberId = this.teamService.getHumanMember().id;
+    const messages = this.teamService.listMessages({
+      projectId: input.projectId,
+      channelId: input.message.channelId,
+      limit: AGENT_MESSAGE_WARNING_THRESHOLD + 2,
+    }).messages;
+    const firstHumanMessage = messages.findIndex(
+      (message) => message.authorMemberId === humanMemberId,
+    );
+    const consecutiveAgentMessages = firstHumanMessage === -1 ? messages.length : firstHumanMessage;
+    if (consecutiveAgentMessages !== AGENT_MESSAGE_WARNING_THRESHOLD + 1) {
+      return;
+    }
+    this.logger.warn(
+      {
+        projectId: input.projectId,
+        channelId: input.message.channelId,
+        consecutiveAgentMessages,
+      },
+      "Team channel has exceeded the consecutive agent-message warning threshold.",
+    );
+  }
+
+  private async deliverCatchUp(input: { projectId: string; memberId: string }): Promise<void> {
+    const unreadChannels = this.teamService
+      .listChannels(input.projectId, input.memberId)
+      .filter((channel) => (channel.unreadCount ?? 0) > 0);
+    if (unreadChannels.length === 0) {
+      return;
+    }
+    const delivered = await this.deliverMention({
+      ...input,
+      prompt: formatCatchUpPrompt(unreadChannels),
+      interruptRunning: false,
+    });
+    if (!delivered) {
+      return;
+    }
+    for (const channel of unreadChannels) {
+      this.teamService.markChannelRead(input.projectId, channel.id, input.memberId);
+    }
   }
 
   /**
@@ -264,13 +379,20 @@ function formatMentionPrompt(
   }
   const author = teamService.getMemberDisplayName(message.authorMemberId);
   return [
-    author
-      ? `${author} mentioned you in #${channel.name}.`
-      : `You were mentioned in #${channel.name}.`,
+    author ? `${author} posted in #${channel.name}.` : `A message was posted in #${channel.name}.`,
     "",
     message.body,
     "",
-    `Reply in that channel: call team_post with channel "${channel.name}". Mention a teammate as @name to hand work over.`,
+    `Read the channel with team_read. If a response is needed, call team_post with channel "${channel.name}". If no response is needed, stop without posting. Mention a teammate as @name only to hand concrete work over.`,
+  ].join("\n");
+}
+
+function formatCatchUpPrompt(channels: TeamChannel[]): string {
+  return [
+    "You have unread team messages to catch up on:",
+    ...channels.map((channel) => `- #${channel.name} (${channel.unreadCount} unread)`),
+    "",
+    "Read each channel with team_read and respond where needed with team_post.",
   ].join("\n");
 }
 

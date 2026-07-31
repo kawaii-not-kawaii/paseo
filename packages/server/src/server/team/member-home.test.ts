@@ -156,6 +156,19 @@ describe("member home", () => {
     // Runtimes namespace MCP tools differently; a member searching for the bare name may find
     // nothing and conclude the tools are missing.
     expect(prompt).toContain("mcp__paseo__team_post");
+    expect(prompt).toContain("does not oblige you to reply");
+    expect(prompt).toContain("do not call team_post unless");
+    expect(prompt).toContain("silence is the correct outcome");
+    expect(prompt).toContain("Judge each team-message wake from the newest message");
+    expect(prompt).toContain("that request is exhausted");
+    expect(prompt).toContain("MUST end the turn without calling team_post");
+    expect(prompt).toContain("even when the message mentions you");
+    expect(prompt).toContain("unless you are mentioned with a request for action");
+    expect(prompt).toContain("Only the member who did the work reports its outcome");
+    expect(prompt).toContain("Acknowledging, confirming, thanking");
+    expect(prompt).toContain("Do not post idle narration");
+    expect(prompt).toContain("do not echo it, confirm it, or close the conversation");
+    expect(prompt).toContain("Silence about unreported completed work reads as no progress");
   });
 });
 

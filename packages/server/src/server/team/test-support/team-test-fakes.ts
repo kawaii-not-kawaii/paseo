@@ -4,7 +4,13 @@
 import { join } from "node:path";
 import type { TeamMessage } from "@getpaseo/protocol/team/types";
 import type { AgentSessionConfig } from "../../agent/agent-sdk-types.js";
-import type { ManagedAgent } from "../../agent/agent-manager.js";
+import type {
+  AgentManagerEvent,
+  AgentLifecycleStatus,
+  AgentSubscriber,
+  ManagedAgent,
+  SubscribeOptions,
+} from "../../agent/agent-manager.js";
 import type { PersistedWorkspaceRecord, WorkspaceRegistry } from "../../workspace-registry.js";
 import { createProjectStore } from "../storage/project-store.js";
 import { createRosterStore } from "../storage/roster-store.js";
@@ -16,8 +22,10 @@ export class FakeAgentManager {
     options: { workspaceId: string | undefined; labels?: Record<string, string> };
   }> = [];
   public readonly promptCalls: Array<{ agentId: string; prompt: unknown }> = [];
+  public readonly replaceCalls: Array<{ agentId: string; prompt: unknown }> = [];
   public readonly cancelledAgentIds: string[] = [];
   private readonly liveAgents = new Map<string, ManagedAgent>();
+  private readonly subscribers = new Set<AgentSubscriber>();
   private nextAgentId = 1;
 
   /** Non-null by default: most tests are about member behaviour, not about injection being off. */
@@ -51,11 +59,15 @@ export class FakeAgentManager {
     return false;
   }
 
-  public hasInFlightRun(): boolean {
-    return false;
+  public hasInFlightRun(agentId: string): boolean {
+    return this.liveAgents.get(agentId)?.lifecycle === "running";
   }
 
-  public async replaceAgentRun(): Promise<AsyncGenerator<never, void, unknown>> {
+  public async replaceAgentRun(
+    agentId: string,
+    prompt: unknown,
+  ): Promise<AsyncGenerator<never, void, unknown>> {
+    this.replaceCalls.push({ agentId, prompt });
     return (async function* noop() {})();
   }
 
@@ -74,7 +86,60 @@ export class FakeAgentManager {
   }
 
   public async closeAgent(agentId: string): Promise<void> {
+    const agent = this.liveAgents.get(agentId);
+    if (agent) {
+      this.dispatchAgentState({ ...agent, lifecycle: "closed" } as ManagedAgent);
+    }
     this.liveAgents.delete(agentId);
+  }
+
+  public subscribe(callback: AgentSubscriber, options?: SubscribeOptions): () => void {
+    this.subscribers.add(callback);
+    if (options?.replayState !== false) {
+      for (const agent of this.liveAgents.values()) {
+        callback({ type: "agent_state", agent });
+      }
+    }
+    return () => this.subscribers.delete(callback);
+  }
+
+  public setAgentLifecycle(agentId: string, lifecycle: AgentLifecycleStatus): void {
+    const agent = this.liveAgents.get(agentId);
+    if (!agent) {
+      throw new Error(`Agent ${agentId} not found`);
+    }
+    agent.lifecycle = lifecycle;
+    this.dispatchAgentState(agent);
+  }
+
+  /**
+   * Models the real AgentManager's ordering: `turn_completed` is emitted from inside
+   * the run's own stream loop, so the agent is still `running` when it arrives, and
+   * only afterwards does the run drain and the lifecycle fall to `idle`. Emitting the
+   * two the other way round makes `hasInFlightRun` falsely false at `turn_completed`
+   * and hides anything that keys deferred work off that event.
+   */
+  public completeTurn(agentId: string): void {
+    const event: AgentManagerEvent = {
+      type: "agent_stream",
+      agentId,
+      event: { type: "turn_completed", provider: "codex" },
+    };
+    for (const subscriber of this.subscribers) {
+      subscriber(event);
+    }
+    // The drain is not instantaneous, so the agent stays `running` past the event.
+    // Flipping to `idle` in the same tick would let anything keyed off
+    // `turn_completed` clear `hasInFlightRun` by luck and pass regardless.
+    setImmediate(() => {
+      if (this.liveAgents.has(agentId)) {
+        this.setAgentLifecycle(agentId, "idle");
+      }
+    });
+  }
+
+  public subscriberCount(): number {
+    return this.subscribers.size;
   }
 
   public clearLiveAgents(): void {
@@ -87,6 +152,12 @@ export class FakeAgentManager {
    */
   public reapIdleRuntimes(): void {
     this.liveAgents.clear();
+  }
+
+  private dispatchAgentState(agent: ManagedAgent): void {
+    for (const subscriber of this.subscribers) {
+      subscriber({ type: "agent_state", agent });
+    }
   }
 }
 

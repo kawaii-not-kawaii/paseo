@@ -160,6 +160,7 @@ export interface ListTeamTasksInput {
 export type TeamServiceEvent =
   | { type: "team.message.posted"; projectId: string; message: TeamMessage }
   | { type: "team.task.changed"; projectId: string; task: TeamTask }
+  | { type: "team.member.changed"; projectId: string; member: TeamMember }
   | { type: "team.project.stopped"; projectId: string; task: TeamTask | null; reason: string };
 
 export class TeamService {
@@ -513,6 +514,7 @@ export class TeamService {
     for (const memberId of mentionMemberIds) {
       projectStore.addMessageMention(messageId, memberId);
     }
+    projectStore.markChannelRead(input.channelId, input.authorMemberId, createdAt);
 
     if (input.authorMemberId === this.getHumanMember().id) {
       this.reviewCycle.recordUserMessage(input.projectId);
@@ -883,6 +885,10 @@ export class TeamService {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  public publishMemberChanged(projectId: string, member: TeamMember): void {
+    this.emit({ type: "team.member.changed", projectId, member });
   }
 
   private emit(event: TeamServiceEvent): void {
