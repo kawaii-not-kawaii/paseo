@@ -273,7 +273,7 @@ function OpenMemberForm({
       error: null,
     });
     void Promise.all(
-      projectIdsKey.split(" ").map(async (projectId) => ({
+      projectIdsKey.split("\0").map(async (projectId) => ({
         projectId,
         members: await listTeamMembers(client, projectId),
       })),
