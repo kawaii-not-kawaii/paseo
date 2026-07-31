@@ -274,6 +274,12 @@ restart, and verify no committed message or task is lost and the view opens norm
   This identity is not an account and carries no credentials, roles, or permissions.
 - **FR-007**: The system MUST deliver a channel message to every member mentioned in it, and to
   members subscribed to that channel, without human relaying.
+- **FR-007a**: A message authored by the built-in human identity MUST wake every non-human member
+  participating in that channel. Until channel membership exists, participation means every member
+  assigned to the project.
+- **FR-007b**: A member-authored message MUST wake only explicitly mentioned members. An ambient
+  human message MUST NOT interrupt a member that is already running, while an explicit mention
+  MUST retain its existing interrupt behavior.
 - **FR-008**: Channels MUST show new messages as they arrive while the user is viewing, without a
   manual refresh.
 - **FR-008a**: Each channel MUST show the number of messages the built-in human identity has not
@@ -290,6 +296,8 @@ restart, and verify no committed message or task is lost and the view opens norm
 - **FR-012**: The user MUST be able to see each member's current activity — idle or working — from
   the channel view. More specific activity text MUST only appear when the daemon supplies that
   specific activity; the client MUST NOT infer commands or tools from a generic working status.
+- **FR-012a**: Member activity transitions MUST be pushed to connected Team clients, including
+  transitions into and out of a running state, without requiring a roster refetch or navigation.
 - **FR-013**: Channels, messages, and their history MUST be scoped to a project and MUST survive
   the archival of any workspace and the removal of any worktree.
 
@@ -482,6 +490,8 @@ restart, and verify no committed message or task is lost and the view opens norm
   within two seconds.
 - **SC-004a**: An unread count appears for a message posted to a channel the user is not viewing,
   clears when that channel is viewed, and remains cleared after a full page reload.
+- **SC-004b**: One unmentioned human channel message wakes every idle non-human project member,
+  wakes no member when authored by an agent, and interrupts no in-flight member run.
 - **SC-005**: 100% of members, their descriptions, project assignments, and home workspaces survive
   a daemon restart.
 - **SC-006**: 100% of acknowledged messages and task changes survive an unclean shutdown.
@@ -497,6 +507,8 @@ restart, and verify no committed message or task is lost and the view opens norm
   desktop can be completed, including moving a task between columns.
 - **SC-011**: A user can tell, at a glance in the channel view, which members are working and which
   are idle, without opening any member's detail.
+- **SC-011d**: A member changes from idle to working and back in an already-open Team view without
+  a section switch, roster refetch, or reload.
 - **SC-011a**: A user can create a staffed team for a new project — several members with distinct
   roles — without writing a single role prompt from scratch, using templates or a member's
   proposal.

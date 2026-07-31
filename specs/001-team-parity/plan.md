@@ -28,6 +28,11 @@ The technical approach is shaped by three facts discovered in the code rather th
    each status column registered as a drop target. Native keeps the existing overflow move action;
    reshaping the upstream cross-platform primitive for one fork feature would widen the merge
    surface without solving native cross-list drag.
+6. **Human channel messages are the ambient wake boundary.** Delivery stays in
+   `MemberLifecycle.deliverMentions`: human-authored messages fan out to the channel's resolved
+   member set without interrupting busy members, while member-authored messages retain
+   mention-only delivery. Runtime state remains owned by the agent manager and is translated into
+   the existing `team.member.changed` event by the fork-owned lifecycle/session bridge.
 
 ## Technical Context
 
