@@ -22,6 +22,7 @@ interface MemberLifecycleOptions {
     | "hasInFlightRun"
     | "replaceAgentRun"
     | "streamAgent"
+    | "subscribe"
     // FR-021: the user can stop a member by hand, which ends its runtime and nothing else.
     | "cancelAgentRun"
     | "closeAgent"
@@ -44,8 +45,8 @@ export class MemberLifecycle {
   }
 
   public async deliverMentions(input: { projectId: string; message: TeamMessage }): Promise<void> {
-    const mentionMemberIds = Array.from(new Set(input.message.mentionMemberIds ?? []));
-    if (mentionMemberIds.length === 0) {
+    const deliveries = this.resolveMessageDeliveries(input);
+    if (deliveries.length === 0) {
       return;
     }
     const prompt = formatMentionPrompt(
@@ -54,11 +55,12 @@ export class MemberLifecycle {
       input.message,
       this.logger,
     );
-    for (const memberId of mentionMemberIds) {
+    for (const delivery of deliveries) {
       await this.deliverMention({
         projectId: input.projectId,
-        memberId,
+        memberId: delivery.memberId,
         prompt,
+        interruptRunning: delivery.interruptRunning,
       });
     }
   }
@@ -67,6 +69,7 @@ export class MemberLifecycle {
     projectId: string;
     memberId: string;
     prompt: string;
+    interruptRunning?: boolean;
   }): Promise<ManagedAgent | null> {
     const member = this.teamService.getMember(input.memberId);
     if (!member) {
@@ -106,8 +109,11 @@ export class MemberLifecycle {
     });
 
     if (existing) {
+      if (input.interruptRunning === false && this.agentManager.hasInFlightRun(existing.id)) {
+        return existing;
+      }
       await startAgentRun(this.agentManager, existing.id, notification, this.logger, {
-        replaceRunning: true,
+        replaceRunning: input.interruptRunning ?? true,
       });
       return existing;
     }
@@ -127,9 +133,35 @@ export class MemberLifecycle {
     );
 
     await startAgentRun(this.agentManager, created.id, notification, this.logger, {
-      replaceRunning: true,
+      replaceRunning: input.interruptRunning ?? true,
     });
     return this.agentManager.getAgent(created.id) ?? created;
+  }
+
+  public subscribeRuntimeStatus(
+    listener: (change: { projectId: string; memberId: string; status: "running" | "idle" }) => void,
+  ): () => void {
+    const statuses = new Map<string, "running" | "idle">();
+    return this.agentManager.subscribe(
+      (event) => {
+        if (event.type !== "agent_state") {
+          return;
+        }
+        const projectId = event.agent.labels[TEAM_PROJECT_ID_LABEL];
+        const memberId = event.agent.labels[TEAM_MEMBER_ID_LABEL];
+        if (!projectId || !memberId) {
+          return;
+        }
+        const status = resolveMemberRuntimeStatus([event.agent], { projectId, memberId }) ?? "idle";
+        const key = `${projectId}\0${memberId}`;
+        if (statuses.get(key) === status) {
+          return;
+        }
+        statuses.set(key, status);
+        listener({ projectId, memberId, status });
+      },
+      { replayState: false },
+    );
   }
 
   /**
@@ -187,6 +219,22 @@ export class MemberLifecycle {
     await this.agentManager.cancelAgentRun(live.id);
     await this.agentManager.closeAgent(live.id);
     return true;
+  }
+
+  private resolveMessageDeliveries(input: {
+    projectId: string;
+    message: TeamMessage;
+  }): Array<{ memberId: string; interruptRunning: boolean }> {
+    const mentionedMemberIds = new Set(input.message.mentionMemberIds ?? []);
+    const author = this.teamService.getMember(input.message.authorMemberId);
+    const memberIds =
+      author?.kind === "human"
+        ? this.teamService.listMembers(input.projectId).map((member) => member.id)
+        : Array.from(mentionedMemberIds);
+    return memberIds.map((memberId) => ({
+      memberId,
+      interruptRunning: mentionedMemberIds.has(memberId),
+    }));
   }
 
   /**

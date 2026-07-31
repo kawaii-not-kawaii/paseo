@@ -160,6 +160,7 @@ export interface ListTeamTasksInput {
 export type TeamServiceEvent =
   | { type: "team.message.posted"; projectId: string; message: TeamMessage }
   | { type: "team.task.changed"; projectId: string; task: TeamTask }
+  | { type: "team.member.changed"; projectId: string; member: TeamMember }
   | { type: "team.project.stopped"; projectId: string; task: TeamTask | null; reason: string };
 
 export class TeamService {

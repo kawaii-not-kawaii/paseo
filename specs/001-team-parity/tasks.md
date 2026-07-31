@@ -288,13 +288,13 @@ acknowledged message or task change is lost (SC-006).
 
 ## Phase 9: Ambient wake and live member status increment
 
-- [ ] T130 Add focused lifecycle tests for human fan-out, member mention-only delivery, explicit
+- [x] T130 Add focused lifecycle tests for human fan-out, member mention-only delivery, explicit
       interruption, and ambient busy-member skipping (FR-007a, FR-007b).
-- [ ] T131 Resolve message deliveries once in `member-lifecycle.ts`, preserving explicit mention
+- [x] T131 Resolve message deliveries once in `member-lifecycle.ts`, preserving explicit mention
       behavior while ambient human delivery fans out to the current channel member set.
-- [ ] T132 Add focused event tests proving running and idle member transitions produce
+- [x] T132 Add focused event tests proving running and idle member transitions produce
       `team.member.changed` with the live decorated member (FR-012a).
-- [ ] T133 Produce and forward live member status changes from the agent manager without adding it
+- [x] T133 Produce and forward live member status changes from the agent manager without adding it
       to `TeamService`.
 - [ ] T134 Run the focused Team tests, typecheck, lint, format, and isolated-daemon live
       verification that an open Team view flips member status without navigation or reload.

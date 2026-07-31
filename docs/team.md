@@ -34,6 +34,13 @@ One edge the capability cannot see: it answers "will the daemon inject", not "wi
 - **Tasks** shows the shared board and list views. Tasks are the durable work record members move through `Todo`, `In Progress`, `In Review`, and `Done`.
 - **Settings** owns the bounded project controls: message retention, handback limit, attempt timeout, no-progress backstop, adoption of legacy chat, and recovery from snapshots.
 
+## Wake and presence
+
+- A human channel message wakes every idle non-human member assigned to the project. Channel membership does not exist yet; when it does, the one delivery resolver in `member-lifecycle.ts` narrows this set.
+- A member-authored message wakes only explicitly mentioned members.
+- Ambient human messages never interrupt a running member. An explicit mention deliberately retains the existing interrupt behavior.
+- Live member status comes from the agent manager through `MemberLifecycle`; `TeamService` remains storage-only. Connected Team sessions translate those transitions into the existing `team.member.changed` event.
+
 ## Claim model
 
 Claims are exclusive leases on tasks, not runtime locks.

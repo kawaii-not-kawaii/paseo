@@ -3,8 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import type { SessionOutboundMessage } from "../messages.js";
+import { createTestLogger } from "../../test-utils/test-logger.js";
+import { MemberLifecycle } from "./member-lifecycle.js";
 import { TeamService } from "./team-service.js";
 import { TeamSession } from "./team-session.js";
+import {
+  createWorkspaceRegistryStub,
+  FakeAgentManager,
+  seedAssignedMember,
+} from "./test-support/team-test-fakes.js";
 
 describe("TeamService live events", () => {
   const cleanupPaths: string[] = [];
@@ -65,6 +72,61 @@ describe("TeamService live events", () => {
         }),
       },
     });
+
+    service.close();
+  });
+
+  test("a connected session receives running and idle member transitions", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human"),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    const agentManager = new FakeAgentManager();
+    const lifecycle = new MemberLifecycle({
+      teamService: service,
+      agentManager,
+      workspaceRegistry: createWorkspaceRegistryStub({
+        workspaceId: "workspace-reviewer",
+        projectId: "project-1",
+        cwd: "/repo",
+      }),
+      logger: createTestLogger(),
+    });
+    const emitted: SessionOutboundMessage[] = [];
+    const _session = new TeamSession({
+      service,
+      lifecycle,
+      emit: (message) => emitted.push(message),
+    });
+    const agent = await lifecycle.start({
+      projectId: "project-1",
+      memberId: "member-reviewer",
+    });
+    if (!agent) {
+      throw new Error("Expected a member runtime");
+    }
+
+    agentManager.setAgentLifecycle(agent.id, "running");
+    agentManager.setAgentLifecycle(agent.id, "idle");
+
+    expect(
+      emitted
+        .filter((message) => message.type === "team.member.changed")
+        .map((message) => message.payload.member),
+    ).toEqual([
+      expect.objectContaining({ id: "member-reviewer", status: "running" }),
+      expect.objectContaining({ id: "member-reviewer", status: "idle" }),
+    ]);
 
     service.close();
   });

@@ -5,7 +5,7 @@ import type { z } from "zod";
 import type { Session } from "../session.js";
 import { MemberLifecycle } from "./member-lifecycle.js";
 import type { TeamMember } from "@getpaseo/protocol/team/types";
-import { TeamService } from "./team-service.js";
+import { TeamService, type TeamServiceEvent } from "./team-service.js";
 
 type TeamRequest = z.infer<(typeof TeamRequestSchemas)[number]>;
 
@@ -163,37 +163,19 @@ export class TeamSession {
           msg as Extract<TeamRequest, { type: "team.project.restore_snapshot.request" }>,
         ),
     };
-    this.service.subscribe((event) => {
-      if (event.type === "team.message.posted") {
-        this.emit({
-          type: "team.message.posted",
-          payload: {
-            projectId: event.projectId,
-            message: event.message,
-          },
-        });
+    this.service.subscribe((event) => this.forwardEvent(event));
+    this.lifecycle?.subscribeRuntimeStatus(({ projectId, memberId, status }) => {
+      const member = this.withRuntimeStatus(projectId, this.service.listMembers(projectId)).find(
+        (candidate) => candidate.id === memberId,
+      );
+      if (!member) {
         return;
       }
-      if (event.type === "team.task.changed") {
-        this.emit({
-          type: "team.task.changed",
-          payload: {
-            projectId: event.projectId,
-            task: event.task,
-          },
-        });
-        return;
-      }
-      if (event.type === "team.project.stopped") {
-        this.emit({
-          type: "team.project.stopped",
-          payload: {
-            projectId: event.projectId,
-            task: event.task,
-            reason: event.reason,
-          },
-        });
-      }
+      this.forwardEvent({
+        type: "team.member.changed",
+        projectId,
+        member: { ...member, status },
+      });
     });
   }
 
@@ -660,6 +642,47 @@ export class TeamSession {
       }),
       { projectId: null },
     );
+  }
+
+  private forwardEvent(event: TeamServiceEvent): void {
+    if (event.type === "team.message.posted") {
+      this.emit({
+        type: "team.message.posted",
+        payload: {
+          projectId: event.projectId,
+          message: event.message,
+        },
+      });
+      return;
+    }
+    if (event.type === "team.task.changed") {
+      this.emit({
+        type: "team.task.changed",
+        payload: {
+          projectId: event.projectId,
+          task: event.task,
+        },
+      });
+      return;
+    }
+    if (event.type === "team.member.changed") {
+      this.emit({
+        type: "team.member.changed",
+        payload: {
+          projectId: event.projectId,
+          member: event.member,
+        },
+      });
+      return;
+    }
+    this.emit({
+      type: "team.project.stopped",
+      payload: {
+        projectId: event.projectId,
+        task: event.task,
+        reason: event.reason,
+      },
+    });
   }
 
   private emitNotImplemented(msg: TeamRequest): void {
