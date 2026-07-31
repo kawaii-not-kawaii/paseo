@@ -14,8 +14,11 @@ const teamRequestTypes = new Set(
 );
 
 let teamService: TeamService | null = null;
+let teamLifecycleUnsubscribe: (() => void) | null = null;
 
-export function configureTeamRuntime(service: TeamService): void {
+export function configureTeamRuntime(service: TeamService, lifecycle?: MemberLifecycle): void {
+  teamLifecycleUnsubscribe?.();
+  teamLifecycleUnsubscribe = lifecycle ? subscribeTeamMemberLifecycle(service, lifecycle) : null;
   teamService = service;
 }
 
@@ -38,15 +41,28 @@ export function attachTeamSession(session: Session): void {
     return;
   }
 
+  const lifecycle = createMemberLifecycle(session, teamService);
   Object.defineProperty(session, "teamSession", {
     value: new TeamSession({
       service: teamService,
       emit: (message) => session.emitServerMessage(message),
-      lifecycle: createMemberLifecycle(session, teamService),
+      lifecycle,
     }),
     configurable: false,
     enumerable: false,
     writable: false,
+  });
+}
+
+export function subscribeTeamMemberLifecycle(
+  service: TeamService,
+  lifecycle: MemberLifecycle,
+): () => void {
+  return lifecycle.subscribeRuntimeStatus(({ projectId, memberId, status }) => {
+    const member = service.listMembers(projectId).find((candidate) => candidate.id === memberId);
+    if (member) {
+      service.publishMemberChanged(projectId, { ...member, status });
+    }
   });
 }
 
@@ -164,19 +180,6 @@ export class TeamSession {
         ),
     };
     this.service.subscribe((event) => this.forwardEvent(event));
-    this.lifecycle?.subscribeRuntimeStatus(({ projectId, memberId, status }) => {
-      const member = this.withRuntimeStatus(projectId, this.service.listMembers(projectId)).find(
-        (candidate) => candidate.id === memberId,
-      );
-      if (!member) {
-        return;
-      }
-      this.forwardEvent({
-        type: "team.member.changed",
-        projectId,
-        member: { ...member, status },
-      });
-    });
   }
 
   public async handle(msg: TeamRequest): Promise<void> {

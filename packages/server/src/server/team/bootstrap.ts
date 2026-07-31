@@ -1,14 +1,31 @@
+import type { AgentManager } from "../agent/agent-manager.js";
+import type { WorkspaceRegistry } from "../workspace-registry.js";
 import type { VoiceAssistantWebSocketServer } from "../websocket-server.js";
 import type { ServerInfoStatusPayload } from "../messages.js";
+import type { Logger } from "pino";
+import { MemberLifecycle } from "./member-lifecycle.js";
 import { TeamService } from "./team-service.js";
 import { configureTeamRuntime } from "./team-session.js";
 
 let configuredTeamService: TeamService | null = null;
 
-export function createTeamServiceForDaemon(paseoHome: string): TeamService {
-  const service = new TeamService({ paseoHome });
+export function createTeamServiceForDaemon(options: {
+  paseoHome: string;
+  agentManager: AgentManager;
+  workspaceRegistry: WorkspaceRegistry;
+  logger: Logger;
+}): TeamService {
+  const service = new TeamService({ paseoHome: options.paseoHome });
   configuredTeamService = service;
-  configureTeamRuntime(service);
+  configureTeamRuntime(
+    service,
+    new MemberLifecycle({
+      teamService: service,
+      agentManager: options.agentManager,
+      workspaceRegistry: options.workspaceRegistry,
+      logger: options.logger,
+    }),
+  );
   return service;
 }
 

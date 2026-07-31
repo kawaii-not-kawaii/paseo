@@ -3,7 +3,7 @@ import type { AgentSessionConfig } from "../agent/agent-sdk-types.js";
 import type { AgentManager, ManagedAgent } from "../agent/agent-manager.js";
 import type { WorkspaceRegistry } from "../workspace-registry.js";
 import type { Logger } from "pino";
-import type { TeamMessage } from "@getpaseo/protocol/team/types";
+import type { TeamChannel, TeamMessage } from "@getpaseo/protocol/team/types";
 import { TeamService } from "./team-service.js";
 
 export const TEAM_MEMBER_ID_LABEL = "paseo.team.memberId";
@@ -56,12 +56,19 @@ export class MemberLifecycle {
       this.logger,
     );
     for (const delivery of deliveries) {
-      await this.deliverMention({
+      const delivered = await this.deliverMention({
         projectId: input.projectId,
         memberId: delivery.memberId,
         prompt,
         interruptRunning: delivery.interruptRunning,
       });
+      if (delivered && this.teamService.getChannel(input.projectId, input.message.channelId)) {
+        this.teamService.markChannelRead(
+          input.projectId,
+          input.message.channelId,
+          delivery.memberId,
+        );
+      }
     }
   }
 
@@ -110,7 +117,7 @@ export class MemberLifecycle {
 
     if (existing) {
       if (input.interruptRunning === false && this.agentManager.hasInFlightRun(existing.id)) {
-        return existing;
+        return null;
       }
       await startAgentRun(this.agentManager, existing.id, notification, this.logger, {
         replaceRunning: input.interruptRunning ?? true,
@@ -144,6 +151,20 @@ export class MemberLifecycle {
     const statuses = new Map<string, "running" | "idle">();
     return this.agentManager.subscribe(
       (event) => {
+        if (event.type === "agent_stream" && event.event.type === "turn_completed") {
+          const agent = this.agentManager.getAgent(event.agentId);
+          const projectId = agent?.labels[TEAM_PROJECT_ID_LABEL];
+          const memberId = agent?.labels[TEAM_MEMBER_ID_LABEL];
+          if (projectId && memberId) {
+            void this.deliverCatchUp({ projectId, memberId }).catch((error: unknown) => {
+              this.logger.error(
+                { err: error, projectId, memberId },
+                "Failed to deliver deferred team-message catch-up",
+              );
+            });
+          }
+          return;
+        }
         if (event.type !== "agent_state") {
           return;
         }
@@ -237,6 +258,26 @@ export class MemberLifecycle {
     }));
   }
 
+  private async deliverCatchUp(input: { projectId: string; memberId: string }): Promise<void> {
+    const unreadChannels = this.teamService
+      .listChannels(input.projectId, input.memberId)
+      .filter((channel) => (channel.unreadCount ?? 0) > 0);
+    if (unreadChannels.length === 0) {
+      return;
+    }
+    const delivered = await this.deliverMention({
+      ...input,
+      prompt: formatCatchUpPrompt(unreadChannels),
+      interruptRunning: false,
+    });
+    if (!delivered) {
+      return;
+    }
+    for (const channel of unreadChannels) {
+      this.teamService.markChannelRead(input.projectId, channel.id, input.memberId);
+    }
+  }
+
   /**
    * Refuses to start a member that cannot reach the team tools.
    *
@@ -312,13 +353,20 @@ function formatMentionPrompt(
   }
   const author = teamService.getMemberDisplayName(message.authorMemberId);
   return [
-    author
-      ? `${author} mentioned you in #${channel.name}.`
-      : `You were mentioned in #${channel.name}.`,
+    author ? `${author} posted in #${channel.name}.` : `A message was posted in #${channel.name}.`,
     "",
     message.body,
     "",
-    `Reply in that channel: call team_post with channel "${channel.name}". Mention a teammate as @name to hand work over.`,
+    `Read the channel with team_read, then reply in that channel: call team_post with channel "${channel.name}". Mention a teammate as @name to hand work over.`,
+  ].join("\n");
+}
+
+function formatCatchUpPrompt(channels: TeamChannel[]): string {
+  return [
+    "You have unread team messages to catch up on:",
+    ...channels.map((channel) => `- #${channel.name} (${channel.unreadCount} unread)`),
+    "",
+    "Read each channel with team_read and respond where needed with team_post.",
   ].join("\n");
 }
 

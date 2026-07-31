@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { TeamMessage } from "@getpaseo/protocol/team/types";
 import type { AgentSessionConfig } from "../../agent/agent-sdk-types.js";
 import type {
+  AgentManagerEvent,
   AgentLifecycleStatus,
   AgentSubscriber,
   ManagedAgent,
@@ -109,6 +110,22 @@ export class FakeAgentManager {
     }
     agent.lifecycle = lifecycle;
     this.dispatchAgentState(agent);
+  }
+
+  public completeTurn(agentId: string): void {
+    this.setAgentLifecycle(agentId, "idle");
+    const event: AgentManagerEvent = {
+      type: "agent_stream",
+      agentId,
+      event: { type: "turn_completed", provider: "codex" },
+    };
+    for (const subscriber of this.subscribers) {
+      subscriber(event);
+    }
+  }
+
+  public subscriberCount(): number {
+    return this.subscribers.size;
   }
 
   public clearLiveAgents(): void {

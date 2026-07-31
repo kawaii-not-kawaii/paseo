@@ -1196,7 +1196,12 @@ export async function createPaseoDaemon(
     archiveWorkspace: archiveScheduleWorkspaceExternal,
   });
   await scheduleService.start();
-  const teamService = createTeamServiceForDaemon(config.paseoHome);
+  const teamService = createTeamServiceForDaemon({
+    paseoHome: config.paseoHome,
+    agentManager,
+    workspaceRegistry,
+    logger,
+  });
   let inFlightIdleAgentCollection: Promise<void> | null = null;
   const collectIdleAgentRuntimes = async () => {
     const protectedAgentIds = await scheduleService.listActiveAgentTargetIds();

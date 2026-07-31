@@ -38,8 +38,9 @@ One edge the capability cannot see: it answers "will the daemon inject", not "wi
 
 - A human channel message wakes every idle non-human member assigned to the project. Channel membership does not exist yet; when it does, the one delivery resolver in `member-lifecycle.ts` narrows this set.
 - A member-authored message wakes only explicitly mentioned members.
-- Ambient human messages never interrupt a running member. An explicit mention deliberately retains the existing interrupt behavior.
-- Live member status comes from the agent manager through `MemberLifecycle`; `TeamService` remains storage-only. Connected Team sessions translate those transitions into the existing `team.member.changed` event.
+- Ambient human messages never interrupt a running member. Its channel cursor remains behind, and one consolidated wake after the run completes catches it up on every unread message, regardless of author. An explicit mention deliberately retains the existing interrupt behavior.
+- A successful wake and a member's own post advance that member's channel cursor. This prevents duplicate and self-triggered catch-up without a separate queue.
+- Live member status comes from the agent manager through `MemberLifecycle`; `TeamService` remains storage-only. One daemon lifecycle subscription translates those transitions into the existing `team.member.changed` event and drives completion catch-up.
 
 ## Claim model
 

@@ -31,8 +31,10 @@ The technical approach is shaped by three facts discovered in the code rather th
 6. **Human channel messages are the ambient wake boundary.** Delivery stays in
    `MemberLifecycle.deliverMentions`: human-authored messages fan out to the channel's resolved
    member set without interrupting busy members, while member-authored messages retain
-   mention-only delivery. Runtime state remains owned by the agent manager and is translated into
-   the existing `team.member.changed` event by the fork-owned lifecycle/session bridge.
+   mention-only delivery. Existing per-member channel read cursors record messages that arrive
+   during a run; the single daemon lifecycle bridge emits the existing `team.member.changed` event
+   and delivers one all-author catch-up wake after completion. Successful wakes and members' own
+   posts advance those cursors, so no queue or schema change is needed.
 
 ## Technical Context
 

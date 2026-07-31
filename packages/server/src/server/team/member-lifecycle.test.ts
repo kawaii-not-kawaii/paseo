@@ -1,10 +1,11 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { createTestLogger } from "../../test-utils/test-logger.js";
 import { isAutoStartedTeamAgent, MemberLifecycle } from "./member-lifecycle.js";
 import { TeamService } from "./team-service.js";
+import { subscribeTeamMemberLifecycle } from "./team-session.js";
 import {
   buildWorkspaceRecord,
   buildMessage,
@@ -202,6 +203,93 @@ describe("MemberLifecycle", () => {
     });
     expect(agentManager.replaceCalls).toEqual([expect.objectContaining({ agentId: started.id })]);
 
+    service.close();
+  });
+
+  test("a busy member catches up once on all unread messages after its run completes", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds(
+        "member-human",
+        "channel-all",
+        "channel-reviews",
+        "message-human",
+        "message-agent",
+        "message-review",
+      ),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    const all = service.createChannel({ projectId: "project-1", name: "all" });
+    const reviews = service.createChannel({ projectId: "project-1", name: "reviews" });
+    const postTeamMessage = service.postMessage.bind(service);
+
+    const agentManager = new FakeAgentManager();
+    const lifecycle = createLifecycle(service, agentManager);
+    const unsubscribe = subscribeTeamMemberLifecycle(service, lifecycle);
+    const started = await lifecycle.start({
+      projectId: "project-1",
+      memberId: "member-reviewer",
+    });
+    if (!started) {
+      throw new Error("Expected a member runtime");
+    }
+    agentManager.setAgentLifecycle(started.id, "running");
+
+    const humanMessage = postTeamMessage({
+      projectId: "project-1",
+      channelId: all.id,
+      authorMemberId: service.getHumanMember().id,
+      body: "Please review this.",
+    });
+    await lifecycle.deliverMentions({ projectId: "project-1", message: humanMessage });
+    const agentMessage = postTeamMessage({
+      projectId: "project-1",
+      channelId: all.id,
+      authorMemberId: "member-qa",
+      body: "QA results are ready.",
+    });
+    await lifecycle.deliverMentions({ projectId: "project-1", message: agentMessage });
+    const reviewMessage = postTeamMessage({
+      projectId: "project-1",
+      channelId: reviews.id,
+      authorMemberId: service.getHumanMember().id,
+      body: "Also check the review thread.",
+    });
+    await lifecycle.deliverMentions({ projectId: "project-1", message: reviewMessage });
+
+    expect(agentManager.promptCalls).toEqual([]);
+    expect(
+      service
+        .listChannels("project-1", "member-reviewer")
+        .map((channel) => [channel.name, channel.unreadCount]),
+    ).toEqual([
+      ["all", 2],
+      ["reviews", 1],
+    ]);
+
+    agentManager.completeTurn(started.id);
+    await vi.waitFor(() => expect(agentManager.promptCalls).toHaveLength(1));
+    expect(String(agentManager.promptCalls[0]?.prompt)).toContain("#all (2 unread)");
+    expect(String(agentManager.promptCalls[0]?.prompt)).toContain("#reviews (1 unread)");
+    expect(
+      service.listChannels("project-1", "member-reviewer").map((channel) => channel.unreadCount),
+    ).toEqual([0, 0]);
+
+    agentManager.setAgentLifecycle(started.id, "running");
+    agentManager.completeTurn(started.id);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(agentManager.promptCalls).toHaveLength(1);
+
+    unsubscribe();
     service.close();
   });
 
