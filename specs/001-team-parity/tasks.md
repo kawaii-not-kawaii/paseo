@@ -301,7 +301,7 @@ acknowledged message or task change is lost (SC-006).
 - [x] T136 Advance member cursors on successful delivery and own posts, then deliver one
       consolidated catch-up wake from the existing completion lifecycle hook without a new queue
       or schema (FR-007c).
-- [ ] T134 Run the focused Team tests, typecheck, lint, format, and isolated-daemon live
+- [x] T134 Run the focused Team tests, typecheck, lint, format, and isolated-daemon live
       verification that an open Team view flips member status without navigation or reload and two
       busy members catch up once before the exchange rests.
 
