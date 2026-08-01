@@ -58,17 +58,29 @@ export class MemberLifecycle {
       this.logger,
     );
     for (const delivery of deliveries) {
-      const delivered = await this.deliverMention({
-        projectId: input.projectId,
-        memberId: delivery.memberId,
-        prompt,
-        interruptRunning: delivery.interruptRunning,
-      });
-      if (delivered && this.teamService.getChannel(input.projectId, input.message.channelId)) {
-        this.teamService.markChannelRead(
-          input.projectId,
-          input.message.channelId,
-          delivery.memberId,
+      try {
+        const delivered = await this.deliverMention({
+          projectId: input.projectId,
+          memberId: delivery.memberId,
+          prompt,
+          interruptRunning: delivery.interruptRunning,
+        });
+        if (delivered && this.teamService.getChannel(input.projectId, input.message.channelId)) {
+          this.teamService.markChannelRead(
+            input.projectId,
+            input.message.channelId,
+            delivery.memberId,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          {
+            err: error,
+            projectId: input.projectId,
+            channelId: input.message.channelId,
+            memberId: delivery.memberId,
+          },
+          "Failed to deliver team message; leaving it unread for catch-up",
         );
       }
     }

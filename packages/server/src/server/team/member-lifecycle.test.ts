@@ -436,6 +436,131 @@ describe("MemberLifecycle", () => {
     service.close();
   });
 
+  test("a post survives a catch-up delivery race and leaves the failed member unread", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human", "channel-all", "message-old", "message-new"),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-qa",
+      name: "QA",
+      rolePrompt: "Verify carefully.",
+      homeWorkspaceId: "workspace-qa",
+    });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "all",
+      memberIds: ["member-reviewer", "member-qa"],
+    });
+    const postTeamMessage = service.postMessage.bind(service);
+    let releaseCatchUp!: () => void;
+    const catchUpGate = new Promise<void>((resolve) => {
+      releaseCatchUp = resolve;
+    });
+    let reportCatchUpLookup!: () => void;
+    const catchUpLookupStarted = new Promise<void>((resolve) => {
+      reportCatchUpLookup = resolve;
+    });
+    let blockNextReviewerLookup = false;
+    const agentManager = new FakeAgentManager();
+    const logger = createTestLogger();
+    const logError = vi.spyOn(logger, "error");
+    const lifecycle = new MemberLifecycle({
+      teamService: service,
+      agentManager,
+      workspaceRegistry: {
+        get: async (workspaceId) => {
+          if (workspaceId === "workspace-reviewer" && blockNextReviewerLookup) {
+            blockNextReviewerLookup = false;
+            reportCatchUpLookup();
+            await catchUpGate;
+          }
+          return buildWorkspaceRecord({
+            workspaceId,
+            projectId: "project-1",
+            cwd: `/repo/${workspaceId}`,
+          });
+        },
+      },
+      logger,
+    });
+    const unsubscribe = subscribeTeamMemberLifecycle(service, lifecycle);
+    const reviewer = await lifecycle.start({
+      projectId: "project-1",
+      memberId: "member-reviewer",
+    });
+    if (!reviewer) {
+      throw new Error("Expected a member runtime");
+    }
+    agentManager.setAgentLifecycle(reviewer.id, "running");
+    postTeamMessage({
+      projectId: "project-1",
+      channelId: channel.id,
+      authorMemberId: service.getHumanMember().id,
+      body: "Deferred while Reviewer is busy.",
+    });
+
+    blockNextReviewerLookup = true;
+    agentManager.setAgentLifecycle(reviewer.id, "idle");
+    await catchUpLookupStarted;
+
+    agentManager.failNextStream(
+      reviewer.id,
+      new Error(`Agent ${reviewer.id} already has an active run`),
+    );
+    const posted = postTeamMessage({
+      projectId: "project-1",
+      channelId: channel.id,
+      authorMemberId: service.getHumanMember().id,
+      body: "New message during catch-up.",
+      mentionMemberIds: ["member-reviewer"],
+    });
+    const deliveryError = await lifecycle
+      .deliverMentions({ projectId: "project-1", message: posted })
+      .then(
+        () => null,
+        (error: unknown) => error,
+      );
+    const unreadBeforeCatchUp = {
+      reviewer: service.listChannels("project-1", "member-reviewer")[0]?.unreadCount,
+      qa: service.listChannels("project-1", "member-qa")[0]?.unreadCount,
+    };
+
+    releaseCatchUp();
+    await vi.waitFor(() =>
+      expect(service.listChannels("project-1", "member-reviewer")[0]?.unreadCount).toBe(0),
+    );
+    const reviewerUnreadAfterCatchUp = service.listChannels("project-1", "member-reviewer")[0]
+      ?.unreadCount;
+
+    unsubscribe();
+    service.close();
+
+    expect(deliveryError).toBeNull();
+    expect(unreadBeforeCatchUp).toEqual({ reviewer: 2, qa: 0 });
+    expect(reviewerUnreadAfterCatchUp).toBe(0);
+    expect(logError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "project-1",
+        channelId: channel.id,
+        memberId: "member-reviewer",
+      }),
+      "Failed to deliver team message; leaving it unread for catch-up",
+    );
+  });
+
   test("does not rely on a blocking wait tool or resident runtime; a reaped member is still reachable on the next mention", async () => {
     const paseoHome = await createPaseoHome();
     const service = new TeamService({
