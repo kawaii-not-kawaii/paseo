@@ -361,6 +361,9 @@ export function MessageList({
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         onScroll={handleScroll}
+        // Without this, iOS fires onScroll once per gesture rather than continuously, so the
+        // stick-to-bottom decision below would be made from a stale offset.
+        scrollEventThrottle={16}
         onContentSizeChange={handleContentSizeChange}
       >
         {content}
