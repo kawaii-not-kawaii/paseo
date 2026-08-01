@@ -16,7 +16,11 @@ import { MemberForm } from "@/screens/team/members/member-form";
 import { TeamMembersSection } from "@/screens/team/members/member-section";
 import { TeamTasksSection } from "@/screens/team/tasks/task-section";
 import { TeamSettingsSection } from "@/screens/team/settings/settings-section";
-import { useTeamCapability, useTeamChannelReadsCapability } from "@/screens/team/team-capability";
+import {
+  useTeamCapability,
+  useTeamChannelMembershipCapability,
+  useTeamChannelReadsCapability,
+} from "@/screens/team/team-capability";
 import { TeamHeader } from "@/screens/team/team-header";
 import {
   isTeamSection,
@@ -64,6 +68,7 @@ export function TeamScreen() {
   const hosts = useHosts();
   const teamEnabled = useTeamCapability(serverId);
   const channelReadsEnabled = useTeamChannelReadsCapability(serverId);
+  const channelMembershipEnabled = useTeamChannelMembershipCapability(serverId);
   const projectsResult = useProjects({ enabled: Boolean(serverId) });
   const client = useSessionStore((state) =>
     serverId ? (state.sessions[serverId]?.client ?? null) : null,
@@ -374,6 +379,7 @@ export function TeamScreen() {
           serverId={serverId}
           members={members}
           channels={channels}
+          channelMembershipEnabled={channelMembershipEnabled}
           activeChannelId={activeChannelId}
           error={error}
           escalatedTask={escalatedTask}
@@ -418,6 +424,7 @@ function TeamSectionBody({
   serverId,
   members,
   channels,
+  channelMembershipEnabled,
   activeChannelId,
   error,
   escalatedTask,
@@ -437,6 +444,7 @@ function TeamSectionBody({
   serverId: string | null;
   members: TeamMember[];
   channels: TeamChannel[];
+  channelMembershipEnabled: boolean;
   activeChannelId: string | null;
   error: string | null;
   escalatedTask: TeamTask | null;
@@ -467,6 +475,7 @@ function TeamSectionBody({
         client={client}
         projectId={selectedProject.projectKey}
         members={members}
+        channels={channels}
         workspaceNamesById={workspaceNamesById}
         onMembersChanged={onMembersChanged}
         onEditMember={onEditMember}
@@ -496,6 +505,7 @@ function TeamSectionBody({
       channelId={activeChannelId}
       channels={channels}
       members={members}
+      channelMembershipEnabled={channelMembershipEnabled}
       error={error}
       escalatedTask={escalatedTask}
       handbackLimit={handbackLimit}

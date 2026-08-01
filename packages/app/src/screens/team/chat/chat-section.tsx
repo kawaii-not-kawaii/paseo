@@ -44,6 +44,7 @@ export function TeamChatSection({
   channelId,
   channels,
   members,
+  channelMembershipEnabled,
   error,
   escalatedTask,
   handbackLimit,
@@ -58,6 +59,7 @@ export function TeamChatSection({
   channelId: string | null;
   channels: TeamChannel[];
   members: TeamMember[];
+  channelMembershipEnabled: boolean;
   error: string | null;
   escalatedTask: TeamTask | null;
   handbackLimit: number | null;
@@ -100,6 +102,14 @@ export function TeamChatSection({
   const workingMember = useMemo(
     () => members.find((member) => member.kind === "agent" && member.status === "running") ?? null,
     [members],
+  );
+  const channelMembers = useMemo(
+    () =>
+      members.filter(
+        (member) =>
+          member.kind === "human" || member.channelIds?.includes(activeChannel?.id ?? "") === true,
+      ),
+    [activeChannel?.id, members],
   );
 
   const handleOpenCreate = useCallback(() => setCreateVisible(true), []);
@@ -153,7 +163,8 @@ export function TeamChatSection({
     }
   }, [activeChannel, client, isDeleting, onChannelsChanged, projectId, t]);
 
-  const visibleError = actionError ?? error;
+  const visibleError =
+    actionError ?? error ?? (channelMembershipEnabled ? null : t("team.needsHostUpgrade"));
 
   return (
     <View style={styles.section}>
@@ -162,7 +173,7 @@ export function TeamChatSection({
         members={members}
         activeChannelId={channelId}
         memberLabels={memberLabels}
-        canCreateChannel={Boolean(client)}
+        canCreateChannel={Boolean(client) && channelMembershipEnabled}
         onSelectChannel={onSelectChannel}
         onCreateChannel={handleOpenCreate}
       />
@@ -170,7 +181,9 @@ export function TeamChatSection({
       <View style={styles.main}>
         <ChannelHeader
           channel={activeChannel}
-          canManage={Boolean(client) && activeChannel !== null && !isDeleting}
+          canManage={
+            Boolean(client) && channelMembershipEnabled && activeChannel !== null && !isDeleting
+          }
           onEdit={handleOpenEdit}
           onDelete={handleDelete}
         />
@@ -209,7 +222,7 @@ export function TeamChatSection({
           client={client}
           projectId={projectId}
           channelId={channelId}
-          members={members}
+          members={channelMembers}
           placeholder={
             activeChannel
               ? t("team.chat.composerPlaceholder", { channel: activeChannel.name })
@@ -233,6 +246,7 @@ export function TeamChatSection({
         client={client}
         projectId={projectId}
         channels={channels}
+        members={members}
         onClose={handleCloseCreate}
         onSaved={handleSaved}
       />
@@ -243,6 +257,7 @@ export function TeamChatSection({
         projectId={projectId}
         channel={editingChannel}
         channels={channels}
+        members={members}
         onClose={handleCloseEdit}
         onSaved={handleSaved}
       />

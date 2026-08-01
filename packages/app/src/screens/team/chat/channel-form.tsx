@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Text, View } from "react-native";
+import { Switch, Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { TeamChannel } from "@getpaseo/protocol/team/types";
+import type { TeamChannel, TeamMember } from "@getpaseo/protocol/team/types";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { AdaptiveModalSheet, type SheetHeader } from "@/components/adaptive-modal-sheet";
@@ -19,6 +19,7 @@ interface ChannelFormProps {
   projectId: string;
   channel?: TeamChannel | null;
   channels: TeamChannel[];
+  members: TeamMember[];
   onClose: () => void;
   onSaved: (channel: TeamChannel) => void | Promise<void>;
 }
@@ -29,14 +30,22 @@ function OpenChannelForm({
   projectId,
   channel,
   channels,
+  members,
   onClose,
   onSaved,
 }: ChannelFormProps) {
   const { t } = useTranslation();
   const controlSize: FieldControlSize = useIsCompactFormFactor() ? "md" : "sm";
-  const [model] = useState(() => openChannelForm({ channel, channels }));
+  const [model] = useState(() => openChannelForm({ channel, channels, members }));
   const state = useSyncExternalStore(model.subscribe, model.getState, model.getState);
   const [isPending, setIsPending] = useState(false);
+  const agentMembers = useMemo(
+    () =>
+      members
+        .filter((member) => member.kind !== "human")
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    [members],
+  );
 
   useEffect(
     () => () => {
@@ -127,6 +136,23 @@ function OpenChannelForm({
             testID="team-channel-purpose-input"
           />
         </Field>
+        <Field label={t("team.sections.members")} testID="team-channel-members-field">
+          <View style={styles.memberList}>
+            {agentMembers.length === 0 ? (
+              <Text style={styles.emptyMembers}>{t("team.members.list.empty")}</Text>
+            ) : (
+              agentMembers.map((member) => (
+                <ChannelMemberToggle
+                  key={member.id}
+                  member={member}
+                  enabled={state.memberIds.includes(member.id)}
+                  disabled={isPending}
+                  onChange={model.setMemberEnabled}
+                />
+              ))
+            )}
+          </View>
+        </Field>
         {state.submitError ? (
           <Text style={styles.submitError} testID="team-channel-form-submit-error">
             {state.submitError}
@@ -156,6 +182,34 @@ function OpenChannelForm({
   );
 }
 
+function ChannelMemberToggle({
+  member,
+  enabled,
+  disabled,
+  onChange,
+}: {
+  member: TeamMember;
+  enabled: boolean;
+  disabled: boolean;
+  onChange: (memberId: string, enabled: boolean) => void;
+}) {
+  const handleChange = useCallback(
+    (nextEnabled: boolean) => onChange(member.id, nextEnabled),
+    [member.id, onChange],
+  );
+  return (
+    <View style={styles.memberRow}>
+      <Text style={styles.memberName}>{member.name}</Text>
+      <Switch
+        value={enabled}
+        onValueChange={handleChange}
+        disabled={disabled}
+        testID={`team-channel-member-toggle-${member.id}`}
+      />
+    </View>
+  );
+}
+
 export function ChannelForm(props: ChannelFormProps) {
   if (!props.visible || (props.mode === "edit" && !props.channel)) {
     return null;
@@ -175,6 +229,24 @@ const styles = StyleSheet.create((theme) => ({
   },
   purposeInput: {
     minHeight: 96,
+  },
+  memberList: {
+    gap: theme.spacing[2],
+  },
+  memberRow: {
+    minHeight: theme.spacing[8],
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing[3],
+  },
+  memberName: {
+    flex: 1,
+    color: theme.colors.foreground,
+    fontSize: theme.fontSize.sm,
+  },
+  emptyMembers: {
+    color: theme.colors.foregroundMuted,
+    fontSize: theme.fontSize.sm,
   },
   submitError: {
     color: theme.colors.palette.red[300],

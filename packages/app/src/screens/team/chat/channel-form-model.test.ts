@@ -3,7 +3,7 @@ import { openChannelForm } from "./channel-form-model";
 
 describe("channel form model", () => {
   it("keeps snapshots stable and preserves daemon-accepted channel names", () => {
-    const model = openChannelForm({ channels: [] });
+    const model = openChannelForm({ channels: [], members: [] });
 
     expect(model.getState()).toBe(model.getState());
 
@@ -16,12 +16,14 @@ describe("channel form model", () => {
     expect(model.toCreateInput()).toEqual({
       name: "  build room  ",
       purpose: "Build coordination",
+      memberIds: [],
     });
 
     model.setPurpose("  ");
     expect(model.toCreateInput()).toEqual({
       name: "  build room  ",
       purpose: undefined,
+      memberIds: [],
     });
 
     model.close();
@@ -33,6 +35,7 @@ describe("channel form model", () => {
         id: "channel-build",
         name: "build",
         purpose: "Build coordination",
+        memberIds: ["member-backend"],
         createdAt: "2026-07-29T00:00:00.000Z",
         updatedAt: "2026-07-29T00:00:00.000Z",
         archivedAt: null,
@@ -55,11 +58,17 @@ describe("channel form model", () => {
           archivedAt: null,
         },
       ],
+      members: [
+        { id: "member-backend", kind: "agent" },
+        { id: "member-qa", kind: "agent" },
+        { id: "member-human", kind: "human" },
+      ],
     });
 
     expect(model.getState()).toMatchObject({
       name: "build",
       purpose: "Build coordination",
+      memberIds: ["member-backend"],
     });
     expect(model.hasNameConflict()).toBe(false);
 
@@ -67,10 +76,13 @@ describe("channel form model", () => {
     expect(model.hasNameConflict()).toBe(true);
 
     model.setName("General");
+    model.setMemberEnabled("member-backend", false);
+    model.setMemberEnabled("member-qa", true);
     expect(model.hasNameConflict()).toBe(false);
     expect(model.toUpdateInput()).toEqual({
       name: "General",
       purpose: "Build coordination",
+      memberIds: ["member-qa"],
     });
 
     model.setPurpose(" ");

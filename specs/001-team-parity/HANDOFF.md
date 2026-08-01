@@ -114,14 +114,13 @@ WebSocket protocol (`messages.ts:2054`) with `worktree` + `branch-off` + `projec
 can already do it — the app just never offers it standalone. Smallest honest fix: a "Create a
 workspace" action inside the member form's Home workspace picker, where the need actually arises.
 
-**2. Channel membership does not exist.**
-`TeamMember.channelIds` is declared on the wire and **never populated by the server** — grep it,
-there is no producer. `resolveMentionMemberIds(projectId, body)` takes no channel, so today every
-project member is reachable from every channel. The member detail's Channels row now says this and
-renders inert; it previously opened an edit form with no channel field, which read as broken.
-Building it for real is the work already specced: a `channel_members` table, add/remove/list, two
-RPCs, per-channel scoping in `resolveMentionMemberIds` (one function, all callers route through it),
-and a picker in the channel form. **Decision already made — do not reopen**: _everyone in, opt out_.
+**2. Channel membership is opt-in.**
+`TeamMember.channelIds` is populated from `channel_members`; channel create/update carry optional
+`memberIds` on the existing RPCs, and mention resolution plus message wake-up use that membership.
+New channels and newly assigned members join nothing unless explicitly picked. Existing channels
+are migration-backfilled with their assigned members so upgrading does not silence them. This
+reverses the former _everyone in, opt out_ decision: membership now controls wake fan-out, so an
+over-included member burns an agent turn on every message rather than merely appearing in `@`.
 
 **3. Member status is correct on refresh but never pushed.**
 `8e0820a49` made status truthful, but nothing emits an event when an agent's liveness changes, so a
@@ -385,19 +384,19 @@ Two ids pointing at the same directory is fine, and is what lets qa read what im
 Everything from the original handoff holds: lease-based claims, progress-based guards, role prompt
 vs MEMORY.md, per-project-per-daemon scope.
 
-| Decision                                                    | Where                                          |
-| ----------------------------------------------------------- | ---------------------------------------------- |
-| The human identity appears in every project roster          | `team-service.ts` `listMembers`                |
-| Member create carries role prompt, mode and template        | `rpc-schemas.ts`, optional fields              |
-| Members are told to use the channel, not spawn agents       | `member-home.ts` `TEAM_COLLABORATION_PROMPT`   |
-| Message retention cap defaults to 50,000                    | User-chosen placeholder, not research-derived  |
-| Starting a member by hand does not prompt it                | `member-lifecycle.ts` `start`                  |
-| Stopping a member never releases its claims                 | `member-lifecycle.ts` `stop`, research R1      |
-| Chat stays a full-height section with its own channel rail  | Design handoff — supersedes "channels as tabs" |
-| Channel membership defaults to every project member         | "everyone in, opt out"                         |
-| `APP_SCHEME` stays `paseo`; only the OS association differs | Privileged renderer origin + daemon CORS       |
-| The app sidebar is **not** restyled to the design           | Avoids widening the fork's merge surface       |
-| Compact/mobile is designed separately by the user           | Wide form factors only for now                 |
+| Decision                                                    | Where                                              |
+| ----------------------------------------------------------- | -------------------------------------------------- |
+| The human identity appears in every project roster          | `team-service.ts` `listMembers`                    |
+| Member create carries role prompt, mode and template        | `rpc-schemas.ts`, optional fields                  |
+| Members are told to use the channel, not spawn agents       | `member-home.ts` `TEAM_COLLABORATION_PROMPT`       |
+| Message retention cap defaults to 50,000                    | User-chosen placeholder, not research-derived      |
+| Starting a member by hand does not prompt it                | `member-lifecycle.ts` `start`                      |
+| Stopping a member never releases its claims                 | `member-lifecycle.ts` `stop`, research R1          |
+| Chat stays a full-height section with its own channel rail  | Design handoff — supersedes "channels as tabs"     |
+| Channel membership is opt-in                                | Reversed: wake fan-out makes over-inclusion costly |
+| `APP_SCHEME` stays `paseo`; only the OS association differs | Privileged renderer origin + daemon CORS           |
+| The app sidebar is **not** restyled to the design           | Avoids widening the fork's merge surface           |
+| Compact/mobile is designed separately by the user           | Wide form factors only for now                     |
 
 ## Uncommitted, deliberately
 

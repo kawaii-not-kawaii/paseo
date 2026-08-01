@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { TeamMember } from "@getpaseo/protocol/team/types";
+import type { TeamChannel, TeamMember } from "@getpaseo/protocol/team/types";
 import { ChevronRight } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -31,14 +31,13 @@ const MEMORY_FILE = "MEMORY.md";
 /**
  * The member detail pane: 720px of title, configuration, and memory.
  *
- * Every Configuration row opens the member edit form. The design draws a
- * chevron on each one but never designs a destination for them, and the edit
- * form already owns all four fields — so the chevron leads there rather than to
- * four new screens that would duplicate it.
+ * Editable Configuration rows open the member edit form. Channel membership is
+ * managed from the channel form, so this pane reports the member's real channels.
  */
 export function MemberDetail({
   client,
   member,
+  channels,
   labels,
   workspaceName,
   projectId,
@@ -48,6 +47,7 @@ export function MemberDetail({
 }: {
   client: DaemonClient | null;
   member: TeamMember;
+  channels: TeamChannel[];
   labels: TeamMemberStatusLabels;
   workspaceName: string | null;
   projectId: string;
@@ -63,6 +63,13 @@ export function MemberDetail({
 
   const tone = memberStatusTone(member);
   const handle = memberHandle(member);
+  const channelNames = useMemo(
+    () =>
+      channels
+        .filter((channel) => member.channelIds?.includes(channel.id) === true)
+        .map((channel) => `#${channel.name}`),
+    [channels, member.channelIds],
+  );
 
   const handleEdit = useCallback(() => onEditMember(member), [member, onEditMember]);
 
@@ -143,17 +150,12 @@ export function MemberDetail({
       {
         key: "channels",
         title: t("team.sections.chat"),
-        // Channel membership does not exist on the daemon yet: `channelIds` is
-        // declared on the wire but never populated, and `resolveMentionMemberIds`
-        // is project-scoped, so every project member is reachable in every
-        // channel. Say that plainly rather than opening a form that cannot
-        // change it.
-        help: t("team.members.detail.channelsHelp"),
-        value: t("team.members.detail.channelsAll"),
+        help: null,
+        value: channelNames.join(", ") || t("team.members.list.noChannels"),
         editable: false,
       },
     ],
-    [member.model, member.provider, t, workspaceName],
+    [channelNames, member.model, member.provider, t, workspaceName],
   );
 
   return (

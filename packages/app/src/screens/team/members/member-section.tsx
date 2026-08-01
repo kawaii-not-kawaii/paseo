@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { TeamMember } from "@getpaseo/protocol/team/types";
+import type { TeamChannel, TeamMember } from "@getpaseo/protocol/team/types";
 import { useTranslation } from "react-i18next";
 import { StyleSheet } from "react-native-unistyles";
 import { useTeamMemberStatusLabels } from "@/screens/team/use-member-status-labels";
@@ -18,6 +18,7 @@ export function TeamMembersSection({
   client,
   projectId,
   members,
+  channels,
   workspaceNamesById,
   onMembersChanged,
   onEditMember,
@@ -25,6 +26,7 @@ export function TeamMembersSection({
   client: DaemonClient | null;
   projectId: string;
   members: TeamMember[];
+  channels: TeamChannel[];
   workspaceNamesById?: Record<string, string>;
   onMembersChanged: () => void;
   onEditMember: (member: TeamMember) => void;
@@ -76,6 +78,7 @@ export function TeamMembersSection({
             key={selected.id}
             client={client}
             member={selected}
+            channels={channels}
             labels={labels}
             workspaceName={workspaceName}
             projectId={projectId}
