@@ -156,13 +156,19 @@ describe("member home", () => {
     // Runtimes namespace MCP tools differently; a member searching for the bare name may find
     // nothing and conclude the tools are missing.
     expect(prompt).toContain("mcp__paseo__team_post");
-    expect(prompt).toContain("does not oblige you to reply");
-    expect(prompt).toContain("do not call team_post unless");
+    // The silence rules stop agent-to-agent acknowledgement loops. Every one of them is scoped to
+    // teammate messages, because a person writing in a channel must still get an answer — an
+    // unscoped silence rule reads as "never reply unless @mentioned", which is the behaviour this
+    // whole wake policy exists to remove.
+    expect(prompt).toContain("When a person writes in a channel, answer them");
+    expect(prompt).toContain("even when they did not mention you by name");
+    expect(prompt).toContain("A teammate's message is different, and does not oblige you to reply");
+    expect(prompt).toContain("Do not call team_post for a teammate's message unless");
     expect(prompt).toContain("silence is the correct outcome");
     expect(prompt).toContain("Judge each team-message wake from the newest message");
     expect(prompt).toContain("that request is exhausted");
     expect(prompt).toContain("MUST end the turn without calling team_post");
-    expect(prompt).toContain("even when the message mentions you");
+    expect(prompt).toContain("even when it mentions you");
     expect(prompt).toContain("unless you are mentioned with a request for action");
     expect(prompt).toContain("Only the member who did the work reports its outcome");
     expect(prompt).toContain("Acknowledging, confirming, thanking");

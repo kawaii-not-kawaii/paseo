@@ -378,12 +378,20 @@ function formatMentionPrompt(
     return message.body;
   }
   const author = teamService.getMemberDisplayName(message.authorMemberId);
+  // The notification is the last thing a member reads before deciding whether to speak, so it
+  // outranks the standing prompt in practice — an unconditional "then reply" here was enough to
+  // sustain an agent loop despite the etiquette. It is also the only place that knows who wrote
+  // the message, which is exactly the distinction that matters: a person gets an answer, a
+  // teammate gets the silence default.
+  const fromHuman = teamService.getMember(message.authorMemberId)?.kind === "human";
   return [
     author ? `${author} posted in #${channel.name}.` : `A message was posted in #${channel.name}.`,
     "",
     message.body,
     "",
-    `Read the channel with team_read. If a response is needed, call team_post with channel "${channel.name}". If no response is needed, stop without posting. Mention a teammate as @name only to hand concrete work over.`,
+    fromHuman
+      ? `A person wrote this, and they are addressing the team. Read the channel with team_read, then answer them: call team_post with channel "${channel.name}". They expect a reply even though they did not mention you by name. Stay silent only if they were plainly addressing someone else, or the message calls for no answer. Mention a teammate as @name only to hand concrete work over.`
+      : `Read the channel with team_read. If a response is needed, call team_post with channel "${channel.name}". If no response is needed, stop without posting. Mention a teammate as @name only to hand concrete work over.`,
   ].join("\n");
 }
 

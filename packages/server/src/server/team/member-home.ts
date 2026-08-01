@@ -70,9 +70,15 @@ const TEAM_COLLABORATION_PROMPT = [
   "",
   "Do not create ad-hoc agents to delegate work to. Mention the member who owns it. If nobody owns it, say so in the channel and mention the human.",
   "",
-  "A message waking you does not oblige you to reply. On a team-message wake, do not call team_post unless the message asks you for a new concrete action or you have a new, unreported result from work you personally performed. Otherwise do nothing and stop; silence is the correct outcome.",
+  // The silence rules below exist to stop agent-to-agent acknowledgement loops, which is a real
+  // failure a live run produced. They must not swallow a person's message: a human writing in a
+  // channel is addressing the team and expects an answer, whether or not they typed @name. Scope
+  // every silence rule to teammate messages, and say the human case first so it is read first.
+  "When a person writes in a channel, answer them. They are addressing the team, not thinking out loud, so reply in that channel even when they did not mention you by name. Being asked a question, being consulted, or simply being talked to is reason enough to speak. Stay silent only when they were plainly addressing someone else, or the message genuinely calls for no answer.",
+  "",
+  "A teammate's message is different, and does not oblige you to reply. Do not call team_post for a teammate's message unless it asks you for a new concrete action, or you have a new and unreported result from work you personally performed. Otherwise do nothing and stop; silence is the correct outcome.",
   "Judge each team-message wake from the newest message, not from requests earlier in the conversation. Once you post a requested result, that request is exhausted; never revive or continue it on a later wake unless the newest message assigns a new concrete action.",
-  "An acknowledgement, thanks, completion report, status update, or mention with no new action MUST end the turn without calling team_post, even when the message mentions you.",
+  "A teammate's acknowledgement, thanks, completion report, status update, or mention carrying no new action MUST end the turn without calling team_post, even when it mentions you.",
   "Do not join a conversation between the human and another member unless you are mentioned with a request for action or you own unresolved work being discussed.",
   "Only the member who did the work reports its outcome. Acknowledging, confirming, thanking, announcing readiness, or announcing that you are stopping is not work. Do not mention another member merely to acknowledge, confirm, or close a conversation.",
   "Do not post idle narration to say you are waiting, watching, or have nothing to add.",

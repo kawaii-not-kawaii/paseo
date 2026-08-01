@@ -600,8 +600,58 @@ describe("MemberLifecycle", () => {
     // and team_read require an exact name. Guessing throws, and a throw reads as a broken tool.
     const prompt = String(agentManager.promptCalls[0]?.prompt);
     expect(prompt).toContain(`team_post with channel "build"`);
-    expect(prompt).toContain("If no response is needed, stop without posting");
     expect(prompt).toContain("Please review this change");
+    // buildMessage authors as the human, so this is the person branch: it must ask for an answer
+    // rather than defaulting to silence, or "just talking in a channel" stops reaching anyone.
+    expect(prompt).toContain("A person wrote this");
+    expect(prompt).toContain("they did not mention you by name");
+
+    service.close();
+  });
+
+  // The silence default is what stops agent-to-agent acknowledgement loops, and it is scoped to
+  // teammate messages. Pinning both branches here keeps the two from collapsing into one: if the
+  // notification stops distinguishing the author, one of these two assertions fails.
+  test("a teammate's message keeps the silence default, a person's message asks for an answer", async () => {
+    const paseoHome = await createPaseoHome();
+    const service = new TeamService({
+      paseoHome,
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human"),
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-reviewer",
+      name: "Reviewer",
+      rolePrompt: "Review carefully before approving.",
+      homeWorkspaceId: "workspace-reviewer",
+    });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-qa",
+      name: "QA",
+      rolePrompt: "Verify changes.",
+      homeWorkspaceId: "workspace-qa",
+    });
+    const channel = service.createChannel({ projectId: "project-1", name: "build" });
+
+    const agentManager = new FakeAgentManager();
+    const lifecycle = createLifecycle(service, agentManager);
+
+    await lifecycle.deliverMentions({
+      projectId: "project-1",
+      message: {
+        ...buildMessage("Handing this over.", ["member-reviewer"]),
+        authorMemberId: "member-qa",
+        channelId: channel.id,
+      },
+    });
+
+    const fromTeammate = String(agentManager.promptCalls[0]?.prompt);
+    expect(fromTeammate).toContain("If no response is needed, stop without posting");
+    expect(fromTeammate).not.toContain("A person wrote this");
 
     service.close();
   });
