@@ -1,6 +1,12 @@
 /* eslint-disable react-perf/jsx-no-new-function-as-prop */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ScrollView,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
 import type { TeamChannel, TeamMember, TeamMessage, TeamTask } from "@getpaseo/protocol/team/types";
 import type {
@@ -12,7 +18,11 @@ import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { listTeamChannels, listTeamMembers, listTeamMessages } from "@/screens/team/team-client";
 import { memberHandle } from "@/screens/team/member-status";
-import { TEAM_MESSAGE_MAX_WIDTH, TEAM_SPACE } from "@/screens/team/team-layout";
+import {
+  TEAM_CHAT_AUTO_SCROLL_THRESHOLD,
+  TEAM_MESSAGE_MAX_WIDTH,
+  TEAM_SPACE,
+} from "@/screens/team/team-layout";
 import { InlineReferenceText } from "@/screens/team/tasks/inline-reference-text";
 import { ReferenceSheet } from "@/screens/team/tasks/reference-sheet";
 import { TaskDetailSheet } from "@/screens/team/tasks/task-detail";
@@ -31,6 +41,7 @@ interface MessageListProps {
   loadOlderLabel: string;
   loadingLabel: string;
   retryLabel: string;
+  scrollToMessageId: string | null;
 }
 
 function compareMessages(left: TeamMessage, right: TeamMessage): number {
@@ -57,8 +68,11 @@ export function MessageList({
   loadOlderLabel,
   loadingLabel,
   retryLabel,
+  scrollToMessageId,
 }: MessageListProps) {
   const { t } = useTranslation();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const shouldStickToBottomRef = useRef(true);
   const [messages, setMessages] = useState<TeamMessage[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -131,6 +145,23 @@ export function MessageList({
     void handleLoadOlder();
   }, [handleLoadOlder]);
 
+  const scrollToBottom = useCallback(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: false });
+  }, []);
+
+  const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    shouldStickToBottomRef.current =
+      contentSize.height - layoutMeasurement.height - contentOffset.y <=
+      TEAM_CHAT_AUTO_SCROLL_THRESHOLD;
+  }, []);
+
+  const handleContentSizeChange = useCallback(() => {
+    if (shouldStickToBottomRef.current) {
+      scrollToBottom();
+    }
+  }, [scrollToBottom]);
+
   const loadReferences = useCallback(async () => {
     if (!client || !projectId) {
       setChannels([]);
@@ -155,6 +186,25 @@ export function MessageList({
   useEffect(() => {
     void loadInitial();
   }, [loadInitial]);
+
+  useEffect(() => {
+    shouldStickToBottomRef.current = true;
+    scrollToBottom();
+  }, [channelId, scrollToBottom]);
+
+  useEffect(() => {
+    if (!scrollToMessageId) {
+      return;
+    }
+    shouldStickToBottomRef.current = true;
+    scrollToBottom();
+  }, [scrollToBottom, scrollToMessageId]);
+
+  useEffect(() => {
+    if (shouldStickToBottomRef.current) {
+      scrollToBottom();
+    }
+  }, [messages, scrollToBottom]);
 
   useEffect(() => {
     void loadReferences();
@@ -305,7 +355,17 @@ export function MessageList({
 
   return (
     <>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView
+        ref={scrollViewRef}
+        testID="team-message-list"
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        onScroll={handleScroll}
+        // Without this, iOS fires onScroll once per gesture rather than continuously, so the
+        // stick-to-bottom decision below would be made from a stale offset.
+        scrollEventThrottle={16}
+        onContentSizeChange={handleContentSizeChange}
+      >
         {content}
       </ScrollView>
       <TaskDetailSheet

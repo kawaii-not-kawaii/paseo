@@ -28,6 +28,9 @@ export const TEAM_SUBHEADER_HEIGHT = WORKSPACE_SECONDARY_HEADER_HEIGHT;
 /** 820px. Message bodies and the composer wrap here. */
 export const TEAM_MESSAGE_MAX_WIDTH = MAX_CONTENT_WIDTH;
 
+/** Keep following chat output while the viewport is within 64px of the bottom. */
+export const TEAM_CHAT_AUTO_SCROLL_THRESHOLD = 64;
+
 /** 320px. Members roster column. */
 export const TEAM_ROSTER_WIDTH = SETTINGS_DESKTOP_SIDEBAR_WIDTH;
 

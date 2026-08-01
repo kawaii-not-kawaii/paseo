@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Text, View } from "react-native";
 import type { DaemonClient } from "@getpaseo/client/internal/daemon-client";
-import type { TeamChannel, TeamMember, TeamTask } from "@getpaseo/protocol/team/types";
+import type { TeamChannel, TeamMember, TeamMessage, TeamTask } from "@getpaseo/protocol/team/types";
 import { Settings } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, withUnistyles } from "react-native-unistyles";
@@ -73,6 +73,7 @@ export function TeamChatSection({
   const [createVisible, setCreateVisible] = useState(false);
   const [editingChannel, setEditingChannel] = useState<TeamChannel | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [scrollToMessageId, setScrollToMessageId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isResuming, setIsResuming] = useState(false);
 
@@ -163,6 +164,10 @@ export function TeamChatSection({
     }
   }, [activeChannel, client, isDeleting, onChannelsChanged, projectId, t]);
 
+  const handleMessagePosted = useCallback((message: TeamMessage) => {
+    setScrollToMessageId(message.id);
+  }, []);
+
   const visibleError =
     actionError ?? error ?? (channelMembershipEnabled ? null : t("team.needsHostUpgrade"));
 
@@ -202,6 +207,7 @@ export function TeamChatSection({
           loadOlderLabel={t("team.chat.loadOlder")}
           loadingLabel={t("common.states.loading")}
           retryLabel={t("common.actions.retry")}
+          scrollToMessageId={scrollToMessageId}
         />
 
         {escalatedTask ? (
@@ -237,6 +243,7 @@ export function TeamChatSection({
           mentionLoadingLabel={t("common.states.loading")}
           enterToSendLabel={t("team.chat.enterToSend")}
           mentionActionLabel={t("team.chat.insertMention")}
+          onPosted={handleMessagePosted}
         />
       </View>
 

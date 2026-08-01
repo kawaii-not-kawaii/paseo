@@ -25,6 +25,7 @@ export class FakeAgentManager {
   public readonly replaceCalls: Array<{ agentId: string; prompt: unknown }> = [];
   public readonly cancelledAgentIds: string[] = [];
   private readonly liveAgents = new Map<string, ManagedAgent>();
+  private readonly nextStreamErrors = new Map<string, Error>();
   private readonly subscribers = new Set<AgentSubscriber>();
   private nextAgentId = 1;
 
@@ -73,7 +74,16 @@ export class FakeAgentManager {
 
   public streamAgent(agentId: string, prompt: unknown): AsyncGenerator<never, void, unknown> {
     this.promptCalls.push({ agentId, prompt });
+    const error = this.nextStreamErrors.get(agentId);
+    if (error) {
+      this.nextStreamErrors.delete(agentId);
+      throw error;
+    }
     return (async function* noop() {})();
+  }
+
+  public failNextStream(agentId: string, error: Error): void {
+    this.nextStreamErrors.set(agentId, error);
   }
 
   public async waitForAgentRunStart(): Promise<void> {
