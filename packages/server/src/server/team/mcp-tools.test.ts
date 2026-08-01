@@ -203,7 +203,7 @@ describe("team MCP tools", () => {
       model: "gpt-5",
       homeWorkspaceId: "workspace-reviewer",
     });
-    service.createChannel({ projectId: "project-1", name: "all", memberIds: [member.id] });
+    service.createChannel({ projectId: "project-1", name: "all", memberIds: [] });
 
     const catalog = createCatalog(
       createCallerAgent({

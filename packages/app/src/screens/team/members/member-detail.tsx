@@ -410,7 +410,7 @@ const styles = StyleSheet.create((theme) => ({
   configValue: {
     fontSize: theme.fontSize.sm,
     color: theme.colors.foregroundMuted,
-    flexShrink: 1,
+    flex: 1,
     textAlign: "right",
   },
 }));
