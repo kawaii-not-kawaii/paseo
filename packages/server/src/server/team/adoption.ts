@@ -50,12 +50,14 @@ export async function adoptLegacyChatIntoProject(input: {
   const dbManager = createTeamDatabaseManager({ teamDir: join(input.paseoHome, "team") });
   try {
     const projectStore = createProjectStore(dbManager.openProject(input.projectId));
+    const memberIds = projectStore.listProjectMembers().map((member) => member.memberId);
     for (const room of payload.rooms) {
       if (!projectStore.getChannel(room.id)) {
         projectStore.createChannel({
           id: room.id,
           name: room.name,
           purpose: room.purpose,
+          memberIds,
           createdAt: room.createdAt,
           updatedAt: room.updatedAt,
           archivedAt: null,

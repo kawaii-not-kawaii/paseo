@@ -3,8 +3,10 @@ import { z } from "zod";
 import { SessionOutboundMessageSchema } from "../messages.js";
 import {
   TeamEventSchemas,
+  TeamChannelCreateRequestSchema,
   TeamChannelListResponseSchema,
   TeamChannelMarkReadRequestSchema,
+  TeamChannelUpdateRequestSchema,
   TeamMemberCreateRequestSchema,
   TeamMemberListResponseSchema,
   TeamMessagePostedSchema,
@@ -156,6 +158,26 @@ describe("team rpc schemas", () => {
       },
     });
     expect(oldChannelList.payload.channels[0]?.unreadCount).toBeUndefined();
+    expect(oldChannelList.payload.channels[0]?.memberIds).toBeUndefined();
+
+    expect(
+      TeamChannelCreateRequestSchema.parse({
+        type: "team.channel.create.request",
+        requestId: "req-create-channel",
+        projectId: "project-1",
+        name: "build",
+        memberIds: ["member-backend"],
+      }).memberIds,
+    ).toEqual(["member-backend"]);
+    expect(
+      TeamChannelUpdateRequestSchema.parse({
+        type: "team.channel.update.request",
+        requestId: "req-update-channel",
+        projectId: "project-1",
+        channelId: "channel-1",
+        memberIds: [],
+      }).memberIds,
+    ).toEqual([]);
 
     expect(
       TeamChannelMarkReadRequestSchema.parse({

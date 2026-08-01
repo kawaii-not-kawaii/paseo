@@ -85,7 +85,6 @@ async function seed(): Promise<void> {
   }
 
   const service = new TeamService({ paseoHome });
-  const channel = service.createChannel({ projectId, name: "live" });
   const model = process.env.T134_MODEL ?? "gpt-5.3-codex-spark";
   const members = memberNames.map((name, index) => {
     const rolePrompt =
@@ -112,6 +111,11 @@ async function seed(): Promise<void> {
       homeWorkspaceId: workspaceIds[index],
       rolePrompt: rolePrompt.join(" "),
     });
+  });
+  const channel = service.createChannel({
+    projectId,
+    name: "live",
+    memberIds: members.map((member) => member.id),
   });
   const state: LiveState = {
     projectId,

@@ -34,6 +34,7 @@ describe("installTeamServerInfo", () => {
     installTeamServerInfo(server, () => true);
     expect(readFeatures().team).toBe(true);
     expect(readFeatures().teamChannelReads).toBe(true);
+    expect(readFeatures().teamChannelMembership).toBe(true);
   });
 
   test("withholds team when MCP injection is off, rather than shipping mute members", () => {

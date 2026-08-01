@@ -157,7 +157,11 @@ describe("TeamService member behavior", () => {
       homeWorkspaceId: "workspace-reviewer",
       rolePrompt: "Review carefully before approving.",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "all",
+      memberIds: [member.id],
+    });
     const postTeamMessage = service.postMessage.bind(service);
     postTeamMessage({
       projectId: "project-1",

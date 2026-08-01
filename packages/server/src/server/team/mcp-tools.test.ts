@@ -36,7 +36,7 @@ describe("team MCP tools", () => {
       model: "gpt-5",
       homeWorkspaceId: "workspace-reviewer",
     });
-    service.createChannel({ projectId: "project-1", name: "all" });
+    service.createChannel({ projectId: "project-1", name: "all", memberIds: [member.id] });
 
     const catalog = createCatalog(
       createCallerAgent({
@@ -93,7 +93,11 @@ describe("team MCP tools", () => {
       model: "gpt-5",
       homeWorkspaceId: "workspace-reviewer",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "all",
+      memberIds: [member.id],
+    });
     const postTeamMessage = service.postMessage.bind(service);
     postTeamMessage({
       projectId: "project-1",
@@ -199,7 +203,7 @@ describe("team MCP tools", () => {
       model: "gpt-5",
       homeWorkspaceId: "workspace-reviewer",
     });
-    service.createChannel({ projectId: "project-1", name: "all" });
+    service.createChannel({ projectId: "project-1", name: "all", memberIds: [member.id] });
 
     const catalog = createCatalog(
       createCallerAgent({

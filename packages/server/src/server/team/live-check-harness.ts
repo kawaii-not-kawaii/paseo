@@ -137,7 +137,6 @@ export async function startLiveTeam(options: {
   await daemon.start();
 
   const teamService = getConfiguredTeamService();
-  const channel = teamService.createChannel({ projectId, name: options.channelName });
   const members: Record<string, TeamMember> = {};
   for (const spec of options.members) {
     members[spec.name] = teamService.createMember({
@@ -151,6 +150,11 @@ export async function startLiveTeam(options: {
       rolePrompt: spec.rolePrompt,
     });
   }
+  const channel = teamService.createChannel({
+    projectId,
+    name: options.channelName,
+    memberIds: Object.values(members).map((member) => member.id),
+  });
   const human = teamService.getHumanMember();
 
   const lifecycle = new MemberLifecycle({

@@ -251,9 +251,16 @@ export class MemberLifecycle {
     message: TeamMessage;
   }): Array<{ memberId: string; interruptRunning: boolean }> {
     const mentionedMemberIds = new Set(input.message.mentionMemberIds ?? []);
+    const channelExists = this.teamService.getChannel(input.projectId, input.message.channelId);
     return this.teamService
       .listMembers(input.projectId)
-      .filter((member) => member.id !== input.message.authorMemberId)
+      .filter(
+        (member) =>
+          member.kind !== "human" &&
+          member.id !== input.message.authorMemberId &&
+          (member.channelIds?.includes(input.message.channelId) === true ||
+            (!channelExists && mentionedMemberIds.has(member.id))),
+      )
       .map((member) => ({
         memberId: member.id,
         interruptRunning: mentionedMemberIds.has(member.id),
@@ -287,7 +294,10 @@ export class MemberLifecycle {
   private async deliverCatchUp(input: { projectId: string; memberId: string }): Promise<void> {
     const unreadChannels = this.teamService
       .listChannels(input.projectId, input.memberId)
-      .filter((channel) => (channel.unreadCount ?? 0) > 0);
+      .filter(
+        (channel) =>
+          channel.memberIds?.includes(input.memberId) === true && (channel.unreadCount ?? 0) > 0,
+      );
     if (unreadChannels.length === 0) {
       return;
     }

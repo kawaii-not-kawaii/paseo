@@ -227,6 +227,7 @@ export class TeamSession {
           channelId: msg.channelId,
           name: msg.name,
           purpose: msg.purpose,
+          memberIds: msg.memberIds,
         }),
       }),
       { channel: null },

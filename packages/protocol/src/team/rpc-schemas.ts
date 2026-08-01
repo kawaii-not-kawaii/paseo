@@ -50,6 +50,7 @@ export const TeamChannelCreateRequestSchema = z.object({
   projectId: z.string(),
   name: z.string(),
   purpose: z.string().optional(),
+  memberIds: z.array(z.string()).optional(),
 });
 
 export const TeamChannelUpdateRequestSchema = z.object({
@@ -59,6 +60,7 @@ export const TeamChannelUpdateRequestSchema = z.object({
   channelId: z.string(),
   name: z.string().optional(),
   purpose: z.string().nullable().optional(),
+  memberIds: z.array(z.string()).optional(),
 });
 
 export const TeamChannelDeleteRequestSchema = z.object({

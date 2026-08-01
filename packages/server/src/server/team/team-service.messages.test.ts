@@ -31,7 +31,11 @@ describe("TeamService message operations", () => {
       model: "gpt-5",
       homeWorkspaceId: "workspace-reviewer",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "all",
+      memberIds: [reviewer.id],
+    });
 
     const request = TeamMessagePostRequestSchema.parse({
       type: "team.message.post.request",
@@ -64,6 +68,43 @@ describe("TeamService message operations", () => {
     service.close();
   });
 
+  test("rejects a mention of a project member outside the channel", async () => {
+    const service = new TeamService({
+      paseoHome: await createPaseoHome(),
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human", "member-backend", "member-qa", "channel-build"),
+    });
+    const backend = service.createMember({
+      projectId: "project-1",
+      name: "Backend",
+      provider: "codex",
+      homeWorkspaceId: "workspace-backend",
+    });
+    service.createMember({
+      projectId: "project-1",
+      name: "QA",
+      provider: "codex",
+      homeWorkspaceId: "workspace-qa",
+    });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "build",
+      memberIds: [backend.id],
+    });
+
+    const postTeamMessage = service.postMessage.bind(service);
+    expect(() =>
+      postTeamMessage({
+        projectId: "project-1",
+        channelId: channel.id,
+        authorMemberId: "member-human",
+        body: "@QA please verify this",
+      }),
+    ).toThrowError("Mentioned member @QA is not a member of #build.");
+
+    service.close();
+  });
+
   test("fails loudly when a mentioned member is not assigned to the project", async () => {
     const paseoHome = await createPaseoHome();
     const service = new TeamService({
@@ -80,7 +121,7 @@ describe("TeamService message operations", () => {
       model: "gpt-5",
       homeWorkspaceId: "workspace-outsider",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const channel = service.createChannel({ projectId: "project-1", name: "all", memberIds: [] });
 
     const postTeamMessage = service.postMessage.bind(service);
     expect(() =>

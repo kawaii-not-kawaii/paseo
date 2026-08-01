@@ -32,6 +32,11 @@ const projectMemberRowSchema = z.object({
   joined_at: z.string(),
 });
 
+const channelMemberRowSchema = z.object({
+  channel_id: z.string(),
+  member_id: z.string(),
+});
+
 const taskRowSchema = z.object({
   id: z.string(),
   seq: z.number().int().positive(),
@@ -133,6 +138,7 @@ export interface ProjectChannel {
   id: string;
   name: string;
   purpose: string | null;
+  memberIds: string[];
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
@@ -214,6 +220,7 @@ export interface CreateProjectChannelInput {
   id: string;
   name: string;
   purpose: string | null;
+  memberIds?: string[];
   createdAt: string;
   updatedAt: string;
   archivedAt: string | null;
@@ -223,6 +230,7 @@ export interface UpdateProjectChannelInput {
   channelId: string;
   name?: string;
   purpose?: string | null;
+  memberIds?: string[];
   updatedAt: string;
 }
 
@@ -327,7 +335,7 @@ export function createProjectStore(db: TeamDatabaseHandle) {
         )
         .all() as unknown[],
     );
-    return rows.map(mapChannelRow);
+    return rows.map((row) => mapChannelRow(row, listChannelMemberIds(row.id)));
   }
 
   function getChannel(channelId: string): ProjectChannel | null {
@@ -338,7 +346,7 @@ export function createProjectStore(db: TeamDatabaseHandle) {
          WHERE id = ?`,
       )
       .get(channelId) as unknown;
-    return row ? mapChannelRow(channelRowSchema.parse(row)) : null;
+    return row ? mapChannelRow(channelRowSchema.parse(row), listChannelMemberIds(channelId)) : null;
   }
 
   function getChannelByName(name: string): ProjectChannel | null {
@@ -349,7 +357,11 @@ export function createProjectStore(db: TeamDatabaseHandle) {
          WHERE name = ?`,
       )
       .get(name) as unknown;
-    return row ? mapChannelRow(channelRowSchema.parse(row)) : null;
+    if (!row) {
+      return null;
+    }
+    const parsed = channelRowSchema.parse(row);
+    return mapChannelRow(parsed, listChannelMemberIds(parsed.id));
   }
 
   function createChannel(input: CreateProjectChannelInput): void {
@@ -357,6 +369,7 @@ export function createProjectStore(db: TeamDatabaseHandle) {
       `INSERT INTO channels (id, name, purpose, created_at, updated_at, archived_at)
        VALUES (?, ?, ?, ?, ?, ?)`,
     ).run(input.id, input.name, input.purpose, input.createdAt, input.updatedAt, input.archivedAt);
+    replaceChannelMembers(input.id, input.memberIds ?? []);
   }
 
   function updateChannel(input: UpdateProjectChannelInput): void {
@@ -370,6 +383,49 @@ export function createProjectStore(db: TeamDatabaseHandle) {
       input.updatedAt,
       input.channelId,
     );
+    if (input.memberIds !== undefined) {
+      replaceChannelMembers(input.channelId, input.memberIds);
+    }
+  }
+
+  function listChannelMemberIds(channelId: string): string[] {
+    return channelMemberRowSchema
+      .array()
+      .parse(
+        db
+          .prepare(
+            `SELECT channel_id, member_id
+               FROM channel_members
+              WHERE channel_id = ?
+              ORDER BY member_id ASC`,
+          )
+          .all(channelId) as unknown[],
+      )
+      .map((row) => row.member_id);
+  }
+
+  function listMemberChannelIds(memberId: string): string[] {
+    return channelMemberRowSchema
+      .array()
+      .parse(
+        db
+          .prepare(
+            `SELECT channel_id, member_id
+               FROM channel_members
+              WHERE member_id = ?
+              ORDER BY channel_id ASC`,
+          )
+          .all(memberId) as unknown[],
+      )
+      .map((row) => row.channel_id);
+  }
+
+  function replaceChannelMembers(channelId: string, memberIds: string[]): void {
+    db.prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channelId);
+    const insert = db.prepare("INSERT INTO channel_members (channel_id, member_id) VALUES (?, ?)");
+    for (const memberId of new Set(memberIds)) {
+      insert.run(channelId, memberId);
+    }
   }
 
   function deleteChannel(channelId: string): void {
@@ -1089,6 +1145,9 @@ export function createProjectStore(db: TeamDatabaseHandle) {
     createChannel,
     updateChannel,
     deleteChannel,
+    listChannelMemberIds,
+    listMemberChannelIds,
+    replaceChannelMembers,
     listChannelUnreadCounts,
     markChannelRead,
     listMessages,
@@ -1134,11 +1193,12 @@ function withTransaction<T>(work: () => T): T {
   return work();
 }
 
-function mapChannelRow(row: ChannelRow): ProjectChannel {
+function mapChannelRow(row: ChannelRow, memberIds: string[]): ProjectChannel {
   return {
     id: row.id,
     name: row.name,
     purpose: row.purpose,
+    memberIds,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     archivedAt: row.archived_at,
