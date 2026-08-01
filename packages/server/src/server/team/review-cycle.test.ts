@@ -206,7 +206,11 @@ describe("team review cycle", () => {
       provider: "codex",
       homeWorkspaceId: "workspace-impl",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "build" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "build",
+      memberIds: [impl.id],
+    });
     const task = service.createTask({
       projectId: "project-1",
       title: "Resets counter",
@@ -296,7 +300,11 @@ describe("team review cycle", () => {
       provider: "codex",
       homeWorkspaceId: "workspace-impl",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "build" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "build",
+      memberIds: [impl.id],
+    });
     const task = service.createTask({
       projectId: "project-1",
       title: "Escalates loudly",

@@ -29,7 +29,7 @@ describe("TeamService live events", () => {
       now: () => new Date("2026-07-27T12:00:00.000Z"),
       createId: sequenceIds("member-human", "channel-all", "message-1"),
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const channel = service.createChannel({ projectId: "project-1", name: "all", memberIds: [] });
 
     const emittedA: SessionOutboundMessage[] = [];
     const emittedB: SessionOutboundMessage[] = [];
@@ -149,7 +149,11 @@ describe("TeamService live events", () => {
       rolePrompt: "Review carefully.",
       homeWorkspaceId: "workspace-reviewer",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "all",
+      memberIds: ["member-reviewer"],
+    });
     const postTeamMessage = service.postMessage.bind(service);
 
     postTeamMessage({
@@ -172,7 +176,7 @@ describe("TeamService live events", () => {
       now: () => new Date("2026-07-30T12:00:00.000Z"),
       createId: sequenceIds("member-human", "channel-all", "message-1"),
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const channel = service.createChannel({ projectId: "project-1", name: "all", memberIds: [] });
     const postTeamMessage = service.postMessage.bind(service);
     postTeamMessage({
       projectId: "project-1",

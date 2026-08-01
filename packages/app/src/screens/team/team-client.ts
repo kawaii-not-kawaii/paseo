@@ -47,6 +47,7 @@ type TeamClientRequest =
       projectId: string;
       name: string;
       purpose?: string;
+      memberIds?: string[];
     }
   | {
       type: "team.channel.update.request";
@@ -55,6 +56,7 @@ type TeamClientRequest =
       channelId: string;
       name?: string;
       purpose?: string | null;
+      memberIds?: string[];
     }
   | {
       type: "team.channel.delete.request";
@@ -319,6 +321,7 @@ export async function createTeamChannel(input: {
   projectId: string;
   name: string;
   purpose?: string;
+  memberIds: string[];
 }): Promise<TeamChannel | null> {
   const requestId = createRequestId("team-channel-create");
   const payload = await sendTeamRequest<TeamChannelCreateResponse["payload"]>({
@@ -330,6 +333,7 @@ export async function createTeamChannel(input: {
       projectId: input.projectId,
       name: input.name,
       purpose: input.purpose,
+      memberIds: input.memberIds,
     },
     responseType: "team.channel.create.response",
   });
@@ -343,6 +347,7 @@ export async function updateTeamChannel(input: {
   channelId: string;
   name?: string;
   purpose?: string | null;
+  memberIds?: string[];
 }): Promise<TeamChannel | null> {
   const requestId = createRequestId("team-channel-update");
   const payload = await sendTeamRequest<TeamChannelUpdateResponse["payload"]>({
@@ -355,6 +360,7 @@ export async function updateTeamChannel(input: {
       channelId: input.channelId,
       name: input.name,
       purpose: input.purpose,
+      memberIds: input.memberIds,
     },
     responseType: "team.channel.update.response",
   });

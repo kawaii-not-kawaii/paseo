@@ -70,7 +70,11 @@ describe("team member MCP injection", () => {
       rolePrompt: "Review carefully before approving.",
       homeWorkspaceId: "workspace-reviewer",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "build" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "build",
+      memberIds: ["member-reviewer"],
+    });
 
     const lifecycle = new MemberLifecycle({
       teamService: service,

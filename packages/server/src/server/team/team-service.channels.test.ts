@@ -26,6 +26,7 @@ describe("TeamService channel operations", () => {
       projectId: "project-1",
       name: "all",
       purpose: "Shared coordination",
+      memberIds: [],
     });
 
     expect(service.listChannels("project-1")).toEqual([
@@ -33,6 +34,7 @@ describe("TeamService channel operations", () => {
         id: "channel-all",
         name: "all",
         purpose: "Shared coordination",
+        memberIds: [],
         createdAt: "2026-07-27T12:00:00.000Z",
         updatedAt: "2026-07-27T12:00:00.000Z",
         archivedAt: null,
@@ -44,12 +46,14 @@ describe("TeamService channel operations", () => {
       channelId: created.id,
       name: "general",
       purpose: "General coordination",
+      memberIds: [],
     });
 
     expect(updated).toEqual({
       id: "channel-all",
       name: "general",
       purpose: "General coordination",
+      memberIds: [],
       createdAt: "2026-07-27T12:00:00.000Z",
       updatedAt: "2026-07-27T12:00:00.000Z",
       archivedAt: null,
@@ -74,6 +78,53 @@ describe("TeamService channel operations", () => {
     expect(messageCount.count).toBe(0);
 
     dbManager.closeAll();
+    service.close();
+  });
+
+  test("new channels contain only picked members and new members join no channels", async () => {
+    const service = new TeamService({
+      paseoHome: await createPaseoHome(),
+      now: () => new Date("2026-07-27T12:00:00.000Z"),
+      createId: sequenceIds("member-human", "member-backend", "member-qa", "channel-build"),
+    });
+    const backend = service.createMember({
+      projectId: "project-1",
+      name: "Backend",
+      provider: "codex",
+      homeWorkspaceId: "workspace-backend",
+    });
+    const qa = service.createMember({
+      projectId: "project-1",
+      name: "QA",
+      provider: "codex",
+      homeWorkspaceId: "workspace-qa",
+    });
+
+    expect(() => service.createChannel({ projectId: "project-1", name: "old-client" })).toThrow(
+      /update the client/i,
+    );
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "build",
+      memberIds: [backend.id],
+    });
+
+    expect(channel.memberIds).toEqual([backend.id]);
+    expect(
+      service.listMembers("project-1").find((member) => member.id === backend.id)?.channelIds,
+    ).toEqual([channel.id]);
+    expect(
+      service.listMembers("project-1").find((member) => member.id === qa.id)?.channelIds,
+    ).toEqual([]);
+
+    expect(
+      service.updateChannel({
+        projectId: "project-1",
+        channelId: channel.id,
+        memberIds: [qa.id],
+      })?.memberIds,
+    ).toEqual([qa.id]);
+
     service.close();
   });
 

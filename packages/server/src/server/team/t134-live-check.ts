@@ -19,6 +19,8 @@ interface LiveState {
   channelId: string;
   memberIds: [string, string];
   memberNames: [string, string];
+  outsiderId: string;
+  outsiderName: string;
   handoffToken: string;
   acknowledgementToken: string;
 }
@@ -36,7 +38,7 @@ const timeoutMs = Number(process.env.T134_TIMEOUT_MS ?? 480_000);
 async function seed(): Promise<void> {
   const suffix = Date.now().toString(36);
   const projectId = `prj_t134_${suffix}`;
-  const memberNames: [string, string] = [`alpha${suffix}`, `beta${suffix}`];
+  const memberNames = [`alpha${suffix}`, `beta${suffix}`, `outside${suffix}`] as const;
   const handoffToken = `ALPHA_HANDOFF_${suffix}`;
   const acknowledgementToken = `BETA_ACK_${suffix}`;
   await mkdir(path.join(paseoHome, "projects"), { recursive: true });
@@ -47,7 +49,7 @@ async function seed(): Promise<void> {
     pino({ level: "warn" }),
   );
   const stamp = new Date().toISOString();
-  const workspaceIds = memberNames.map((name) => `wks_t134_${name}`) as [string, string];
+  const workspaceIds = memberNames.map((name) => `wks_t134_${name}`);
   for (const [index, workspaceId] of workspaceIds.entries()) {
     const cwd = path.join(liveRoot, workspaceId);
     await mkdir(cwd, { recursive: true });
@@ -85,23 +87,29 @@ async function seed(): Promise<void> {
   }
 
   const service = new TeamService({ paseoHome });
-  const channel = service.createChannel({ projectId, name: "live" });
   const model = process.env.T134_MODEL ?? "gpt-5.3-codex-spark";
   const members = memberNames.map((name, index) => {
-    const rolePrompt =
-      index === 0
-        ? [
-            `You are ${name}, the live-check handoff owner.`,
-            `When a private instruction contains START_AGENT_WAKE, call team_post once in channel "live" with exactly: ${handoffToken}`,
-            "Do not mention another member in that post.",
-            "You do not own verification of the handoff; follow the team conversation etiquette on later wakes.",
-          ]
-        : [
-            `You are ${name}, the live-check verification owner.`,
-            `When ${handoffToken} appears in channel "live", call team_read for "live", then call team_post once in "live" with exactly: ${acknowledgementToken}`,
-            "Do not mention another member in that post.",
-            "Follow the team conversation etiquette for anything outside that owned verification.",
-          ];
+    let rolePrompt: string[];
+    if (index === 0) {
+      rolePrompt = [
+        `You are ${name}, the live-check handoff owner.`,
+        `When a private instruction contains START_AGENT_WAKE, call team_post once in channel "live" with exactly: ${handoffToken}`,
+        "Do not mention another member in that post.",
+        "You do not own verification of the handoff; follow the team conversation etiquette on later wakes.",
+      ];
+    } else if (index === 1) {
+      rolePrompt = [
+        `You are ${name}, the live-check verification owner.`,
+        `When ${handoffToken} appears in channel "live", call team_read for "live", then call team_post once in "live" with exactly: ${acknowledgementToken}`,
+        "Do not mention another member in that post.",
+        "Follow the team conversation etiquette for anything outside that owned verification.",
+      ];
+    } else {
+      rolePrompt = [
+        `You are ${name}, the live-check outsider.`,
+        "You are deliberately not a member of channel live and must never be woken by it.",
+      ];
+    }
     return service.createMember({
       projectId,
       name,
@@ -113,11 +121,18 @@ async function seed(): Promise<void> {
       rolePrompt: rolePrompt.join(" "),
     });
   });
+  const channel = service.createChannel({
+    projectId,
+    name: "live",
+    memberIds: members.slice(0, 2).map((member) => member.id),
+  });
   const state: LiveState = {
     projectId,
     channelId: channel.id,
     memberIds: [members[0]!.id, members[1]!.id],
-    memberNames,
+    memberNames: [memberNames[0], memberNames[1]],
+    outsiderId: members[2]!.id,
+    outsiderName: memberNames[2],
     handoffToken,
     acknowledgementToken,
   };
@@ -301,6 +316,7 @@ async function check(): Promise<void> {
       acknowledgementWokeAuthorOnce:
         alphaStatuses.filter((status) => status === "running").length === 2 &&
         containsInOrder(alphaStatuses, ["running", "idle", "running", "idle"]),
+      outsideChannelNeverWoke: !statusEvents.some((event) => event.memberId === state.outsiderId),
       restedFor20Seconds: state.memberIds.every(
         (memberId) => latestStatus(statusEvents, memberId) === "idle",
       ),

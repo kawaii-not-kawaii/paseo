@@ -74,7 +74,7 @@ describe("MemberLifecycle", () => {
     service.close();
   });
 
-  test("an unmentioned human message wakes every assigned member", async () => {
+  test("an unmentioned human message wakes only members of its channel", async () => {
     const paseoHome = await createPaseoHome();
     const service = new TeamService({
       paseoHome,
@@ -96,6 +96,11 @@ describe("MemberLifecycle", () => {
       name: "QA",
       rolePrompt: "Test carefully.",
       homeWorkspaceId: "workspace-qa",
+    });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "design",
+      memberIds: ["member-reviewer"],
     });
 
     const agentManager = new FakeAgentManager();
@@ -115,19 +120,18 @@ describe("MemberLifecycle", () => {
 
     await lifecycle.deliverMentions({
       projectId: "project-1",
-      message: buildMessage("Please take a look", []),
+      message: { ...buildMessage("Please take a look", []), channelId: channel.id },
     });
 
-    expect(agentManager.createCalls.map((call) => call.options.workspaceId).sort()).toEqual([
-      "workspace-qa",
+    expect(agentManager.createCalls.map((call) => call.options.workspaceId)).toEqual([
       "workspace-reviewer",
     ]);
-    expect(agentManager.promptCalls).toHaveLength(2);
+    expect(agentManager.promptCalls).toHaveLength(1);
 
     service.close();
   });
 
-  test("an unmentioned member message wakes every other assigned member, but not its author", async () => {
+  test("an unmentioned member message wakes other channel members, but not its author", async () => {
     const paseoHome = await createPaseoHome();
     const service = new TeamService({
       paseoHome,
@@ -149,6 +153,11 @@ describe("MemberLifecycle", () => {
       name: "QA",
       rolePrompt: "Test carefully.",
       homeWorkspaceId: "workspace-qa",
+    });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "build",
+      memberIds: ["member-reviewer", "member-qa"],
     });
 
     const agentManager = new FakeAgentManager();
@@ -171,6 +180,7 @@ describe("MemberLifecycle", () => {
       message: {
         ...buildMessage("Status update", []),
         authorMemberId: "member-reviewer",
+        channelId: channel.id,
       },
     });
 
@@ -209,7 +219,11 @@ describe("MemberLifecycle", () => {
       rolePrompt: "Review results.",
       homeWorkspaceId: "workspace-reviewer",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "all",
+      memberIds: ["member-reviewer"],
+    });
     const logger = createTestLogger();
     const warn = vi.spyOn(logger, "warn");
     const agentManager = new FakeAgentManager();
@@ -313,9 +327,11 @@ describe("MemberLifecycle", () => {
         "member-human",
         "channel-all",
         "channel-reviews",
+        "channel-qa",
         "message-human",
         "message-agent",
         "message-review",
+        "message-qa",
       ),
     });
     seedAssignedMember({
@@ -326,8 +342,29 @@ describe("MemberLifecycle", () => {
       rolePrompt: "Review carefully.",
       homeWorkspaceId: "workspace-reviewer",
     });
-    const all = service.createChannel({ projectId: "project-1", name: "all" });
-    const reviews = service.createChannel({ projectId: "project-1", name: "reviews" });
+    seedAssignedMember({
+      paseoHome,
+      projectId: "project-1",
+      memberId: "member-qa",
+      name: "QA",
+      rolePrompt: "Verify carefully.",
+      homeWorkspaceId: "workspace-qa",
+    });
+    const all = service.createChannel({
+      projectId: "project-1",
+      name: "all",
+      memberIds: ["member-reviewer"],
+    });
+    const reviews = service.createChannel({
+      projectId: "project-1",
+      name: "reviews",
+      memberIds: ["member-reviewer"],
+    });
+    const qaOnly = service.createChannel({
+      projectId: "project-1",
+      name: "qa",
+      memberIds: ["member-qa"],
+    });
     const postTeamMessage = service.postMessage.bind(service);
 
     const agentManager = new FakeAgentManager();
@@ -363,6 +400,12 @@ describe("MemberLifecycle", () => {
       body: "Also check the review thread.",
     });
     await lifecycle.deliverMentions({ projectId: "project-1", message: reviewMessage });
+    postTeamMessage({
+      projectId: "project-1",
+      channelId: qaOnly.id,
+      authorMemberId: service.getHumanMember().id,
+      body: "QA-only work.",
+    });
 
     expect(agentManager.promptCalls).toEqual([]);
     expect(
@@ -371,6 +414,7 @@ describe("MemberLifecycle", () => {
         .map((channel) => [channel.name, channel.unreadCount]),
     ).toEqual([
       ["all", 2],
+      ["qa", 1],
       ["reviews", 1],
     ]);
 
@@ -378,9 +422,10 @@ describe("MemberLifecycle", () => {
     await vi.waitFor(() => expect(agentManager.promptCalls).toHaveLength(1));
     expect(String(agentManager.promptCalls[0]?.prompt)).toContain("#all (2 unread)");
     expect(String(agentManager.promptCalls[0]?.prompt)).toContain("#reviews (1 unread)");
+    expect(String(agentManager.promptCalls[0]?.prompt)).not.toContain("#qa");
     expect(
       service.listChannels("project-1", "member-reviewer").map((channel) => channel.unreadCount),
-    ).toEqual([0, 0]);
+    ).toEqual([0, 1, 0]);
 
     agentManager.setAgentLifecycle(started.id, "running");
     agentManager.completeTurn(started.id);
@@ -450,7 +495,11 @@ describe("MemberLifecycle", () => {
       rolePrompt: "Review carefully before approving.",
       homeWorkspaceId: "workspace-reviewer",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "all" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "all",
+      memberIds: ["member-reviewer"],
+    });
 
     const agentManager = new FakeAgentManager();
     const lifecycle = new MemberLifecycle({
@@ -583,7 +632,11 @@ describe("MemberLifecycle", () => {
       rolePrompt: "Review carefully before approving.",
       homeWorkspaceId: "workspace-reviewer",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "build" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "build",
+      memberIds: ["member-reviewer"],
+    });
 
     const agentManager = new FakeAgentManager();
     const lifecycle = createLifecycle(service, agentManager);
@@ -635,7 +688,11 @@ describe("MemberLifecycle", () => {
       rolePrompt: "Verify changes.",
       homeWorkspaceId: "workspace-qa",
     });
-    const channel = service.createChannel({ projectId: "project-1", name: "build" });
+    const channel = service.createChannel({
+      projectId: "project-1",
+      name: "build",
+      memberIds: ["member-reviewer", "member-qa"],
+    });
 
     const agentManager = new FakeAgentManager();
     const lifecycle = createLifecycle(service, agentManager);

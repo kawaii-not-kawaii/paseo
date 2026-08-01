@@ -55,6 +55,26 @@ const migrations: Migration[] = [
       `);
     },
   },
+  {
+    version: 4,
+    up: (db, kind) => {
+      if (kind !== "project") {
+        return;
+      }
+      db.exec(`
+        CREATE TABLE channel_members (
+          channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+          member_id TEXT NOT NULL REFERENCES project_members(member_id) ON DELETE CASCADE,
+          PRIMARY KEY (channel_id, member_id)
+        );
+
+        INSERT INTO channel_members (channel_id, member_id)
+        SELECT channels.id, project_members.member_id
+          FROM channels
+          CROSS JOIN project_members;
+      `);
+    },
+  },
 ];
 
 export const LATEST_TEAM_DATABASE_VERSION = migrations.at(-1)?.version ?? 0;

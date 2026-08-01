@@ -60,6 +60,7 @@ export interface CreateTeamChannelInput {
   projectId: string;
   name: string;
   purpose?: string;
+  memberIds?: string[];
 }
 
 export interface UpdateTeamChannelInput {
@@ -67,6 +68,7 @@ export interface UpdateTeamChannelInput {
   channelId: string;
   name?: string;
   purpose?: string | null;
+  memberIds?: string[];
 }
 
 export interface PostTeamMessageInput {
@@ -225,10 +227,9 @@ export class TeamService {
   }
 
   public listMembers(projectId: string): TeamMember[] {
+    const projectStore = createProjectStore(this.dbManager.openProject(projectId));
     const assignments = new Map(
-      createProjectStore(this.dbManager.openProject(projectId))
-        .listProjectMembers()
-        .map((assignment) => [assignment.memberId, assignment]),
+      projectStore.listProjectMembers().map((assignment) => [assignment.memberId, assignment]),
     );
 
     return createRosterStore(this.dbManager.openRoster())
@@ -244,7 +245,11 @@ export class TeamService {
       )
       .map((member) => {
         const assignment = assignments.get(member.id) ?? null;
-        return toTeamMember(member, assignment?.homeWorkspaceId ?? null);
+        return toTeamMember(
+          member,
+          assignment?.homeWorkspaceId ?? null,
+          member.kind === "human" ? [] : projectStore.listMemberChannelIds(member.id),
+        );
       });
   }
 
@@ -279,7 +284,7 @@ export class TeamService {
       throw new Error(`Created member ${memberId} was not persisted`);
     }
 
-    return toTeamMember(created, input.homeWorkspaceId);
+    return toTeamMember(created, input.homeWorkspaceId, []);
   }
 
   public updateMember(input: UpdateTeamMemberInput): TeamMember | null {
@@ -315,7 +320,11 @@ export class TeamService {
       joinedAt: existing?.joinedAt ?? this.now().toISOString(),
     });
 
-    return toTeamMember(member, input.homeWorkspaceId);
+    return toTeamMember(
+      member,
+      input.homeWorkspaceId,
+      projectStore.listMemberChannelIds(member.id),
+    );
   }
 
   public removeMember(projectId: string, memberId: string): string | null {
@@ -460,13 +469,18 @@ export class TeamService {
   }
 
   public createChannel(input: CreateTeamChannelInput): TeamChannel {
+    if (input.memberIds === undefined) {
+      throw new Error("Update the client to create channels with explicit membership.");
+    }
     const createdAt = this.now().toISOString();
     const channelId = this.createId();
     const projectStore = createProjectStore(this.dbManager.openProject(input.projectId));
+    this.assertChannelMembers(input.projectId, input.memberIds);
     projectStore.createChannel({
       id: channelId,
       name: input.name,
       purpose: input.purpose ?? null,
+      memberIds: input.memberIds,
       createdAt,
       updatedAt: createdAt,
       archivedAt: null,
@@ -480,10 +494,14 @@ export class TeamService {
 
   public updateChannel(input: UpdateTeamChannelInput): TeamChannel | null {
     const projectStore = createProjectStore(this.dbManager.openProject(input.projectId));
+    if (input.memberIds !== undefined) {
+      this.assertChannelMembers(input.projectId, input.memberIds);
+    }
     projectStore.updateChannel({
       channelId: input.channelId,
       name: input.name,
       purpose: input.purpose,
+      memberIds: input.memberIds,
       updatedAt: this.now().toISOString(),
     });
     const updated = projectStore.getChannel(input.channelId);
@@ -498,7 +516,11 @@ export class TeamService {
 
   public postMessage(input: PostTeamMessageInput): TeamMessage {
     const projectStore = createProjectStore(this.dbManager.openProject(input.projectId));
-    const mentionMemberIds = this.resolveMentionMemberIds(input.projectId, input.body);
+    const mentionMemberIds = this.resolveMentionMemberIds(
+      input.projectId,
+      input.channelId,
+      input.body,
+    );
     const messageId = this.createId();
     const createdAt = this.now().toISOString();
 
@@ -942,7 +964,7 @@ export class TeamService {
     });
   }
 
-  private resolveMentionMemberIds(projectId: string, body: string): string[] {
+  private resolveMentionMemberIds(projectId: string, channelId: string, body: string): string[] {
     const mentionedNames = parseMentionNames(body);
     if (mentionedNames.length === 0) {
       return [];
@@ -950,6 +972,10 @@ export class TeamService {
 
     const rosterStore = createRosterStore(this.dbManager.openRoster());
     const projectStore = createProjectStore(this.dbManager.openProject(projectId));
+    const channel = projectStore.getChannel(channelId);
+    if (!channel) {
+      throw new Error(`Channel ${channelId} was not found.`);
+    }
     const memberIds: string[] = [];
 
     for (const name of mentionedNames) {
@@ -960,10 +986,27 @@ export class TeamService {
       if (!projectStore.getProjectMember(member.id)) {
         throw new Error(`Mentioned member @${name} is not assigned to project ${projectId}.`);
       }
+      if (!channel.memberIds.includes(member.id)) {
+        throw new Error(`Mentioned member @${name} is not a member of #${channel.name}.`);
+      }
       memberIds.push(member.id);
     }
 
     return memberIds;
+  }
+
+  private assertChannelMembers(projectId: string, memberIds: string[]): void {
+    const rosterStore = createRosterStore(this.dbManager.openRoster());
+    const projectStore = createProjectStore(this.dbManager.openProject(projectId));
+    for (const memberId of new Set(memberIds)) {
+      const member = rosterStore.getMember(memberId);
+      if (!member || member.archivedAt !== null || member.kind === "human") {
+        throw new Error(`Channel member ${memberId} was not found.`);
+      }
+      if (!projectStore.getProjectMember(memberId)) {
+        throw new Error(`Channel member ${member.name} is not assigned to project ${projectId}.`);
+      }
+    }
   }
 
   private assertHomeWorkspaceAvailable(
@@ -1024,7 +1067,11 @@ export class TeamService {
   }
 }
 
-function toTeamMember(member: RosterMember, homeWorkspaceId: string | null): TeamMember {
+function toTeamMember(
+  member: RosterMember,
+  homeWorkspaceId: string | null,
+  channelIds?: string[],
+): TeamMember {
   return {
     id: member.id,
     name: member.name,
@@ -1037,6 +1084,7 @@ function toTeamMember(member: RosterMember, homeWorkspaceId: string | null): Tea
     kind: member.kind === "human" ? "human" : "agent",
     status: homeWorkspaceId === null && member.kind !== "human" ? "unavailable" : "idle",
     homeWorkspaceId,
+    ...(channelIds === undefined ? {} : { channelIds }),
     createdAt: member.createdAt,
     archivedAt: member.archivedAt,
   };
@@ -1047,6 +1095,7 @@ function toTeamChannel(
     id: string;
     name: string;
     purpose: string | null;
+    memberIds: string[];
     createdAt: string;
     updatedAt: string;
     archivedAt: string | null;
@@ -1057,6 +1106,7 @@ function toTeamChannel(
     id: channel.id,
     name: channel.name,
     purpose: channel.purpose,
+    memberIds: channel.memberIds,
     ...(unreadCount === undefined ? {} : { unreadCount }),
     createdAt: channel.createdAt,
     updatedAt: channel.updatedAt,

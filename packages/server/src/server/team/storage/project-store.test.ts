@@ -143,4 +143,53 @@ describe("project store", () => {
     ).toEqual(new Map([["chn_1", 0]]));
     reopened.closeAll();
   });
+
+  test("stores channel membership and removes it with the channel or project member", async () => {
+    const manager = createTeamDatabaseManager({ teamDir: await createTeamDir() });
+    const store = createProjectStore(manager.openProject("proj-1"));
+    const createdAt = "2026-07-30T12:00:00.000Z";
+    store.addProjectMember({
+      memberId: "member-backend",
+      homeWorkspaceId: "workspace-backend",
+      joinedAt: createdAt,
+    });
+    store.addProjectMember({
+      memberId: "member-qa",
+      homeWorkspaceId: "workspace-qa",
+      joinedAt: createdAt,
+    });
+    store.createChannel({
+      id: "channel-build",
+      name: "build",
+      purpose: null,
+      memberIds: ["member-backend"],
+      createdAt,
+      updatedAt: createdAt,
+      archivedAt: null,
+    });
+
+    expect(store.getChannel("channel-build")?.memberIds).toEqual(["member-backend"]);
+    expect(store.listMemberChannelIds("member-backend")).toEqual(["channel-build"]);
+    expect(store.listMemberChannelIds("member-qa")).toEqual([]);
+
+    store.updateChannel({
+      channelId: "channel-build",
+      memberIds: ["member-qa"],
+      updatedAt: createdAt,
+    });
+    expect(store.getChannel("channel-build")?.memberIds).toEqual(["member-qa"]);
+
+    store.removeProjectMember("member-qa");
+    expect(store.getChannel("channel-build")?.memberIds).toEqual([]);
+
+    store.updateChannel({
+      channelId: "channel-build",
+      memberIds: ["member-backend"],
+      updatedAt: createdAt,
+    });
+    store.deleteChannel("channel-build");
+    expect(store.listMemberChannelIds("member-backend")).toEqual([]);
+
+    manager.closeAll();
+  });
 });
