@@ -28,6 +28,25 @@ Paseo uses **file-based JSON persistence** instead of a traditional database. Al
 
 All server-side stores live under `$PASEO_HOME` (defaults to `~/.paseo`).
 
+## SQLite boundary
+
+JSON remains the default persistence model in Paseo. Projects, workspaces, agents, schedules, config, chat, and loops stay file-based JSON stores unless the constitution is amended.
+
+The Team surface is one bounded exception: it uses SQLite via built-in `node:sqlite` for project-scoped channels/messages/tasks and daemon-scoped member roster data. That exception exists because Team is the first Paseo surface with all three of these properties at once:
+
+- append-heavy history
+- concurrent writers
+- query-shaped reads like keyset pagination, claim contention, dependency checks, and aggregates
+
+This is not general license to add more databases. The boundary is intentionally narrow:
+
+- SQLite is permitted only under `packages/server/src/server/team/`.
+- Every Team database still validates rows with Zod at the read boundary.
+- Team migrations are forward-only and keyed on `PRAGMA user_version` from schema version 1.
+- Stores outside Team keep the existing JSON rules unless Constitution Principle VII changes.
+
+The rule is "JSON by default, SQLite by exception", not "use whatever store feels convenient".
+
 ## Store Surface Rules
 
 Store APIs own persistence atomicity and should not make services coordinate raw reads and writes. A good store method maps cleanly to one SQL statement or one SQL transaction, even when the current implementation is JSON files. If a caller needs a queue, lock, read-merge-write loop, or uniqueness race workaround, that behavior belongs behind the store surface.

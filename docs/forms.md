@@ -87,12 +87,42 @@ Empty states are only typeable inside `loaded` — a fetch that "succeeded"
 before hosts connected is `connecting`, not empty. Query keys carry real fetch
 inputs (host set, connection statuses), never synthetic version counters.
 
+## Three gotchas that fail silently
+
+All three ship a form that renders, logs nothing useful, and is wrong.
+
+**`FormTextInput` ignores `value`.** `AdaptiveTextInput` destructures `value` away and feeds the
+input `defaultValue: initialValue ?? defaultValue`, deliberately — the rendered text is
+native-owned so RN cannot replay stale values and jump the cursor mid-typing
+([RN #44157](https://github.com/facebook/react-native/issues/44157)). Seed with **`initialValue`**
+and force a reseed with **`resetKey`**. Passing `value` type-checks, because `AdaptiveTextInputProps`
+extends `TextInputProps`, and silently renders an empty box.
+
+**A `useSyncExternalStore` getSnapshot must be reference-stable.** React compares snapshots with
+`Object.is` during render, so a `getState: () => cloneState(state)` makes every render look like a
+store change and the component loops until React throws "Maximum update depth exceeded" (error #185,
+minified in a packaged build). Build the clone in `publish()` and hand out the same reference until
+the next one. The same applies to anything the form model re-applies from props: an inline `?? []`
+mints a new array each render, which retriggers the apply effect, which publishes, which re-renders.
+
+**One effect re-applying every collection replays loaded state over user input.** The React binding
+re-applies what the snapshot carries; if a single effect applies projects, assignments, templates and
+providers whenever _any_ of them changes, then a change to one of them silently reverts the user's
+edits to the others. The member form creates a workspace from inside itself, which changes the
+projects list, which replayed the loaded assignments and put the home workspace picker back on its
+first option — the user's freshly created workspace deselected the instant it arrived. **One effect
+per collection**, each keyed on its own identity. Effects still run in declaration order on mount, so
+the initial apply order is unchanged.
+
 ## Anti-patterns (reject in review on sight)
 
+- Passing `value` to `FormTextInput` instead of `initialValue`/`resetKey`.
+- A store `getState` that clones per call.
 - `useEffect` choreography impersonating construct/hydrate/resolve/destroy.
 - One mounted form instance serving create and edit.
 - `useMemo`-keyed model construction on live-data identity.
 - Selected labels derived from live query lists.
+- One `useEffect` re-applying several snapshot collections on any of their changes.
 - `isLoading`/`isEmpty` boolean bags where a load-state union belongs.
 - Conditional mounting of hint/error rows that shifts layout (subtext renders
   only when present, but the pattern for that lives in `Field`, not ad hoc).

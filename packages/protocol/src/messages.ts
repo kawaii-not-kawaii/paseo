@@ -53,6 +53,8 @@ import {
   LoopLogsResponseSchema,
   LoopStopResponseSchema,
 } from "./loop/rpc-schemas.js";
+import { TeamEventSchemas, TeamRequestSchemas, TeamResponseSchemas } from "./team/rpc-schemas.js";
+import { TeamServerFeaturesSchema } from "./team/capabilities.js";
 import {
   BrowserAutomationExecuteRequestSchema,
   BrowserAutomationExecuteResponseSchema,
@@ -2591,6 +2593,7 @@ export const SessionInboundMessageSchema = z.discriminatedUnion("type", [
   LoopInspectRequestSchema,
   LoopLogsRequestSchema,
   LoopStopRequestSchema,
+  ...TeamRequestSchemas,
 ]);
 
 export type SessionInboundMessage = z.infer<typeof SessionInboundMessageSchema>;
@@ -2830,6 +2833,7 @@ export const ServerInfoStatusPayloadSchema = z
         stableProjectIdentity: z.boolean().optional(),
         // COMPAT(workspaceScriptManagement): added in v0.1.105, remove gate after 2027-01-10.
         workspaceScriptManagement: z.boolean().optional(),
+        ...TeamServerFeaturesSchema.shape,
       })
       .optional(),
   })
@@ -5326,6 +5330,8 @@ export const SessionOutboundMessageSchema = z.discriminatedUnion("type", [
   LoopInspectResponseSchema,
   LoopLogsResponseSchema,
   LoopStopResponseSchema,
+  ...TeamResponseSchemas,
+  ...TeamEventSchemas,
   DaemonUpdateProgressMessageSchema,
   DaemonUpdateResponseSchema,
 ]);

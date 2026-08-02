@@ -16,6 +16,7 @@ import type {
 import type { ForgeService } from "../../services/forge-service.js";
 import type { TerminalManager } from "../../terminal/terminal-manager.js";
 import { isPaseoOwnedWorktreeCwd } from "../../utils/worktree.js";
+import { findMemberHomeWorkspaceOwner } from "../team/member-home-workspace-guard.js";
 
 export interface AutoArchiveArchiveOptions {
   paseoHome: string;
@@ -109,6 +110,17 @@ export async function archiveIfSafe(input: {
       );
       if (!workspaceId) {
         log.warn({ cwd }, "Auto-archive could not resolve a workspace for cwd; skipping");
+        return;
+      }
+      const memberHomeWorkspaceOwner = findMemberHomeWorkspaceOwner({
+        paseoHome: options.paseoHome,
+        workspaceId,
+      });
+      if (memberHomeWorkspaceOwner) {
+        log.info(
+          { cwd, workspaceId, memberId: memberHomeWorkspaceOwner.memberId },
+          "Skipping auto-archive for team member home workspace",
+        );
         return;
       }
 

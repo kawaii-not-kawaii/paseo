@@ -219,6 +219,8 @@ import {
   type CreatePaseoWorktreeResult,
 } from "./paseo-worktree-service.js";
 import { WorkspaceAutoName } from "./workspace-auto-name.js";
+import { getConfiguredTeamServiceOrNull } from "./team/bootstrap.js";
+import { attachTeamSession, isTeamRequest } from "./team/team-session.js";
 import {
   buildAgentSessionConfig as buildWorktreeAgentSessionConfig,
   createPaseoWorktreeWorkflow as createWorktreeWorkflow,
@@ -945,6 +947,7 @@ export class Session {
       spawnWorkspaceScript,
       globalServicePorts: loadPersistedConfig(this.paseoHome).worktrees?.servicePorts,
     });
+    attachTeamSession(this);
     this.subscribeToOptionalManagers();
     this.workspaceDirectory = new WorkspaceDirectory({
       logger: this.sessionLogger,
@@ -1775,6 +1778,7 @@ export class Session {
   }
 
   private async dispatchInboundMessage(msg: SessionInboundMessage, source?: object): Promise<void> {
+    if (isTeamRequest(msg)) return this.teamSession?.handle(msg);
     const promise =
       this.dispatchVoiceAndControlMessage(msg) ??
       this.dispatchAgentRewindMessage(msg) ??
@@ -2690,6 +2694,7 @@ export class Session {
         }
 
         await this.projectRegistry.remove(projectId);
+        getConfiguredTeamServiceOrNull()?.deleteProjectData(projectId);
       } finally {
         if (activeWorkspaceIds.length > 0) {
           this.clearWorkspaceArchiving(activeWorkspaceIds);

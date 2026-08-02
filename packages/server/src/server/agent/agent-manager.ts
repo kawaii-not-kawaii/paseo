@@ -675,6 +675,14 @@ export class AgentManager {
     this.mcpBaseUrl = url;
   }
 
+  /**
+   * Null when agents are launched without the Paseo MCP server. Features that exist only as MCP
+   * tools need to know this before they spend a model turn on a runtime that cannot reach them.
+   */
+  getMcpBaseUrl(): string | null {
+    return this.mcpBaseUrl;
+  }
+
   prepareForShutdown(): void {
     this.acceptingAgentRegistrations = false;
   }

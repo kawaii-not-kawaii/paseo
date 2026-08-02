@@ -167,6 +167,7 @@ import { getOrCreateServerId } from "./server-id.js";
 import { resolveDaemonVersion } from "./daemon-version.js";
 import type { AgentClient, AgentProvider } from "./agent/agent-sdk-types.js";
 import type { FirstAgentContext, TerminalProfile } from "@getpaseo/protocol/messages";
+import { shouldUseTlsForDefaultHostedRelay } from "@getpaseo/protocol/daemon-endpoints";
 import type {
   AgentProviderRuntimeSettingsMap,
   ProviderOverride,
@@ -212,6 +213,7 @@ import {
   type HubRelationshipRemote,
 } from "./hub/relationship-remote.js";
 import { DaemonExecutions } from "./hub/daemon-executions.js";
+import { createTeamServiceForDaemon, installTeamServerInfo } from "./team/bootstrap.js";
 
 const MAX_MCP_DEBUG_BATCH_ITEMS = 10;
 const REDACTED_LOG_VALUE = "[redacted]";
@@ -1194,6 +1196,12 @@ export async function createPaseoDaemon(
     archiveWorkspace: archiveScheduleWorkspaceExternal,
   });
   await scheduleService.start();
+  const teamService = createTeamServiceForDaemon({
+    paseoHome: config.paseoHome,
+    agentManager,
+    workspaceRegistry,
+    logger,
+  });
   let inFlightIdleAgentCollection: Promise<void> | null = null;
   const collectIdleAgentRuntimes = async () => {
     const protectedAgentIds = await scheduleService.listActiveAgentTargetIds();
@@ -1474,7 +1482,8 @@ export async function createPaseoDaemon(
             agentManager.setMcpBaseUrl(agentMcpBaseUrl);
             agentManager.setPaseoToolsEnabled(config.mcpInjectIntoAgents !== false);
             daemonConfigStore.onFieldChange("mcp.injectIntoAgents", (value) => {
-              agentManager.setMcpBaseUrl(value ? mcpBaseUrl : null);
+              agentMcpBaseUrl = value ? mcpBaseUrl : null;
+              agentManager.setMcpBaseUrl(agentMcpBaseUrl);
               agentManager.setPaseoToolsEnabled(value !== false);
             });
             daemonConfigStore.onFieldChange("appendSystemPrompt", (value) => {
@@ -1483,7 +1492,10 @@ export async function createPaseoDaemon(
             const relayEnabled = config.relayEnabled ?? true;
             const relayEndpoint = config.relayEndpoint ?? "relay.paseo.sh:443";
             const relayPublicEndpoint = config.relayPublicEndpoint ?? relayEndpoint;
-            const relayUseTls = config.relayUseTls ?? relayEndpoint === "relay.paseo.sh:443";
+            // Infer from the endpoint's port rather than string equality with the hosted
+            // default; a self-hosted relay on :443 would otherwise connect in plaintext.
+            const relayUseTls =
+              config.relayUseTls ?? shouldUseTlsForDefaultHostedRelay(relayEndpoint);
             const relayPublicUseTls = config.relayPublicUseTls ?? relayUseTls;
             const appBaseUrl = config.appBaseUrl ?? "https://app.paseo.sh";
 
@@ -1570,6 +1582,7 @@ export async function createPaseoDaemon(
               browserToolsBroker,
               hubRelationships,
             );
+            installTeamServerInfo(wsServer, () => agentMcpBaseUrl !== null);
             await hubRelationships.start();
 
             if (relayEnabled) {
@@ -1647,6 +1660,7 @@ export async function createPaseoDaemon(
     terminalManager.killAll();
     speechService.stop();
     await scheduleService.stop().catch(() => undefined);
+    teamService.close();
     await relayTransport?.stop().catch(() => undefined);
     if (wsServer) {
       await wsServer.close();
