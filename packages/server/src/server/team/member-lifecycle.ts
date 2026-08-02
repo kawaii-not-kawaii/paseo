@@ -51,6 +51,16 @@ export class MemberLifecycle {
     if (deliveries.length === 0) {
       return;
     }
+    // Tool reachability is daemon-wide, not per-member, so it is asserted once here rather than
+    // inside the loop below — and deliberately outside that loop's catch. A member started without
+    // the team tools looks alive and can never post, which is the original T056 failure; the post
+    // must be refused outright rather than contained like a per-member delivery error.
+    const [firstDelivery] = deliveries;
+    if (firstDelivery) {
+      this.assertTeamToolsReachable(
+        this.teamService.getMember(firstDelivery.memberId)?.name ?? firstDelivery.memberId,
+      );
+    }
     const prompt = formatMentionPrompt(
       this.teamService,
       input.projectId,
